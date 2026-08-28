@@ -1,66 +1,20 @@
-# Canvas File Helper
+# Cấu trúc thư mục dự án
 
-Canvas File Helper là một daemon Node.js/TypeScript chạy nền để tự động lấy file từ Canvas, gửi nội dung file sang AI, rồi upload kết quả trả lời dạng `.docx` ngược lại Canvas.
-
-Ứng dụng phù hợp cho workflow:
-
-1. Người dùng upload câu hỏi/tài liệu vào Canvas.
-2. App tự phát hiện file mới trong thư mục `Materials/Q`.
-3. App chọn AI provider theo tên file.
-4. App tạo file kết quả trong `Materials/A`.
-
-## Tính năng
-
-- Theo dõi nhiều tài khoản Canvas cùng lúc.
-- Poll Canvas theo chu kỳ cấu hình bằng `.env`.
-- Chỉ xử lý file có tên bắt đầu bằng `START_`.
-- Chọn AI provider qua tên file: `claude`, `gemini`, hoặc `grok`.
-- Cho phép chỉ định model trực tiếp trong tên file.
-- Dùng default model khi tên file không chỉ định model.
-- Kiểm tra model hợp lệ trước khi gọi AI.
-- Hỗ trợ input dạng `.txt`, `.md`, `.docx`, `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`.
-- Trích xuất text và ảnh từ file `.docx`.
-- Gửi text và ảnh sang AI nếu provider/model hỗ trợ.
-- Tự chèn nội dung `knowledge.md` vào mỗi request AI nếu file này có nội dung.
-- Dùng `system-prompt.md` làm system prompt chung cho AI.
-- Tạo output `.docx` từ Markdown trả về bởi AI.
-- Upload file kết quả vào thư mục `Materials/A` trên Canvas.
-- Tạo file `.docx` báo lỗi nếu xử lý thất bại hoặc model không hợp lệ.
-- Lưu trạng thái xử lý local tại `data/processed.json` để tránh xử lý lại.
-- Bỏ qua file nếu file `_DONE.docx` đã tồn tại trên Canvas.
-- Retry khi lỗi theo `MAX_RETRY_COUNT`.
-- Timeout từng lượt gọi AI theo `AI_TIMEOUT_MS`.
-- Reset trạng thái `processing` quá lâu để có thể thử lại ở các lần poll sau.
-- Gửi email thông báo thành công/thất bại qua Gmail nếu được cấu hình.
-- Cung cấp API nội bộ để start/stop polling khi app đang chạy.
-- Gửi email thông báo cho các tài khoản Canvas khi polling được bật hoặc tạm dừng qua API.
-- Log rõ từng bước: fetch, validate, download, extract, AI, upload, retry, failed.
-
-## Luồng chạy
-
-1. App khởi động từ `src/index.ts`.
-2. App đọc `.env`, `system-prompt.md`, `knowledge.md` và trạng thái trong `data/processed.json`.
-3. App tạo email notifier nếu có cấu hình Gmail.
-4. App khởi động API server trên `API_PORT` và chờ lệnh điều khiển.
-5. Khi gọi `GET /start`, app validate AI keys, poll tất cả tài khoản Canvas ngay một lần, sau đó lặp lại theo `POLL_INTERVAL_MS`.
-6. Với mỗi tài khoản Canvas, app tìm thư mục `Materials`.
-7. Trong `Materials`, app tìm thư mục input `Q`.
-8. App tìm hoặc tự tạo thư mục output `A`.
-9. App lấy danh sách file trong `Q` có `search_term=START_`.
-10. App lấy danh sách toàn bộ file trong `A` để kiểm tra file kết quả đã có chưa.
-11. Với mỗi file input, app parse tên file để lấy provider, model và extension.
-12. Nếu file không đúng format, đã có `_DONE.docx`, hoặc đã có trong state local thì app bỏ qua.
-13. Nếu model được chỉ định nhưng không nằm trong danh sách hỗ trợ, app upload file lỗi `.docx`.
-14. Nếu hợp lệ, app tải file từ Canvas.
-15. App trích xuất nội dung file thành text và/hoặc ảnh.
-16. App chèn nội dung `knowledge.md` vào đầu text nếu có.
-17. App gọi AI provider tương ứng với system prompt và model đã chọn.
-18. App chuyển phản hồi Markdown của AI thành file `.docx`.
-19. App upload file kết quả vào `Materials/A`.
-20. App cập nhật `data/processed.json`.
-21. Nếu tài khoản có `CANVAS_EMAIL_n` và Gmail được cấu hình, app gửi email thông báo.
+```text
+src/                    # Mã nguồn chính
+tests/                  # File kiểm thử & dữ liệu mẫu
+data/                   # Dữ liệu runtime (processed.json)
+```
 
 ## Cấu trúc thư mục Canvas
+
+```text
+Materials/
+  Q/  ← nơi đặt file cần xử lý
+  A/  ← nơi app upload file kết quả
+```
+
+
 
 App làm việc với thư mục trong Canvas personal files:
 

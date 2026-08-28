@@ -28,6 +28,8 @@ This project is indexed by GitNexus as **CanvasFileHelper** (396 symbols, 936 re
 | `gitnexus://repo/CanvasFileHelper/clusters` | All functional areas |
 | `gitnexus://repo/CanvasFileHelper/processes` | All execution flows |
 | `gitnexus://repo/CanvasFileHelper/process/{name}` | Step-by-step execution trace |
+| `tests/fixtures/` | Test data and samples |
+| `tests/templates/` | Rendering templates |
 
 ## CLI
 
