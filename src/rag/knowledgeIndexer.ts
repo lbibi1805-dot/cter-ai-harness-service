@@ -153,6 +153,10 @@ export class KnowledgeIndexer {
     for (let i = 0; i < allNewChunks.length; i++) {
       let lastError: string | undefined;
       let chunkDelay = 1300;
+      // Log progress every 10 chunks
+      if (i % 10 === 0 || i === allNewChunks.length - 1) {
+        logger.info(`Embedding chunk ${i + 1}/${allNewChunks.length} (${((i + 1) / allNewChunks.length * 100).toFixed(1)}%)`);
+      }
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
           await new Promise(r => setTimeout(r, chunkDelay));
