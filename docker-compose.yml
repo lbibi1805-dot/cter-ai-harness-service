@@ -1,0 +1,14 @@
+services:
+  harness:
+    build: .
+    image: cter-ai-harness-service:latest
+    container_name: cter-harness
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./documents-vault:/app/documents-vault
+      - ./.vault-manifest.json:/app/.vault-manifest.json   
+    restart: unless-stopped
