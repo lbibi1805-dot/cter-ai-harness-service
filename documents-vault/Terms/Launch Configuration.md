@@ -1,0 +1,3 @@
+- **Bản chất:** Launch Configuration là một bản profile bạn tạo ra để "chỉ việc" cho Momentics. Bạn bảo nó: "Hãy đem cái code x86_64 này, dịch nó ở chế độ Debug, rồi ném sang chạy ở cái máy ảo có IP 192.168.120.131".
+    
+- **Thực hành:** 1. Chuột phải vào tên Project ở cột trái -> Chọn **Debug As** -> **Debug Configurations...** 2. Click đúp vào **C/C++ QNX Application** để tạo một profile mới. 3. Ở tab _Target Options_, chọn máy ảo của bạn (`VM_x86_Target01`). 4. Nhấn **Debug** để bắt đầu.

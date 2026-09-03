@@ -1,0 +1,29 @@
+### 1. Khái niệm cơ bản về Bế tắc và Trì hoãn (Slide 3)
+
+Hệ thống thời gian thực thường phải đối mặt với hai vấn đề nghiêm trọng liên quan đến việc chờ đợi tài nguyên.
+
+|**Khái niệm**|**Định nghĩa**|**Cách phòng tránh**|
+|---|---|---|
+|**Deadlock**<br><br>  <br><br>_(Bế tắc)_|Một hoặc nhiều tiến trình (processes) đang chờ đợi một sự kiện mà sự kiện đó sẽ không bao giờ xảy ra.|- Tránh sử dụng các hoạt động I/O trong khu vực găng (critical section), trừ khi đó chính là I/O đang được bảo vệ.<br><br>  <br><br>- Không giữ khóa (locks) khi gọi một hàm bên ngoài module mà hàm đó có thể gọi ngược lại (reenter) vào trong module.<br><br>  <br><br>- Giữ cho critical section càng ngắn càng tốt.<br><br>  <br><br>- Kiểm tra khóa trước khi thực sự khóa bằng cách dùng các hàm như `pthread_mutex_trylock()`.<br><br>  <br><br>- Khi dùng nhiều khóa: Sử dụng hệ thống phân cấp cho các critical section và đảm bảo tất cả các luồng (threads) đều lấy khóa theo cùng một thứ tự.<br><br>  <br><br>- Cách xử lý tình thế (Hack approach): Dùng các hàm dạng `sched_yield()` nhưng cách này không được đảm bảo sẽ hoạt động.|
+|**Indefinite Postponement**<br><br>  <br><br>_(Trì hoãn vô thời hạn / Starvation / Livelock)_|Một hoặc nhiều tiến trình bị trì hoãn việc chạy một cách vô thời hạn.|- Áp dụng kỹ thuật lão hóa mức độ ưu tiên (aging of priorities) hoặc sử dụng hàng đợi đa cấp (multi level queues).<br><br>  <br><br>- Tăng dần mức ưu tiên của một tiến trình theo thời gian trong khi nó đang chờ tài nguyên. Tiến trình đó cuối cùng sẽ trở thành tiến trình có độ ưu tiên cao nhất và được ưu tiên chạy (ví dụ: sử dụng hàm `pthread_mutex_trylock()`, và nếu thất bại thì tiến trình tự tăng độ ưu tiên của chính nó).|
+
+### 2. Khái niệm về Tài nguyên - Resource Concepts (Slide 4)
+
+Về cơ bản, hệ thống có 2 loại tài nguyên chính.
+
+| **Loại Tài Nguyên**                                                                                        | **Đặc điểm chi tiết**                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | **Ví dụ**                                                                           |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **Non-preemptible resources**<br><br>  <br><br>_(Tài nguyên không thể tước đoạt / Tài nguyên chuyên dụng)_ | - Là tài nguyên chuyên dụng (dedicated resource) không thể bị ngắt để duy trì hành vi bình thường.<br><br>  <br><br>- Có tính chất tái sử dụng tuần tự (Serially reusable): tài nguyên có thể được giao cho một tiến trình khác khi tiến trình hiện tại đã dùng xong.<br><br>  <br><br>- Chỉ có thể được sử dụng bởi một tiến trình tại một thời điểm.<br><br>  <br><br>- Không thể lấy tài nguyên ra khỏi tiến trình đang sử dụng để giao cho một tiến trình khác (nếu làm vậy sẽ xảy ra lỗi). | - (Các thiết bị ngoại vi chuyên dụng, máy in...)                                    |
+| **Preemptible resources**<br><br>  <br><br>_(Tài nguyên có thể tước đoạt)_                                 | - Có khả năng chia sẻ (Sharable) mà không làm ảnh hưởng đến hành vi (nếu được thiết lập đúng cách).<br><br>  <br><br>- Có thể tước bỏ từ một tiến trình này và giao cho một tiến trình khác.                                                                                                                                                                                                                                                                                                    | - CPU (thông qua cơ chế time slice).<br><br>  <br><br>- Bộ nhớ chính (main memory). |
+
+### 3. Điều kiện xảy ra Deadlock (Slide 5)
+
+Deadlock không thể tự nhiên sinh ra. Có 4 điều kiện cần thiết (Necessary conditions) và **tất cả 4 điều kiện này đều phải đúng (True)** thì Deadlock mới có thể xảy ra.
+
+- **1. Mutual Exclusion (Loại trừ lẫn nhau):** Một luồng yêu cầu quyền kiểm soát độc quyền đối với các tài nguyên mà nó đang sử dụng. Điều này là bắt buộc để đảm bảo an toàn cho hệ thống, do đó chúng ta không thể tránh việc sử dụng cơ chế loại trừ lẫn nhau này.
+    
+- **2. Hold and Wait (Giữ và Chờ):** Các luồng vẫn tiếp tục giữ các tài nguyên đã được phân bổ cho chúng trong khi chờ đợi để có thêm các tài nguyên khác (ví dụ kinh điển: Bài toán Triết gia ăn tối - Dinning philosophers).
+    
+- **3. No Preemption (Không tước đoạt tài nguyên găng):** Tài nguyên không thể bị tước bỏ bằng sức mạnh (forcibly removed) từ các tiến trình đang giữ chúng cho đến khi tiến trình đó hoàn thành việc sử dụng. Điều này bao gồm cả những tình huống khi một luồng khóa một hoặc nhiều tài nguyên trong khoảng thời gian vô hạn (infinite time-slices).
+    
+- **4. Circular Wait (Chờ vòng tròn):** Tồn tại một chuỗi vòng tròn các tiến trình, trong đó mỗi tiến trình đang giữ một hoặc nhiều tài nguyên mà tiến trình tiếp theo trong chuỗi đang cần đến.

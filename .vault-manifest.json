@@ -1,0 +1,2126 @@
+{
+  "files": {
+    "C-POINTER/C-POINTER.md": {
+      "hash": "cafe8cbe655538b57c8875eefed95550",
+      "chunkIds": [
+        "C-POINTER_C-POINTER_C-POINTER_chunk_000",
+        "C-POINTER_C-POINTER_C-POINTER_chunk_001"
+      ],
+      "indexed": true
+    },
+    "Data-type.md": {
+      "hash": "09b70ae14caeb86bc4d819dbac87bb3a",
+      "chunkIds": [
+        "Data-type_Data-type_chunk_002"
+      ],
+      "indexed": true
+    },
+    "GTEST - UNIT TESTING/Launch Configuration.md": {
+      "hash": "182d5ae7b717f4d51ed60f676366c66e",
+      "chunkIds": [
+        "GTEST_-_UNIT_TESTING_Launch_Configuration_Launch-Configuration_chunk_003"
+      ],
+      "indexed": true
+    },
+    "GTEST - UNIT TESTING/PROCEDURE.md": {
+      "hash": "8c4d97fd9977bb325d5ce7bab18b9cbf",
+      "chunkIds": [
+        "GTEST_-_UNIT_TESTING_PROCEDURE_PROCEDURE_chunk_004"
+      ],
+      "indexed": true
+    },
+    "GTEST - UNIT TESTING/Running test programs.md": {
+      "hash": "1db73750c1adf78bf12bca3cc972ce5c",
+      "chunkIds": [
+        "GTEST_-_UNIT_TESTING_Running_test_programs_Running-test-programs_chunk_005",
+        "GTEST_-_UNIT_TESTING_Running_test_programs_Running-test-programs_chunk_006"
+      ],
+      "indexed": true
+    },
+    "GTEST - UNIT TESTING/SETUP GTEST ON QNX.md": {
+      "hash": "0cff91215f3778879dc5a7bf7d94a762",
+      "chunkIds": [
+        "GTEST_-_UNIT_TESTING_SETUP_GTEST_ON_QNX_1-Chun-b-M-Ngun-Cu-trc-Dng-cn_chunk_007",
+        "GTEST_-_UNIT_TESTING_SETUP_GTEST_ON_QNX_2-Cu-hnh-Makefile_chunk_008",
+        "GTEST_-_UNIT_TESTING_SETUP_GTEST_ON_QNX_3-Thit-lp-Launch-Configuration_chunk_009"
+      ],
+      "indexed": true
+    },
+    "GTEST - UNIT TESTING/Writing and building test programs.md": {
+      "hash": "9e79afd972c85908f7baaa4b46ed79b2",
+      "chunkIds": [
+        "GTEST_-_UNIT_TESTING_Writing_and_building_test_programs_Writing-and-building-test-prog_chunk_010",
+        "GTEST_-_UNIT_TESTING_Writing_and_building_test_programs_Writing-and-building-test-prog_chunk_011",
+        "GTEST_-_UNIT_TESTING_Writing_and_building_test_programs_Writing-and-building-test-prog_chunk_012"
+      ],
+      "indexed": true
+    },
+    "lab-2/LAB-2-REQUIREMENT.md": {
+      "hash": "a3f97974df3685aef786de6a0063f66c",
+      "chunkIds": [
+        "lab-2_LAB-2-REQUIREMENT_EEET2588EEET2687-Real-Time-Sys_chunk_013",
+        "lab-2_LAB-2-REQUIREMENT_1-Creating-a-POSIX-thread_chunk_014",
+        "lab-2_LAB-2-REQUIREMENT_Changing-Thread-Attributes_chunk_015",
+        "lab-2_LAB-2-REQUIREMENT_Changing-Thread-Attributes_chunk_016",
+        "lab-2_LAB-2-REQUIREMENT_Changing-Thread-Attributes_chunk_017",
+        "lab-2_LAB-2-REQUIREMENT_Task-2A_chunk_018",
+        "lab-2_LAB-2-REQUIREMENT_Task-3A_chunk_019",
+        "lab-2_LAB-2-REQUIREMENT_HINT_chunk_020",
+        "lab-2_LAB-2-REQUIREMENT_Acknowledgment_chunk_021"
+      ],
+      "indexed": true
+    },
+    "lab-3/Task-1a-guide.md": {
+      "hash": "472cbc7d1d6d448e36955f6ee0ee93a1",
+      "chunkIds": [
+        "lab-3_Task-1a-guide_Task-1a-guide_chunk_022"
+      ],
+      "indexed": true
+    },
+    "lab-4/Barriers.md": {
+      "hash": "00f9e7c7ba301e44c4136f461d2bfad1",
+      "chunkIds": [
+        "lab-4_Barriers_Barriers_chunk_023",
+        "lab-4_Barriers_Barriers_chunk_024",
+        "lab-4_Barriers_Barriers_chunk_025"
+      ],
+      "indexed": true
+    },
+    "lab-4/Lab-4-Tutorial.md": {
+      "hash": "2d9f59f9fef65397342028ee00e7fa30",
+      "chunkIds": [
+        "lab-4_Lab-4-Tutorial_Lab-4-Tutorial_chunk_026",
+        "lab-4_Lab-4-Tutorial_Lab-4-Tutorial_chunk_027"
+      ],
+      "indexed": true
+    },
+    "lab-4/Mutex-vs-Semaphore.md": {
+      "hash": "e9933ffb4ec90e1d377af42e3c503f7f",
+      "chunkIds": [
+        "lab-4_Mutex-vs-Semaphore_Mutex-vs-Semaphore_chunk_028",
+        "lab-4_Mutex-vs-Semaphore_Mutex-vs-Semaphore_chunk_029",
+        "lab-4_Mutex-vs-Semaphore_Mutex-vs-Semaphore_chunk_030"
+      ],
+      "indexed": true
+    },
+    "lab-5/Boolean Transitions.md": {
+      "hash": "27d626437cfc8eaaa2c3dc8a5d6549af",
+      "chunkIds": [
+        "lab-5_Boolean_Transitions_Boolean-Transitions_chunk_031"
+      ],
+      "indexed": true
+    },
+    "lab-5/Task-1a-Capture-Script.md": {
+      "hash": "4626c4e02f8e6e1aea4af01706eb5e4d",
+      "chunkIds": [
+        "lab-5_Task-1a-Capture-Script_Task-1a-Capture-Script_chunk_032",
+        "lab-5_Task-1a-Capture-Script_Task-1a-Capture-Script_chunk_033"
+      ],
+      "indexed": true
+    },
+    "lab-5/Task-2b-Capture-Script.md": {
+      "hash": "c3d9b6060817fb190eb9bc5bea3c2588",
+      "chunkIds": [
+        "lab-5_Task-2b-Capture-Script_Task-2b-Capture-Script_chunk_034"
+      ],
+      "indexed": true
+    },
+    "lab-5/Task-2c-Capture-Script.md": {
+      "hash": "4092548ec111f81b1de2e718ea0e99a0",
+      "chunkIds": [
+        "lab-5_Task-2c-Capture-Script_Task-2c-Capture-Script_chunk_035"
+      ],
+      "indexed": true
+    },
+    "lab-6/Lab-6-Fix.md": {
+      "hash": "92193d688b3de6405aa03b75067f11e6",
+      "chunkIds": [
+        "lab-6_Lab-6-Fix_Lab-6-Fix_chunk_036"
+      ],
+      "indexed": true
+    },
+    "lab-6/lab-6.md": {
+      "hash": "53cc46523d4f165f17efcab7e577eba4",
+      "chunkIds": [
+        "lab-6_lab-6_lab-6_chunk_037",
+        "lab-6_lab-6_lab-6_chunk_038",
+        "lab-6_lab-6_lab-6_chunk_039",
+        "lab-6_lab-6_lab-6_chunk_040",
+        "lab-6_lab-6_lab-6_chunk_041"
+      ],
+      "indexed": true
+    },
+    "lab-6/QNX Native Message Passing.md": {
+      "hash": "c8a438fbb9e650d22ea26324ad97fd6b",
+      "chunkIds": [
+        "lab-6_QNX_Native_Message_Passing_QNX-Native-Message-Passing_chunk_042",
+        "lab-6_QNX_Native_Message_Passing_QNX-Native-Message-Passing_chunk_043"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/00-INDEX.md": {
+      "hash": "20cb6051aaaa94659d98c2f574570cf1",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_00-INDEX_00-INDEX_chunk_044"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/About-This-Guide.md": {
+      "hash": "c8ea7eaca9ca55f959ad3b1b8856a5b6",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_About-This-Guide_About-This-Guide_chunk_045"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/README.md": {
+      "hash": "bbfb93135ef260259618c875bf35082f",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_README_Cu-trc_chunk_046",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_README_Quick-Navigation-Theo-Th-Mc_chunk_047",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_README_Quy-c-Reformat_chunk_048",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_README_Gi-truy-vn-cho-AI_chunk_049"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/00-INDEX.md": {
+      "hash": "4aeeeb51dc6b9bfe00ec5981f9076809",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_00-INDEX_00-INDEX_chunk_050"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/00-INDEX.md": {
+      "hash": "49362abff614cc41aa26a33c70a14a49",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_00-INDEX_00-INDEX_chunk_051"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/Clock-and-timer-services.md": {
+      "hash": "13a7317215a2077c38792ad2bb015cb3",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_Clock-and-timer-services_Clock-and-timer-services_chunk_052"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/00-INDEX.md": {
+      "hash": "c39e4f2644aef0aa14f8cf30a2a369d4",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_00-INDEX_00-INDEX_chunk_053"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/ClockAdjust(), ClockAdjust_r().md": {
+      "hash": "270064988ad7649545059f094b56c34c",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockAdjust____ClockAdjust_r___Synopsis_chunk_054",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockAdjust____ClockAdjust_r___Arguments_chunk_055",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockAdjust____ClockAdjust_r___Library_chunk_056",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockAdjust____ClockAdjust_r___Description_chunk_057",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockAdjust____ClockAdjust_r___Returns_chunk_058",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockAdjust____ClockAdjust_r___Errors_chunk_059",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockAdjust____ClockAdjust_r___Classification_chunk_060"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/ClockCycles().md": {
+      "hash": "053fbfd61a8385a288499848f02499ab",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockCycles___Synopsis_chunk_061",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockCycles___Library_chunk_062",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockCycles___Description_chunk_063",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockCycles___Examples_chunk_064",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockCycles___Classification_chunk_065"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/ClockId(), ClockId_r().md": {
+      "hash": "531da2a670a2e0f74b4bb4e28af9254a",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockId____ClockId_r___Synopsis_chunk_066",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockId____ClockId_r___Arguments_chunk_067",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockId____ClockId_r___Library_chunk_068",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockId____ClockId_r___Description_chunk_069",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockId____ClockId_r___Returns_chunk_070",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockId____ClockId_r___Errors_chunk_071",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockId____ClockId_r___Examples_chunk_072",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockId____ClockId_r___Classification_chunk_073"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/ClockPeriod(), ClockPeriod_r().md": {
+      "hash": "c090ae338ae40b98e544eb9f01711142",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockPeriod____ClockPeriod_r___Synopsis_chunk_074",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockPeriod____ClockPeriod_r___Arguments_chunk_075",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockPeriod____ClockPeriod_r___Library_chunk_076",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockPeriod____ClockPeriod_r___Description_chunk_077",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockPeriod____ClockPeriod_r___Returns_chunk_078",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockPeriod____ClockPeriod_r___Errors_chunk_079",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockPeriod____ClockPeriod_r___Classification_chunk_080"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/ClockTime(), ClockTime_r().md": {
+      "hash": "d8dd826acc0719a8bd99d59502fe57b4",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockTime____ClockTime_r___Synopsis_chunk_081",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockTime____ClockTime_r___Arguments_chunk_082",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockTime____ClockTime_r___Library_chunk_083",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockTime____ClockTime_r___Description_chunk_084",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockTime____ClockTime_r___Returns_chunk_085",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockTime____ClockTime_r___Errors_chunk_086",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_ClockTime____ClockTime_r___Classification_chunk_087"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/clock_getcpuclockid().md": {
+      "hash": "533b7568c7f6cd60890bc25ba1300eb5",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getcpuclockid___Synopsis_chunk_088",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getcpuclockid___Arguments_chunk_089",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getcpuclockid___Library_chunk_090",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getcpuclockid___Description_chunk_091",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getcpuclockid___Returns_chunk_092",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getcpuclockid___Examples_chunk_093",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getcpuclockid___Classification_chunk_094"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/clock_getres().md": {
+      "hash": "589422e5817112d00af426e912f49376",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getres___Synopsis_chunk_095",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getres___Arguments_chunk_096",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getres___Library_chunk_097",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getres___Description_chunk_098",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getres___Returns_chunk_099",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getres___Errors_chunk_100",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getres___Examples_chunk_101",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_getres___Classification_chunk_102"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/clock_gettime().md": {
+      "hash": "e71c40a7c5903befb4443fb8250c50d0",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_gettime___Synopsis_chunk_103",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_gettime___Arguments_chunk_104",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_gettime___Library_chunk_105",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_gettime___Description_chunk_106",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_gettime___Returns_chunk_107",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_gettime___Errors_chunk_108",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_gettime___Examples_chunk_109",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_gettime___Classification_chunk_110"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/clock_settime().md": {
+      "hash": "9cd174d7f4255dd8b856fe19ac73bf28",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_settime___Synopsis_chunk_111",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_settime___Arguments_chunk_112",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_settime___Library_chunk_113",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_settime___Description_chunk_114",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_settime___Returns_chunk_115",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_settime___Errors_chunk_116",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_settime___Examples_chunk_117",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_clock_settime___Classification_chunk_118"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Clock-and-timer-services/CodeSnippets/pthread_getcpuclockid().md": {
+      "hash": "9ca6e643bc66ed04e60f6468aef3629d",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_pthread_getcpuclockid___Synopsis_chunk_119",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_pthread_getcpuclockid___Arguments_chunk_120",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_pthread_getcpuclockid___Library_chunk_121",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_pthread_getcpuclockid___Description_chunk_122",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_pthread_getcpuclockid___Returns_chunk_123",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_pthread_getcpuclockid___Examples_chunk_124",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Clock-and-timer-services_CodeSnippets_pthread_getcpuclockid___Classification_chunk_125"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/00-INDEX.md": {
+      "hash": "bbc0596daa8fd1be0d16e00c9c801002",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_00-INDEX_00-INDEX_chunk_126"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/00-INDEX.md": {
+      "hash": "78ddf81ed1d2e61fb95289d7ac00941e",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_00-INDEX_00-INDEX_chunk_127"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/InterruptAttach(), InterruptAttach_r().md": {
+      "hash": "35b32d58b451f992ca4eeb53c4c8ef82",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Synopsis_chunk_128",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Arguments_chunk_129",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Library_chunk_130",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Description_chunk_131",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Description_chunk_132",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Description_chunk_133",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Description_chunk_134",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Returns_chunk_135",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Errors_chunk_136",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Classification_chunk_137",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Caveats_chunk_138",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttach____InterruptAttach_r___Caveats_chunk_139"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/InterruptAttachEvent(), InterruptAttachEvent_r().md": {
+      "hash": "6492081a85a8baace2214e7d9b24209b",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttachEvent____InterruptAttachEvent_r___Synopsis_chunk_140",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttachEvent____InterruptAttachEvent_r___Arguments_chunk_141",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttachEvent____InterruptAttachEvent_r___Library_chunk_142",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttachEvent____InterruptAttachEvent_r___Description_chunk_143",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttachEvent____InterruptAttachEvent_r___Description_chunk_144",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttachEvent____InterruptAttachEvent_r___Description_chunk_145",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttachEvent____InterruptAttachEvent_r___Returns_chunk_146",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttachEvent____InterruptAttachEvent_r___Errors_chunk_147",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptAttachEvent____InterruptAttachEvent_r___Classification_chunk_148"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/InterruptDetach(), InterruptDetach_r().md": {
+      "hash": "13784f76ff4a80d65827b7658ad43491",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDetach____InterruptDetach_r___Synopsis_chunk_149",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDetach____InterruptDetach_r___Arguments_chunk_150",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDetach____InterruptDetach_r___Library_chunk_151",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDetach____InterruptDetach_r___Description_chunk_152",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDetach____InterruptDetach_r___Returns_chunk_153",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDetach____InterruptDetach_r___Errors_chunk_154",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDetach____InterruptDetach_r___Classification_chunk_155"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/InterruptDisable().md": {
+      "hash": "a7b73c2e5d9e9d97b63488a9a442569a",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDisable___Synopsis_chunk_156",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDisable___Library_chunk_157",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDisable___Description_chunk_158",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptDisable___Classification_chunk_159"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/InterruptEnable().md": {
+      "hash": "e90ef38123f8d3acf2e9c201492ec030",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptEnable___Synopsis_chunk_160",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptEnable___Library_chunk_161",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptEnable___Description_chunk_162",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptEnable___Classification_chunk_163"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/InterruptLock().md": {
+      "hash": "77534e2930f9030011e6cf7be5a9d28d",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptLock___Synopsis_chunk_164",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptLock___Arguments_chunk_165",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptLock___Library_chunk_166",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptLock___Description_chunk_167",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptLock___Classification_chunk_168"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/InterruptMask().md": {
+      "hash": "74b6371281d2cd2e2705a2a568759041",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptMask___Synopsis_chunk_169",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptMask___Arguments_chunk_170",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptMask___Library_chunk_171",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptMask___Description_chunk_172",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptMask___Returns_chunk_173",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptMask___Errors_chunk_174",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptMask___Classification_chunk_175"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/InterruptUnlock().md": {
+      "hash": "bba6a9ecf0c7e9ea8059b10b49c0f26a",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnlock___Synopsis_chunk_176",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnlock___Arguments_chunk_177",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnlock___Library_chunk_178",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnlock___Description_chunk_179",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnlock___Classification_chunk_180"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/InterruptUnmask().md": {
+      "hash": "5313f31772542c63d9d3890544fc222f",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnmask___Synopsis_chunk_181",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnmask___Arguments_chunk_182",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnmask___Library_chunk_183",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnmask___Description_chunk_184",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnmask___Returns_chunk_185",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnmask___Errors_chunk_186",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptUnmask___Classification_chunk_187"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/CodeSnippets/InterruptWait(), InterruptWait_r().md": {
+      "hash": "1c1d556969eaae65a713e2c6caa0383a",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptWait____InterruptWait_r___Synopsis_chunk_188",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptWait____InterruptWait_r___Arguments_chunk_189",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptWait____InterruptWait_r___Library_chunk_190",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptWait____InterruptWait_r___Description_chunk_191",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptWait____InterruptWait_r___Returns_chunk_192",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptWait____InterruptWait_r___Errors_chunk_193",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_CodeSnippets_InterruptWait____InterruptWait_r___Classification_chunk_194"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/Interrupt calls.md": {
+      "hash": "b7c13d1daf876a10c01eb2dc6d724992",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_Interrupt_calls_Interrupt-calls_chunk_195"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/Interrupt handling.md": {
+      "hash": "34da08141dfb187357a7fa00b11a9879",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_Interrupt_handling_Interrupt-handling_chunk_196"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/Interrupt latency.md": {
+      "hash": "5f5e320ce0e9568f70810ff7627a7291",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_Interrupt_latency_Interrupt-latency_chunk_197"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/Nested interrupts.md": {
+      "hash": "4387a40fd09ecab6bb693dc6ca1be9eb",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_Nested_interrupts_Nested-interrupts_chunk_198"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Interrupt-Handling/Scheduling latency.md": {
+      "hash": "0db0488396863a73fb4f9e22800dfbd8",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Interrupt-Handling_Scheduling_latency_Scheduling-latency_chunk_199"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/00-INDEX.md": {
+      "hash": "60bcbcb3f922f01d40cd30af89b48390",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_00-INDEX_00-INDEX_chunk_200"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Channels and connections.md": {
+      "hash": "932cfcd8ad8d7e35df3540743a0dbb30",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Channels_and_connections_Channels-and-connections_chunk_201"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Creating-Shared-Memory-Object/00-INDEX.md": {
+      "hash": "2cec3861d274447c85ddea9848bf43ec",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_00-INDEX_00-INDEX_chunk_202"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Creating-Shared-Memory-Object/close().md": {
+      "hash": "a0e8ce66bf35cc14f0fab9a215386926",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_close___Synopsis_chunk_203",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_close___Arguments_chunk_204",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_close___Library_chunk_205",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_close___Description_chunk_206",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_close___Returns_chunk_207",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_close___Errors_chunk_208",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_close___Examples_chunk_209",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_close___Classification_chunk_210"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Creating-Shared-Memory-Object/mprotect().md": {
+      "hash": "b7e18c0919f27797ce11f5de2d30cd22",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_mprotect___Synopsis_chunk_211",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_mprotect___Arguments_chunk_212",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_mprotect___Library_chunk_213",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_mprotect___Description_chunk_214",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_mprotect___Returns_chunk_215",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_mprotect___Errors_chunk_216",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_mprotect___Classification_chunk_217"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Creating-Shared-Memory-Object/msync().md": {
+      "hash": "0272009397871dc0092548dc3be2f3cb",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_msync___Synopsis_chunk_218",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_msync___Arguments_chunk_219",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_msync___Library_chunk_220",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_msync___Description_chunk_221",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_msync___Returns_chunk_222",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_msync___Errors_chunk_223",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_msync___Examples_chunk_224",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_msync___Classification_chunk_225",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_msync___Caveats_chunk_226"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Creating-Shared-Memory-Object/munmap().md": {
+      "hash": "63805065d3b9e01671232984ceee4698",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap___Synopsis_chunk_227",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap___Arguments_chunk_228",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap___Library_chunk_229",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap___Description_chunk_230",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap___Returns_chunk_231",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap___Errors_chunk_232",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap___Classification_chunk_233"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Creating-Shared-Memory-Object/munmap_flags().md": {
+      "hash": "fac88b4f0e36cc6eae3f481bea2700bf",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap_flags___Synopsis_chunk_234",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap_flags___Arguments_chunk_235",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap_flags___Library_chunk_236",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap_flags___Description_chunk_237",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap_flags___Returns_chunk_238",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap_flags___Errors_chunk_239",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_munmap_flags___Classification_chunk_240"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Creating-Shared-Memory-Object/shm_ctl(), shm_ctl_special().md": {
+      "hash": "21950dd4f3640566815951214b9122fd",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_ctl____shm_ctl_special___Synopsis_chunk_241",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_ctl____shm_ctl_special___Arguments_chunk_242",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_ctl____shm_ctl_special___Library_chunk_243",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_ctl____shm_ctl_special___Description_chunk_244",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_ctl____shm_ctl_special___Returns_chunk_245",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_ctl____shm_ctl_special___Errors_chunk_246",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_ctl____shm_ctl_special___Examples_chunk_247",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_ctl____shm_ctl_special___Sharing-device-memory_chunk_248",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_ctl____shm_ctl_special___Classification_chunk_249"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Creating-Shared-Memory-Object/shm_open().md": {
+      "hash": "8659de758c7160c840ed713aa856a326",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_open___Synopsis_chunk_250",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_open___Arguments_chunk_251",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_open___Library_chunk_252",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_open___Description_chunk_253",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_open___Returns_chunk_254",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_open___Errors_chunk_255",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_open___Examples_chunk_256"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Creating-Shared-Memory-Object/shm_unlink().md": {
+      "hash": "4c686d7462597c836de235cab14a7f49",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_unlink___Synopsis_chunk_257",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_unlink___Arguments_chunk_258",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_unlink___Library_chunk_259",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_unlink___Description_chunk_260",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_unlink___Returns_chunk_261",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_unlink___Errors_chunk_262",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_unlink___Examples_chunk_263",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Creating-Shared-Memory-Object_shm_unlink___Classification_chunk_264"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/00-INDEX.md": {
+      "hash": "50d29e56a3ec5f14fe40270b583abf71",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_00-INDEX_00-INDEX_chunk_265"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/MsgDeliverEvent(), MsgDeliverEvent_r().md": {
+      "hash": "fedd565298269de78d951989ff4a2ff0",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgDeliverEvent____MsgDeliverEvent_r___Synopsis_chunk_266",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgDeliverEvent____MsgDeliverEvent_r___Arguments_chunk_267",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgDeliverEvent____MsgDeliverEvent_r___Library_chunk_268",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgDeliverEvent____MsgDeliverEvent_r___Description_chunk_269",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgDeliverEvent____MsgDeliverEvent_r___Returns_chunk_270",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgDeliverEvent____MsgDeliverEvent_r___Errors_chunk_271",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgDeliverEvent____MsgDeliverEvent_r___Examples_chunk_272",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgDeliverEvent____MsgDeliverEvent_r___Classification_chunk_273",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgDeliverEvent____MsgDeliverEvent_r___Caveats_chunk_274"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/MsgError(), MsgError_r().md": {
+      "hash": "23ac7634e67c4013397c024488da0a45",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Synopsis_chunk_275",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Arguments_chunk_276",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Library_chunk_277",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Description_chunk_278",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Returns_chunk_279",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Errors_chunk_280",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Classification_chunk_281",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Synopsis_chunk_282",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Arguments_chunk_283",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Library_chunk_284",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Description_chunk_285",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Returns_chunk_286",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Errors_chunk_287",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgError____MsgError_r___Classification_chunk_288"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/MsgInfo(), MsgInfo_r().md": {
+      "hash": "2835645af8927e544d00f026c9c40f99",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgInfo____MsgInfo_r___Synopsis_chunk_289",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgInfo____MsgInfo_r___Arguments_chunk_290",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgInfo____MsgInfo_r___Library_chunk_291",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgInfo____MsgInfo_r___Description_chunk_292",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgInfo____MsgInfo_r___Returns_chunk_293",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgInfo____MsgInfo_r___Errors_chunk_294",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgInfo____MsgInfo_r___Classification_chunk_295"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/MsgKeyData(), MsgKeyData_r().md": {
+      "hash": "d4b0fc58531968941c4d23e207524aab",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgKeyData____MsgKeyData_r___Synopsis_chunk_296",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgKeyData____MsgKeyData_r___Arguments_chunk_297",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgKeyData____MsgKeyData_r___Library_chunk_298",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgKeyData____MsgKeyData_r___Description_chunk_299",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgKeyData____MsgKeyData_r___Returns_chunk_300",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgKeyData____MsgKeyData_r___Errors_chunk_301",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgKeyData____MsgKeyData_r___Examples_chunk_302",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgKeyData____MsgKeyData_r___Classification_chunk_303"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/MsgRead(), MsgRead_r().md": {
+      "hash": "be1ec310f2cde58e11961b52fccf8b82",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgRead____MsgRead_r___Synopsis_chunk_304",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgRead____MsgRead_r___Arguments_chunk_305",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgRead____MsgRead_r___Library_chunk_306",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgRead____MsgRead_r___Description_chunk_307",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgRead____MsgRead_r___Returns_chunk_308",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgRead____MsgRead_r___Errors_chunk_309",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgRead____MsgRead_r___Classification_chunk_310"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/MsgReceive(), MsgReceive_r().md": {
+      "hash": "fc56ce84d0bbba675a269c8c308b5f96",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceive____MsgReceive_r___Synopsis_chunk_311",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceive____MsgReceive_r___Arguments_chunk_312",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceive____MsgReceive_r___Library_chunk_313",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceive____MsgReceive_r___Description_chunk_314",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceive____MsgReceive_r___Returns_chunk_315",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceive____MsgReceive_r___Errors_chunk_316",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceive____MsgReceive_r___Classification_chunk_317",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceive____MsgReceive_r___Caveats_chunk_318"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/MsgReceivePulse(), MsgReceivePulse_r().md": {
+      "hash": "45e6b37d9d7a99e921a5044fc631381c",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceivePulse____MsgReceivePulse_r___Synopsis_chunk_319",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceivePulse____MsgReceivePulse_r___Arguments_chunk_320",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceivePulse____MsgReceivePulse_r___Library_chunk_321",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceivePulse____MsgReceivePulse_r___Description_chunk_322",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceivePulse____MsgReceivePulse_r___Returns_chunk_323",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceivePulse____MsgReceivePulse_r___Errors_chunk_324",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReceivePulse____MsgReceivePulse_r___Classification_chunk_325"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/MsgReply(), MsgReply_r().md": {
+      "hash": "58a536e555f990abdb7879bceb2e67fb",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReply____MsgReply_r___Synopsis_chunk_326",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReply____MsgReply_r___Arguments_chunk_327",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReply____MsgReply_r___Library_chunk_328",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReply____MsgReply_r___Description_chunk_329",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReply____MsgReply_r___Returns_chunk_330",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReply____MsgReply_r___Errors_chunk_331",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReply____MsgReply_r___Classification_chunk_332",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgReply____MsgReply_r___Caveats_chunk_333"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/MsgSend(), MsgSend_r().md": {
+      "hash": "0cdced15b971865010c2367e1c634004",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSend____MsgSend_r___Synopsis_chunk_334",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSend____MsgSend_r___Arguments_chunk_335",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSend____MsgSend_r___Library_chunk_336",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSend____MsgSend_r___Description_chunk_337",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSend____MsgSend_r___Returns_chunk_338",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSend____MsgSend_r___Errors_chunk_339",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSend____MsgSend_r___Classification_chunk_340",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSend____MsgSend_r___Caveats_chunk_341"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/MsgSendPulse(), MsgSendPulse_r().md": {
+      "hash": "02dcec937c65308bd27903146cf46e1c",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSendPulse____MsgSendPulse_r___Synopsis_chunk_342",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSendPulse____MsgSendPulse_r___Arguments_chunk_343",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSendPulse____MsgSendPulse_r___Library_chunk_344",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSendPulse____MsgSendPulse_r___Description_chunk_345",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSendPulse____MsgSendPulse_r___Returns_chunk_346",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSendPulse____MsgSendPulse_r___Errors_chunk_347",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSendPulse____MsgSendPulse_r___Classification_chunk_348",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_MsgSendPulse____MsgSendPulse_r___Caveats_chunk_349"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Message/sgWrite(), MsgWrite_r().md": {
+      "hash": "5a8368c67ac8a3a140299dc9533c957b",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_sgWrite____MsgWrite_r___Synopsis_chunk_350",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_sgWrite____MsgWrite_r___Arguments_chunk_351",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_sgWrite____MsgWrite_r___Library_chunk_352",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_sgWrite____MsgWrite_r___Description_chunk_353",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_sgWrite____MsgWrite_r___Returns_chunk_354",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_sgWrite____MsgWrite_r___Errors_chunk_355",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Message_sgWrite____MsgWrite_r___Classification_chunk_356"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/MessageQueues/00-INDEX.md": {
+      "hash": "c095d8476d6cf7688af660dc9c0d0a34",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_00-INDEX_00-INDEX_chunk_357"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/MessageQueues/mq_close().md": {
+      "hash": "64545d2c060c98099b76cd21a1aa0de9",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_close___Synopsis_chunk_358",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_close___Arguments_chunk_359",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_close___Library_chunk_360",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_close___Description_chunk_361",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_close___Returns_chunk_362",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_close___Errors_chunk_363",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_close___Examples_chunk_364",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_close___Classification_chunk_365"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/MessageQueues/mq_getattr().md": {
+      "hash": "5a71dfc8cae06aaff0b7ad0006d1e27c",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_getattr___Synopsis_chunk_366",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_getattr___Arguments_chunk_367",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_getattr___Library_chunk_368",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_getattr___Description_chunk_369",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_getattr___Returns_chunk_370",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_getattr___Errors_chunk_371",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_getattr___Examples_chunk_372",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_getattr___Classification_chunk_373"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/MessageQueues/mq_notify().md": {
+      "hash": "0d8a2ce5cde4e9e106abedd895d2a432",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_notify___Synopsis_chunk_374",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_notify___Arguments_chunk_375",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_notify___Library_chunk_376",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_notify___Description_chunk_377",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_notify___Returns_chunk_378",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_notify___Errors_chunk_379",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_notify___Classification_chunk_380"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/MessageQueues/mq_open().md": {
+      "hash": "7892423749930f883f85f2320684e7b8",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_open___Synopsis_chunk_381",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_open___Arguments_chunk_382",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_open___Library_chunk_383",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_open___Description_chunk_384",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_open___Returns_chunk_385",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_open___Errors_chunk_386",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_open___Examples_chunk_387",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_open___Classification_chunk_388"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/MessageQueues/mq_receive().md": {
+      "hash": "2c0854e2838872457ab3848bc5f227d5",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_receive___Synopsis_chunk_389",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_receive___Arguments_chunk_390",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_receive___Library_chunk_391",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_receive___Description_chunk_392",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_receive___Returns_chunk_393",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_receive___Errors_chunk_394",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_receive___Examples_chunk_395",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_receive___Classification_chunk_396"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/MessageQueues/mq_send().md": {
+      "hash": "43e86ddb84565a398e8677d0db0c91e9",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_send___Synopsis_chunk_397",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_send___Arguments_chunk_398",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_send___Library_chunk_399",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_send___Description_chunk_400",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_send___Returns_chunk_401",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_send___Errors_chunk_402",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_send___Examples_chunk_403",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_send___Classification_chunk_404"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/MessageQueues/mq_setattr().md": {
+      "hash": "12a6a875ac6687ff2bd1b440a6ec0f6f",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_setattr___Synopsis_chunk_405",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_setattr___Arguments_chunk_406",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_setattr___Library_chunk_407",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_setattr___Description_chunk_408",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_setattr___Returns_chunk_409",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_setattr___Errors_chunk_410",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_setattr___Classification_chunk_411"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/MessageQueues/mq_unlink().md": {
+      "hash": "f7f7e0e74624aea5b6b12bf6211cf31f",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_unlink___Synopsis_chunk_412",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_unlink___Arguments_chunk_413",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_unlink___Library_chunk_414",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_unlink___Description_chunk_415",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_unlink___Returns_chunk_416",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_unlink___Errors_chunk_417",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_MessageQueues_mq_unlink___Classification_chunk_418"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Signals/00-INDEX.md": {
+      "hash": "77a395372e653df29b837af7ce51607f",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_00-INDEX_00-INDEX_chunk_419"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Signals/ignalSuspend(), SignalSuspend_r().md": {
+      "hash": "394b6921d37a19df9933dbbd57f2a29f",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_ignalSuspend____SignalSuspend_r___Synopsis_chunk_420",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_ignalSuspend____SignalSuspend_r___Arguments_chunk_421",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_ignalSuspend____SignalSuspend_r___Library_chunk_422",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_ignalSuspend____SignalSuspend_r___Description_chunk_423",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_ignalSuspend____SignalSuspend_r___Returns_chunk_424",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_ignalSuspend____SignalSuspend_r___Errors_chunk_425",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_ignalSuspend____SignalSuspend_r___Classification_chunk_426"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Signals/SignalAction(), SignalAction_r().md": {
+      "hash": "0deddf218e73eb3fd99bc3e1be5cf6eb",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalAction____SignalAction_r___Synopsis_chunk_427",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalAction____SignalAction_r___Arguments_chunk_428",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalAction____SignalAction_r___Library_chunk_429",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalAction____SignalAction_r___Description_chunk_430",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalAction____SignalAction_r___Returns_chunk_431",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalAction____SignalAction_r___Errors_chunk_432",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalAction____SignalAction_r___Classification_chunk_433"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Signals/SignalKill(), SignalKill_r().md": {
+      "hash": "a84f4263d2f26681759eecda7e15ab2c",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalKill____SignalKill_r___Synopsis_chunk_434",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalKill____SignalKill_r___Arguments_chunk_435",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalKill____SignalKill_r___Library_chunk_436",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalKill____SignalKill_r___Description_chunk_437",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalKill____SignalKill_r___Returns_chunk_438",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalKill____SignalKill_r___Errors_chunk_439",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalKill____SignalKill_r___Classification_chunk_440"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Signals/SignalProcmask(), SignalProcmask_r().md": {
+      "hash": "de51a4d8c44aba8e1274b5ddfaf95391",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalProcmask____SignalProcmask_r___Synopsis_chunk_441",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalProcmask____SignalProcmask_r___Arguments_chunk_442",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalProcmask____SignalProcmask_r___Library_chunk_443",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalProcmask____SignalProcmask_r___Description_chunk_444",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalProcmask____SignalProcmask_r___Returns_chunk_445",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalProcmask____SignalProcmask_r___Errors_chunk_446",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Signals_SignalProcmask____SignalProcmask_r___Classification_chunk_447"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Typed Memory/00-INDEX.md": {
+      "hash": "ba76e02ebc1c859a510ed398130696da",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_00-INDEX_00-INDEX_chunk_448"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Typed Memory/posix_typed_mem_get_info().md": {
+      "hash": "86158572b88ab32f974e6938b997b1b8",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_get_info___Synopsis_chunk_449",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_get_info___Arguments_chunk_450",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_get_info___Library_chunk_451",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_get_info___Description_chunk_452",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_get_info___Returns_chunk_453",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_get_info___Classification_chunk_454"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Typed Memory/posix_typed_mem_open().md": {
+      "hash": "a85e8e2ecd922274a350375cfb98d6c6",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_open___Synopsis_chunk_455",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_open___Arguments_chunk_456",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_open___Library_chunk_457",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_open___Description_chunk_458",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_open___Returns_chunk_459",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_open___Errors_chunk_460",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_posix_typed_mem_open___Classification_chunk_461"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/CodeSnippets/Typed Memory/Untitled.md": {
+      "hash": "4eb3294d07e0043f5fa0f4d24bebc86d",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_CodeSnippets_Typed_Memory_Untitled_Untitled_chunk_462"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Events.md": {
+      "hash": "a0a2f5f5a9b68d228e2d702178e0c310",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Events_Events_chunk_463"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Interprocess Communication (IPC).md": {
+      "hash": "f3d7bb32bb436441b5f89397b69c61a8",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Interprocess_Communication__IPC__Interprocess-Communication-IPC_chunk_464"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Message copying.md": {
+      "hash": "4c3fd27f249883cc12feb55e866d181b",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Message_copying_Message-copying_chunk_465"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Message-passing API.md": {
+      "hash": "37bc61f2403c85c0e43aa812f4943788",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Message-passing_API_Message-passing-API_chunk_466"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Pipes and FIFOs.md": {
+      "hash": "cc239309b43bcbc66230bb40104dbb14",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Pipes_and_FIFOs_Pipes-and-FIFOs_chunk_467"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/POSIX message queues.md": {
+      "hash": "4da5a9545011e4e1cd1f0482cfc4e776",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_POSIX_message_queues_POSIX-message-queues_chunk_468"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Priority inheritance and messages.md": {
+      "hash": "eeae83cc981026f94aac9b74655567fe",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Priority_inheritance_and_messages_Priority-inheritance-and-messa_chunk_469"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Pulses.md": {
+      "hash": "0532334220e7e66f1ddbe496d2f2acc8",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Pulses_Pulses_chunk_470"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Robust implementations with Send-Receive-Reply.md": {
+      "hash": "463f61063c0fd8ffcd1ad95696db777b",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Robust_implementations_with_Send-Receive-Reply_Robust-implementations-with-Se_chunk_471"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Shared_Memory/00-INDEX.md": {
+      "hash": "9185fa35bd033582efd25bd2b6cf1a43",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Shared_Memory_00-INDEX_00-INDEX_chunk_472"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Shared_Memory/Creating a shared-memory object.md": {
+      "hash": "a231ad1d54b0d8c2388c42723ee64b2b",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Shared_Memory_Creating_a_shared-memory_object_Creating-a-shared-memory-objec_chunk_473"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Shared_Memory/mmap().md": {
+      "hash": "7cca3b0e79ba82f9d9415961f6ffb7e0",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Shared_Memory_mmap___mmap_chunk_474"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Shared_Memory/Shared memory with message passing.md": {
+      "hash": "dba04eb0e5737281f7f5d6e8cbe59f63",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Shared_Memory_Shared_memory_with_message_passing_Shared-memory-with-message-pas_chunk_475"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Shared_Memory/Shared memory.md": {
+      "hash": "9d1981b50b1d5a64dccb4f90c24d4de7",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Shared_Memory_Shared_memory_Shared-memory_chunk_476"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Signals.md": {
+      "hash": "9f113ac0aaa0ecd19f0663ecb2a705da",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Signals_Signals_chunk_477"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Simple messages.md": {
+      "hash": "d4a71ff3bcfbb49b942e64a702e03e33",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Simple_messages_Simple-messages_chunk_478"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Synchronous message passing.md": {
+      "hash": "ad59dd7c69efdb1eae72251aaa8b1526",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Synchronous_message_passing_Synchronous-message-passing_chunk_479"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/IPC/Typed memory.md": {
+      "hash": "7c3c533a3687d72d1751c7ea77dcfeea",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_IPC_Typed_memory_Typed-memory_chunk_480"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Synchronization-services/00-INDEX.md": {
+      "hash": "4afc3cc76d7509fc0bd3859e980c39ff",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_00-INDEX_00-INDEX_chunk_481"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Synchronization-services/Barriers.md": {
+      "hash": "dadee755b64f44a7cd0439fbf05025e8",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_Barriers_Barriers_chunk_482"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Synchronization-services/Condvars condition variables.md": {
+      "hash": "62c79faf76eb4e770f7d552809f1f581",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_Condvars_condition_variables_Condvars-condition-variables_chunk_483"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Synchronization-services/Mutexesmutual exclusion locks.md": {
+      "hash": "8a441f3c7bb69d9285770fb4c896d53a",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_Mutexesmutual_exclusion_locks_Priority-inheritance-and-mutex_chunk_484",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_Mutexesmutual_exclusion_locks_Other-attributes_chunk_485"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Synchronization-services/Reader-writer locks.md": {
+      "hash": "6dbbbff6e4cfc0ec15826101b8071209",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_Reader-writer_locks_Reader-writer-locks_chunk_486"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Synchronization-services/Semaphores.md": {
+      "hash": "ecf8c5a7bddd76770e154b3f6e95d212",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_Semaphores_Semaphores_chunk_487"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Synchronization-services/Sleepon locks.md": {
+      "hash": "4ccd348935914ddd0d2fe9e27d6269f1",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_Sleepon_locks_Sleepon-locks_chunk_488"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Synchronization-services/Synchronization services.md": {
+      "hash": "9fd2c7e093fedf80ae169d6e7d4bbe8d",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_Synchronization_services_Synchronization-services_chunk_489"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Synchronization-services/Synchronization via atomic operations.md": {
+      "hash": "da7c4c04da39ae30a732062134c4fa47",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_Synchronization_via_atomic_operations_Synchronization-via-atomic-ope_chunk_490"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Synchronization-services/Synchronization via scheduling policy.md": {
+      "hash": "2ddc35fedbbee4548519c0c6c6aceec8",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Synchronization-services_Synchronization_via_scheduling_policy_Synchronization-via-scheduling_chunk_491"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/System Architecture.md": {
+      "hash": "9a86c615ce35619b814a915e4619efe9",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_System_Architecture_System-Architecture_chunk_492"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/The Philosophy of the QNX Neutrino RTOS.md": {
+      "hash": "948fe5850fd0bb8ee244ef31d07141d8",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_The_Philosophy_of_the_QNX_Neutrino_RTOS_The-Philosophy-of-the-QNX-Neut_chunk_493"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/00-INDEX.md": {
+      "hash": "a93ee5239ed3d66dd35d4bf3a42c1c7d",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_00-INDEX_00-INDEX_chunk_494"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/00-INDEX.md": {
+      "hash": "775d59866c573342fa78367e86555300",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_00-INDEX_00-INDEX_chunk_495"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_destroy().md": {
+      "hash": "2ed2ff99cc8164ae34f7ed831d882835",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_destroy___Synopsis_chunk_496",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_destroy___Arguments_chunk_497",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_destroy___Library_chunk_498",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_destroy___Description_chunk_499",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_destroy___Returns_chunk_500",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_destroy___Classification_chunk_501"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_getdetachstate().md": {
+      "hash": "08a9594419d17c29086802102b4838b4",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getdetachstate___Synopsis_chunk_502",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getdetachstate___Arguments_chunk_503",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getdetachstate___Library_chunk_504",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getdetachstate___Description_chunk_505",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getdetachstate___Returns_chunk_506",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getdetachstate___Classification_chunk_507"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_getinheritsched().md": {
+      "hash": "f565e0174e5319e170286aa3dbef4ce1",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getinheritsched___Synopsis_chunk_508",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getinheritsched___Arguments_chunk_509",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getinheritsched___Library_chunk_510",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getinheritsched___Description_chunk_511",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getinheritsched___Returns_chunk_512",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getinheritsched___Classification_chunk_513"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_getschedparam().md": {
+      "hash": "bba79418050c19b8e079da53d3e323f7",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedparam___Synopsis_chunk_514",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedparam___Arguments_chunk_515",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedparam___Library_chunk_516",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedparam___Description_chunk_517",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedparam___Returns_chunk_518",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedparam___Classification_chunk_519"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_getschedpolicy().md": {
+      "hash": "507e57b715d6fee7a4d6246b55017540",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedpolicy___Synopsis_chunk_520",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedpolicy___Arguments_chunk_521",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedpolicy___Library_chunk_522",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedpolicy___Description_chunk_523",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedpolicy___Returns_chunk_524",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getschedpolicy___Classification_chunk_525"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_getscope().md": {
+      "hash": "b98765943fd0b0bee2bbd18323982319",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getscope___Synopsis_chunk_526",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getscope___Arguments_chunk_527",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getscope___Library_chunk_528",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getscope___Description_chunk_529",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getscope___Returns_chunk_530",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getscope___Classification_chunk_531"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_getstackaddr().md": {
+      "hash": "1497bde9080dc578da623506cb09f406",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstackaddr___Synopsis_chunk_532",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstackaddr___Arguments_chunk_533",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstackaddr___Library_chunk_534",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstackaddr___Description_chunk_535",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstackaddr___Returns_chunk_536",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstackaddr___Classification_chunk_537"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_getstacksize().md": {
+      "hash": "a5279e1e11ea991eddc51252451ef598",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstacksize___Synopsis_chunk_538",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstacksize___Arguments_chunk_539",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstacksize___Library_chunk_540",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstacksize___Description_chunk_541",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstacksize___Returns_chunk_542",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_getstacksize___Classification_chunk_543"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_init().md": {
+      "hash": "08ebf15419526ef143df63102504dbd5",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_init___Synopsis_chunk_544",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_init___Arguments_chunk_545",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_init___Library_chunk_546",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_init___Description_chunk_547",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_init___Returns_chunk_548",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_init___Classification_chunk_549"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_setdetachstate().md": {
+      "hash": "4e59da860edbc41b7d150795d10d9276",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setdetachstate___Synopsis_chunk_550",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setdetachstate___Arguments_chunk_551",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setdetachstate___Library_chunk_552",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setdetachstate___Description_chunk_553",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setdetachstate___Returns_chunk_554",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setdetachstate___Classification_chunk_555"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_setinheritsched().md": {
+      "hash": "c03027551cafd4d16ab72195aee7dd56",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setinheritsched___Synopsis_chunk_556",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setinheritsched___Arguments_chunk_557",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setinheritsched___Library_chunk_558",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setinheritsched___Description_chunk_559",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setinheritsched___Returns_chunk_560",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setinheritsched___Classification_chunk_561"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_setschedparam().md": {
+      "hash": "a6c5b673e83ea69f9ae027b4f1a5e91f",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedparam___Synopsis_chunk_562",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedparam___Arguments_chunk_563",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedparam___Library_chunk_564",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedparam___Description_chunk_565",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedparam___Returns_chunk_566",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedparam___Examples_chunk_567",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedparam___Classification_chunk_568"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_setschedpolicy().md": {
+      "hash": "09a3bfba1752ed5c6223240478fac953",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedpolicy___Synopsis_chunk_569",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedpolicy___Arguments_chunk_570",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedpolicy___Library_chunk_571",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedpolicy___Description_chunk_572",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedpolicy___Returns_chunk_573",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setschedpolicy___Classification_chunk_574"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_setscope().md": {
+      "hash": "f59fabd3a9c36bc98dbbfe0381cf1a61",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setscope___Synopsis_chunk_575",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setscope___Arguments_chunk_576",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setscope___Library_chunk_577",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setscope___Description_chunk_578",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setscope___Returns_chunk_579",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setscope___Classification_chunk_580"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_setstackaddr().md": {
+      "hash": "11b14c0ec198bb0daa6bba1c5997b4ba",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstackaddr___Synopsis_chunk_581",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstackaddr___Arguments_chunk_582",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstackaddr___Library_chunk_583",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstackaddr___Description_chunk_584",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstackaddr___Returns_chunk_585",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstackaddr___Classification_chunk_586",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstackaddr___Caveats_chunk_587"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_attr_setstacksize().md": {
+      "hash": "c1ee8750816151268f17cb6155699109",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstacksize___Synopsis_chunk_588",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstacksize___Arguments_chunk_589",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstacksize___Library_chunk_590",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstacksize___Description_chunk_591",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstacksize___Returns_chunk_592",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstacksize___Classification_chunk_593",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_attr_setstacksize___Caveats_chunk_594"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_cleanup_pop().md": {
+      "hash": "62349bb579c50ae6fc414712d556f95a",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_pop___Synopsis_chunk_595",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_pop___Arguments_chunk_596",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_pop___Library_chunk_597",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_pop___Description_chunk_598",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_pop___Examples_chunk_599",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_pop___Classification_chunk_600"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_cleanup_push().md": {
+      "hash": "9a6d8fa336a587e0876c94b5e51af488",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_push___Synopsis_chunk_601",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_push___Arguments_chunk_602",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_push___Library_chunk_603",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_push___Description_chunk_604",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_push___Examples_chunk_605",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_cleanup_push___Classification_chunk_606"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_equal().md": {
+      "hash": "c10f0e3d605413ad46ea3d5c8cc7ac24",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_equal___Synopsis_chunk_607",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_equal___Arguments_chunk_608",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_equal___Library_chunk_609",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_equal___Description_chunk_610",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_equal___Returns_chunk_611",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_equal___Classification_chunk_612"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_getspecific().md": {
+      "hash": "773d282bfc155382036740b0e2171d8e",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_getspecific___Synopsis_chunk_613",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_getspecific___Arguments_chunk_614",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_getspecific___Library_chunk_615",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_getspecific___Description_chunk_616",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_getspecific___Returns_chunk_617",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_getspecific___Examples_chunk_618",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_getspecific___Classification_chunk_619"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_key_create().md": {
+      "hash": "28d1c7fc770796bf6b1e877db75a0438",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_create___Synopsis_chunk_620",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_create___Arguments_chunk_621",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_create___Library_chunk_622",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_create___Description_chunk_623",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_create___Returns_chunk_624",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_create___Examples_chunk_625",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_create___Classification_chunk_626",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_create___Caveats_chunk_627"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_key_delete().md": {
+      "hash": "1f20ae4e2de53348eecae3a87382ccb1",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_delete___Synopsis_chunk_628",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_delete___Arguments_chunk_629",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_delete___Library_chunk_630",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_delete___Description_chunk_631",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_delete___Returns_chunk_632",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_key_delete___Classification_chunk_633"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_self().md": {
+      "hash": "adbca03cad4f58a543e3706fd3cb98fe",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_self___Synopsis_chunk_634",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_self___Library_chunk_635",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_self___Description_chunk_636",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_self___Returns_chunk_637",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_self___Classification_chunk_638"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/CodeSnippet/pthread_setspecific().md": {
+      "hash": "c1236173fdb07a6be7229ae68a9168e4",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_setspecific___Synopsis_chunk_639",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_setspecific___Arguments_chunk_640",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_setspecific___Library_chunk_641",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_setspecific___Description_chunk_642",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_setspecific___Returns_chunk_643",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_setspecific___Examples_chunk_644",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_setspecific___Classification_chunk_645",
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_CodeSnippet_pthread_setspecific___Caveats_chunk_646"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/Thread and processes.md": {
+      "hash": "5c39e966588f58e9587af8d1c1478baf",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_Thread_and_processes_Thread-and-processes_chunk_647"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/Thread Attributes.md": {
+      "hash": "b61fa6cb049eb3cf07283d71c794b64b",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_Thread_Attributes_Thread-Attributes_chunk_648"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-and-Processes/Thread Lifecycle.md": {
+      "hash": "d38c5c96205689ebd6e6a46a05f28ecf",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-and-Processes_Thread_Lifecycle_Thread-Lifecycle_chunk_649"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-Scheduling/00-INDEX.md": {
+      "hash": "c7d51aa78b4e2e2a040a9201e9cd398e",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-Scheduling_00-INDEX_00-INDEX_chunk_650"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-Scheduling/IPC issues.md": {
+      "hash": "c71511b10699a6394be47ad2ca887e1b",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-Scheduling_IPC_issues_IPC-issues_chunk_651"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-Scheduling/Scheduling policies.md": {
+      "hash": "4b94bd548306aabe33e5c5645268a757",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-Scheduling_Scheduling_policies_Scheduling-policies_chunk_652"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-Scheduling/Scheduling priority.md": {
+      "hash": "52fbe8741de6a32235bfb1f9879f5cad",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-Scheduling_Scheduling_priority_Scheduling-priority_chunk_653"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-Scheduling/Thread complexity issues.md": {
+      "hash": "f0d6c77e318a9eb6c52f23c641b8789a",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-Scheduling_Thread_complexity_issues_Thread-complexity-issues_chunk_654"
+      ],
+      "indexed": true
+    },
+    "QNX Momentics IDE 7.0 User's Guide/System-Architecture/Thread-Scheduling/Thread scheduling.md": {
+      "hash": "5b48e587fb7d5ff0f8aae2578d59afd5",
+      "chunkIds": [
+        "QNX_Momentics_IDE_7_0_User_s_Guide_System-Architecture_Thread-Scheduling_Thread_scheduling_Thread-scheduling_chunk_655"
+      ],
+      "indexed": true
+    },
+    "QNX-DOCUMENTS-CONTEXT/QNX-Documents-Context-ENG.md": {
+      "hash": "e9bf56c961e0a367e6cb2bcd14a66499",
+      "chunkIds": [
+        "QNX-DOCUMENTS-CONTEXT_QNX-Documents-Context-ENG_QNX-Documents-Context-ENG_chunk_656",
+        "QNX-DOCUMENTS-CONTEXT_QNX-Documents-Context-ENG_QNX-Documents-Context-ENG_chunk_657"
+      ],
+      "indexed": true
+    },
+    "QNX-DOCUMENTS-CONTEXT/QNX-Documents-Context-VI.md": {
+      "hash": "e5d5c00d2192dcb0ae3e7b0d1ab90fac",
+      "chunkIds": [
+        "QNX-DOCUMENTS-CONTEXT_QNX-Documents-Context-VI_QNX-Documents-Context-VI_chunk_658",
+        "QNX-DOCUMENTS-CONTEXT_QNX-Documents-Context-VI_QNX-Documents-Context-VI_chunk_659"
+      ],
+      "indexed": true
+    },
+    "QNX-ON-REMOTE-DEVICE/QNX-ON-REMOTE-DEVICE-ENG.md": {
+      "hash": "82e2b7a1d2573b168383a7d56990cce6",
+      "chunkIds": [
+        "QNX-ON-REMOTE-DEVICE_QNX-ON-REMOTE-DEVICE-ENG_QNX-ON-REMOTE-DEVICE-ENG_chunk_660"
+      ],
+      "indexed": true
+    },
+    "QNX-ON-REMOTE-DEVICE/QNX-ON-REMOTE-DEVICE-VI.md": {
+      "hash": "9e03dcb55ca0027d9806c93124e741b5",
+      "chunkIds": [
+        "QNX-ON-REMOTE-DEVICE_QNX-ON-REMOTE-DEVICE-VI_QNX-ON-REMOTE-DEVICE-VI_chunk_661"
+      ],
+      "indexed": true
+    },
+    "QNX-SOFTWARE-CENTER/Setup-and-documentations.md": {
+      "hash": "56b2fc0f0e5167bc5c279e5e36d92564",
+      "chunkIds": [
+        "QNX-SOFTWARE-CENTER_Setup-and-documentations_Setup-and-documentations_chunk_662"
+      ],
+      "indexed": true
+    },
+    "QNX-TESTING/00-INDEX.md": {
+      "hash": "6a80280c609dd420bb541fed4e3b3566",
+      "chunkIds": [
+        "QNX-TESTING_00-INDEX_00-INDEX_chunk_663"
+      ],
+      "indexed": true
+    },
+    "QNX-TESTING/Exporting Code Coverage results.md": {
+      "hash": "aed17593bb522e1ff8b279b353df88df",
+      "chunkIds": [
+        "QNX-TESTING_Exporting_Code_Coverage_results_Exporting-Code-Coverage-result_chunk_664"
+      ],
+      "indexed": true
+    },
+    "QNX-TESTING/Importing Code Coverage results.md": {
+      "hash": "af129b16326f017cb23fe2d6ea9bbef3",
+      "chunkIds": [
+        "QNX-TESTING_Importing_Code_Coverage_results_Importing-Code-Coverage-result_chunk_665"
+      ],
+      "indexed": true
+    },
+    "QNX-TESTING/Measuring code coverage.md": {
+      "hash": "73c74229ee8379be64a1b26bb1c637ce",
+      "chunkIds": [
+        "QNX-TESTING_Measuring_code_coverage_Generating-code-coverage-data-_chunk_666"
+      ],
+      "indexed": true
+    },
+    "QNX-TESTING/README.md": {
+      "hash": "194066e90881155a2999a3efcf0478e6",
+      "chunkIds": [
+        "QNX-TESTING_README_Flow_chunk_667",
+        "QNX-TESTING_README_Quick-Navigation_chunk_668",
+        "QNX-TESTING_README_Quy-c-Reformat_chunk_669"
+      ],
+      "indexed": true
+    },
+    "QNX-TESTING/Running test programs.md": {
+      "hash": "aa305e5115a2bb12639a7fb7f5d672c1",
+      "chunkIds": [
+        "QNX-TESTING_Running_test_programs_Running-test-programs_chunk_670"
+      ],
+      "indexed": true
+    },
+    "QNX-TESTING/Unit Testing.md": {
+      "hash": "711490e9b6dbffade5a83b863af184c6",
+      "chunkIds": [
+        "QNX-TESTING_Unit_Testing_Unit-Testing_chunk_671"
+      ],
+      "indexed": true
+    },
+    "QNX-TESTING/Writing and building test programs.md": {
+      "hash": "0a2e9314a00554ff6ce36b58ffbd1e68",
+      "chunkIds": [
+        "QNX-TESTING_Writing_and_building_test_programs_Writing-and-building-test-prog_chunk_672"
+      ],
+      "indexed": true
+    },
+    "Terms/ARMv7le và arm-le.md": {
+      "hash": "eb532a8a887855642525820b0c6fda06",
+      "chunkIds": [
+        "Terms_ARMv7le_v__arm-le_ARMv7le-v-arm-le_chunk_673"
+      ],
+      "indexed": true
+    },
+    "Terms/Launch Configuration.md": {
+      "hash": "1c6542fbab54b3f208d01247d049245e",
+      "chunkIds": [
+        "Terms_Launch_Configuration_Launch-Configuration_chunk_674"
+      ],
+      "indexed": true
+    },
+    "Terms/Overhead.md": {
+      "hash": "1e3bb7d010e15bb2adc0c9511bc3d659",
+      "chunkIds": [
+        "Terms_Overhead_Overhead_chunk_675"
+      ],
+      "indexed": true
+    },
+    "Terms/Prompt - Dấu nhắc lệnh.md": {
+      "hash": "13d0750cd74532ab0b435d0d484c8acc",
+      "chunkIds": [
+        "Terms_Prompt_-_D_u_nh_c_l_nh_Prompt---Du-nhc-lnh_chunk_676"
+      ],
+      "indexed": true
+    },
+    "Terms/Telnet-Connection.md": {
+      "hash": "21187f1dd331820c5e8092b92d8deb0f",
+      "chunkIds": [
+        "Terms_Telnet-Connection_Telnet-Connection_chunk_677"
+      ],
+      "indexed": true
+    },
+    "Tutorial-01/Set-up-service-net-tutorial.md": {
+      "hash": "a1fda4b2bce6d7d549b8786c28a03886",
+      "chunkIds": [
+        "Tutorial-01_Set-up-service-net-tutorial_1-Cu-hnh-startupsh-dng-45_chunk_678",
+        "Tutorial-01_Set-up-service-net-tutorial_2-Chy-cc-lnh-trong-VM_chunk_679"
+      ],
+      "indexed": true
+    },
+    "Tutorial-02/Note-task-1b.md": {
+      "hash": "e8423dacb2f8f1818ecc8204e5061bc1",
+      "chunkIds": [
+        "Tutorial-02_Note-task-1b_Note-task-1b_chunk_680",
+        "Tutorial-02_Note-task-1b_Note-task-1b_chunk_681"
+      ],
+      "indexed": true
+    },
+    "Week-01/Architecture - Specification.md": {
+      "hash": "c657f27ad7e1e1aefa279ca489487a8a",
+      "chunkIds": [
+        "Week-01_Architecture_-_Specification_Architecture---Specification_chunk_682",
+        "Week-01_Architecture_-_Specification_Architecture---Specification_chunk_683"
+      ],
+      "indexed": true
+    },
+    "Week-01/Deploy-On-VM.md": {
+      "hash": "25f41e949f912a447c2677313976062a",
+      "chunkIds": [
+        "Week-01_Deploy-On-VM_Deploy-On-VM_chunk_684",
+        "Week-01_Deploy-On-VM_Deploy-On-VM_chunk_685",
+        "Week-01_Deploy-On-VM_Deploy-On-VM_chunk_686"
+      ],
+      "indexed": true
+    },
+    "Week-01/Directories.md": {
+      "hash": "a6deb9f6d40aa0ea0f5062438175d9aa",
+      "chunkIds": [
+        "Week-01_Directories_Directories_chunk_687"
+      ],
+      "indexed": true
+    },
+    "Week-01/Hostname-And-QNET-Service.md": {
+      "hash": "2cf56c113d17011ac8742b3749f22d95",
+      "chunkIds": [
+        "Week-01_Hostname-And-QNET-Service_Hostname-And-QNET-Service_chunk_688",
+        "Week-01_Hostname-And-QNET-Service_Hostname-And-QNET-Service_chunk_689"
+      ],
+      "indexed": true
+    },
+    "Week-01/Lecture 1 -  Introduction to Real-Time Systems.md": {
+      "hash": "010f7f8eedb04c22b2e070dccd7fc12e",
+      "chunkIds": [
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_690",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_691",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_692",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_693",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_694",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_695",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_696",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_697",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_698",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_699",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_700",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_701",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_702",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_703",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_704",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_705",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_706",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_707",
+        "Week-01_Lecture_1_-__Introduction_to_Real-Time_Systems_Lecture-1---Introduction-to-R_chunk_708"
+      ],
+      "indexed": true
+    },
+    "Week-01/QNX-Terminal-Commands.md": {
+      "hash": "d72cc449e9742113562b44abf9581e6d",
+      "chunkIds": [
+        "Week-01_QNX-Terminal-Commands_QNX-Terminal-Commands_chunk_709",
+        "Week-01_QNX-Terminal-Commands_QNX-Terminal-Commands_chunk_710",
+        "Week-01_QNX-Terminal-Commands_QNX-Terminal-Commands_chunk_711"
+      ],
+      "indexed": true
+    },
+    "Week-02/Detached-vs-Thread.md": {
+      "hash": "c9d3b9fcc3edbadbd996d2ca2257ca27",
+      "chunkIds": [
+        "Week-02_Detached-vs-Thread_Detached-vs-Thread_chunk_712"
+      ],
+      "indexed": true
+    },
+    "Week-02/Lecture 2 - Concurrent Processes.md": {
+      "hash": "bdf1a78ba069a937f1414be66172a54e",
+      "chunkIds": [
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_713",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_714",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_715",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_716",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_717",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_718",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_719",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_720",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_721",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_722",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_723",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_724",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_725",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_726",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_727",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_728",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_729",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_730",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_731",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_732",
+        "Week-02_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_733"
+      ],
+      "indexed": true
+    },
+    "Week-02/Lecture 2 - Part 2 - IPC - QNX.md": {
+      "hash": "eefea1e1108b52ee8f417adc83b9c0e3",
+      "chunkIds": [
+        "Week-02_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_734",
+        "Week-02_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_735",
+        "Week-02_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_736",
+        "Week-02_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_737",
+        "Week-02_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_738",
+        "Week-02_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_739",
+        "Week-02_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_740",
+        "Week-02_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_741",
+        "Week-02_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_742"
+      ],
+      "indexed": true
+    },
+    "Week-02/Shared-Data-And-Race-Conditions.md": {
+      "hash": "221cfb8b5aef7e8cc5a9c11fd5a6d6b1",
+      "chunkIds": [
+        "Week-02_Shared-Data-And-Race-Conditions_Shared-Data-And-Race-Condition_chunk_743",
+        "Week-02_Shared-Data-And-Race-Conditions_Shared-Data-And-Race-Condition_chunk_744",
+        "Week-02_Shared-Data-And-Race-Conditions_Shared-Data-And-Race-Condition_chunk_745"
+      ],
+      "indexed": true
+    },
+    "Week-02 and 03/Detached-vs-Thread.md": {
+      "hash": "c9d3b9fcc3edbadbd996d2ca2257ca27",
+      "chunkIds": [
+        "Week-02_and_03_Detached-vs-Thread_Detached-vs-Thread_chunk_746"
+      ],
+      "indexed": true
+    },
+    "Week-02 and 03/Lecture 2 - Concurrent Processes.md": {
+      "hash": "bdf1a78ba069a937f1414be66172a54e",
+      "chunkIds": [
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_747",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_748",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_749",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_750",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_751",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_752",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_753",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_754",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_755",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_756",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_757",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_758",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_759",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_760",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_761",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_762",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_763",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_764",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_765",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_766",
+        "Week-02_and_03_Lecture_2_-_Concurrent_Processes_Lecture-2---Concurrent-Process_chunk_767"
+      ],
+      "indexed": true
+    },
+    "Week-02 and 03/Lecture 2 - Part 2 - IPC - QNX.md": {
+      "hash": "eefea1e1108b52ee8f417adc83b9c0e3",
+      "chunkIds": [
+        "Week-02_and_03_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_768",
+        "Week-02_and_03_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_769",
+        "Week-02_and_03_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_770",
+        "Week-02_and_03_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_771",
+        "Week-02_and_03_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_772",
+        "Week-02_and_03_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_773",
+        "Week-02_and_03_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_774",
+        "Week-02_and_03_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_775",
+        "Week-02_and_03_Lecture_2_-_Part_2_-_IPC_-_QNX_Lecture-2---Part-2---IPC---QNX_chunk_776"
+      ],
+      "indexed": true
+    },
+    "Week-02 and 03/Shared-Data-And-Race-Conditions.md": {
+      "hash": "221cfb8b5aef7e8cc5a9c11fd5a6d6b1",
+      "chunkIds": [
+        "Week-02_and_03_Shared-Data-And-Race-Conditions_Shared-Data-And-Race-Condition_chunk_777",
+        "Week-02_and_03_Shared-Data-And-Race-Conditions_Shared-Data-And-Race-Condition_chunk_778",
+        "Week-02_and_03_Shared-Data-And-Race-Conditions_Shared-Data-And-Race-Condition_chunk_779"
+      ],
+      "indexed": true
+    },
+    "Week-04/Data-Protection-In-Realtime-Systems.md": {
+      "hash": "37269d5548fcaf3eff6a8709e3e09480",
+      "chunkIds": [
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_780",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_781",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_782",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_783",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_784",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_785",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_786",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_787",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_788",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_789",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_790",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_791",
+        "Week-04_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_792"
+      ],
+      "indexed": true
+    },
+    "Week-04-05/CHANGES-ON-MAKE-FILE.md": {
+      "hash": "1951ff2077b2c2dc82a88d74c2cc41e1",
+      "chunkIds": [
+        "Week-04-05_CHANGES-ON-MAKE-FILE_CHANGES-ON-MAKE-FILE_chunk_793"
+      ],
+      "indexed": true
+    },
+    "Week-04-05/Data-Protection-In-Realtime-Systems.md": {
+      "hash": "37269d5548fcaf3eff6a8709e3e09480",
+      "chunkIds": [
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_794",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_795",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_796",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_797",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_798",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_799",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_800",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_801",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_802",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_803",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_804",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_805",
+        "Week-04-05_Data-Protection-In-Realtime-Systems_Data-Protection-In-Realtime-Sy_chunk_806"
+      ],
+      "indexed": true
+    },
+    "Week-06/01 - Rational Design Process.md": {
+      "hash": "c00c764d8c1266a5c1e54b21d2cbb9e1",
+      "chunkIds": [
+        "Week-06_01_-_Rational_Design_Process_01---Rational-Design-Process_chunk_807",
+        "Week-06_01_-_Rational_Design_Process_01---Rational-Design-Process_chunk_808"
+      ],
+      "indexed": true
+    },
+    "Week-06/02 - SA - SD.md": {
+      "hash": "6124b8ae0db756a58913eb8d74646261",
+      "chunkIds": [
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_809",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_810",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_811",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_812",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_813",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_814",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_815",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_816",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_817",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_818",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_819",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_820",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_821",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_822",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_823",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_824",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_825",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_826",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_827",
+        "Week-06_02_-_SA_-_SD_02---SA---SD_chunk_828"
+      ],
+      "indexed": true
+    },
+    "week-08/Planning.md": {
+      "hash": "2c3ef5f5c79cb0fccfb300f4e1be5366",
+      "chunkIds": [
+        "week-08_Planning_Planning_chunk_829",
+        "week-08_Planning_Planning_chunk_830"
+      ],
+      "indexed": true
+    },
+    "week-08/W8 - 1 - Bức tranh tổng quan về Hệ thống & Phương pháp luận.md": {
+      "hash": "bc1b5cf72a2b49eafde3bd50e173177d",
+      "chunkIds": [
+        "week-08_W8_-_1_-_B_c_tranh_t_ng_quan_v__H__th_ng___Ph__ng_ph_p_lu_n_W8---1---Bc-tranh-tng-quan-v-H_chunk_831",
+        "week-08_W8_-_1_-_B_c_tranh_t_ng_quan_v__H__th_ng___Ph__ng_ph_p_lu_n_W8---1---Bc-tranh-tng-quan-v-H_chunk_832",
+        "week-08_W8_-_1_-_B_c_tranh_t_ng_quan_v__H__th_ng___Ph__ng_ph_p_lu_n_W8---1---Bc-tranh-tng-quan-v-H_chunk_833",
+        "week-08_W8_-_1_-_B_c_tranh_t_ng_quan_v__H__th_ng___Ph__ng_ph_p_lu_n_W8---1---Bc-tranh-tng-quan-v-H_chunk_834",
+        "week-08_W8_-_1_-_B_c_tranh_t_ng_quan_v__H__th_ng___Ph__ng_ph_p_lu_n_W8---1---Bc-tranh-tng-quan-v-H_chunk_835"
+      ],
+      "indexed": true
+    },
+    "week-08/W8 - 2 - Bóc tách và Nhận diện Task (Separation).md": {
+      "hash": "58ab0b16c7200ede397bad08500309f9",
+      "chunkIds": [
+        "week-08_W8_-_2_-_B_c_t_ch_v__Nh_n_di_n_Task__Separation__W8---2---Bc-tch-v-Nhn-din-Task_chunk_836",
+        "week-08_W8_-_2_-_B_c_t_ch_v__Nh_n_di_n_Task__Separation__W8---2---Bc-tch-v-Nhn-din-Task_chunk_837"
+      ],
+      "indexed": true
+    },
+    "week-08/W8 - 3 - Tối ưu hóa - Gom nhóm và Đảo ngược Task (Grouping & Minimization).md": {
+      "hash": "85d124b83dd1e3576b8138dafb677ed1",
+      "chunkIds": [
+        "week-08_W8_-_3_-_T_i__u_h_a_-_Gom_nh_m_v____o_ng__c_Task__Grouping___Minimization__W8---3---Ti-u-ha---Gom-nhm-v-o_chunk_838",
+        "week-08_W8_-_3_-_T_i__u_h_a_-_Gom_nh_m_v____o_ng__c_Task__Grouping___Minimization__W8---3---Ti-u-ha---Gom-nhm-v-o_chunk_839",
+        "week-08_W8_-_3_-_T_i__u_h_a_-_Gom_nh_m_v____o_ng__c_Task__Grouping___Minimization__W8---3---Ti-u-ha---Gom-nhm-v-o_chunk_840",
+        "week-08_W8_-_3_-_T_i__u_h_a_-_Gom_nh_m_v____o_ng__c_Task__Grouping___Minimization__W8---3---Ti-u-ha---Gom-nhm-v-o_chunk_841"
+      ],
+      "indexed": true
+    },
+    "week-08/W8 - 4 - Group Project Assessment.md": {
+      "hash": "0c39aff475be7b92d4a6511bee0274da",
+      "chunkIds": [
+        "week-08_W8_-_4_-_Group_Project_Assessment_W8---4---Group-Project-Assessm_chunk_842",
+        "week-08_W8_-_4_-_Group_Project_Assessment_W8---4---Group-Project-Assessm_chunk_843"
+      ],
+      "indexed": true
+    },
+    "week-10/plan.md": {
+      "hash": "df962b5cb6f3de825caf425b47161203",
+      "chunkIds": [
+        "week-10_plan_plan_chunk_844",
+        "week-10_plan_plan_chunk_845"
+      ],
+      "indexed": true
+    },
+    "week-10/Section 1 - Khái niệm cơ bản & Điều kiện xảy ra Deadlock.md": {
+      "hash": "7b62509f0df5bf621ab938e88fc474e5",
+      "chunkIds": [
+        "week-10_Section_1_-_Kh_i_ni_m_c__b_n____i_u_ki_n_x_y_ra_Deadlock_Section-1---Khi-nim-c-bn-iu-k_chunk_846",
+        "week-10_Section_1_-_Kh_i_ni_m_c__b_n____i_u_ki_n_x_y_ra_Deadlock_Section-1---Khi-nim-c-bn-iu-k_chunk_847",
+        "week-10_Section_1_-_Kh_i_ni_m_c__b_n____i_u_ki_n_x_y_ra_Deadlock_Section-1---Khi-nim-c-bn-iu-k_chunk_848"
+      ],
+      "indexed": true
+    },
+    "week-10/Section 2 - Các chiến lược xử lý Deadlock.md": {
+      "hash": "bbbd139bb8eb57dee2c5f5a999b9fa13",
+      "chunkIds": [
+        "week-10_Section_2_-_C_c_chi_n_l__c_x__l__Deadlock_Section-2---Cc-chin-lc-x-l-Dea_chunk_849",
+        "week-10_Section_2_-_C_c_chi_n_l__c_x__l__Deadlock_Section-2---Cc-chin-lc-x-l-Dea_chunk_850"
+      ],
+      "indexed": true
+    },
+    "week-10/Section 3  Thuật toán Banker Deadlock Avoidance.md": {
+      "hash": "32cbb5867a43c099aee55ba321ab9d46",
+      "chunkIds": [
+        "week-10_Section_3__Thu_t_to_n_Banker_Deadlock_Avoidance_Section-3-Thut-ton-Banker-Dea_chunk_851",
+        "week-10_Section_3__Thu_t_to_n_Banker_Deadlock_Avoidance_Section-3-Thut-ton-Banker-Dea_chunk_852",
+        "week-10_Section_3__Thu_t_to_n_Banker_Deadlock_Avoidance_Section-3-Thut-ton-Banker-Dea_chunk_853",
+        "week-10_Section_3__Thu_t_to_n_Banker_Deadlock_Avoidance_Section-3-Thut-ton-Banker-Dea_chunk_854",
+        "week-10_Section_3__Thu_t_to_n_Banker_Deadlock_Avoidance_Section-3-Thut-ton-Banker-Dea_chunk_855",
+        "week-10_Section_3__Thu_t_to_n_Banker_Deadlock_Avoidance_Section-3-Thut-ton-Banker-Dea_chunk_856"
+      ],
+      "indexed": true
+    },
+    "week-10/Section 4 Resource Allocation Graph Deadlock Detection & Scheduling.md": {
+      "hash": "5f976aa6fa5e9bd1ce09a2a5e7e68c2f",
+      "chunkIds": [
+        "week-10_Section_4_Resource_Allocation_Graph_Deadlock_Detection___Scheduling_Section-4-Resource-Allocation-_chunk_857",
+        "week-10_Section_4_Resource_Allocation_Graph_Deadlock_Detection___Scheduling_Section-4-Resource-Allocation-_chunk_858",
+        "week-10_Section_4_Resource_Allocation_Graph_Deadlock_Detection___Scheduling_Section-4-Resource-Allocation-_chunk_859",
+        "week-10_Section_4_Resource_Allocation_Graph_Deadlock_Detection___Scheduling_Section-4-Resource-Allocation-_chunk_860"
+      ],
+      "indexed": true
+    },
+    "diagram-skills.md": {
+      "hash": "56d76262dc19fdf22d08fae53a245363",
+      "chunkIds": [
+        "diagram-skills_1-K-php-DFD-Level-1-phn-r-t-C_chunk_000",
+        "diagram-skills_2-K-php-Use-Case-diagram_chunk_001",
+        "diagram-skills_3-K-php-nhanh-cho-cc-loi-diagr_chunk_002",
+        "diagram-skills_31-K-php-Task-Architecture-COM_chunk_003",
+        "diagram-skills_32-Mu-sc-cng-thc-ton-trong-di_chunk_004",
+        "diagram-skills_4-Checklist-trc-khi-export_chunk_005",
+        "diagram-skills_6-Tham-kho-lecture-chnh-c-trc-_chunk_006"
+      ],
+      "indexed": true
+    }
+  }
+}
