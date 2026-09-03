@@ -1,4 +1,4 @@
-export type AIProviderName = 'claude' | 'gemini' | 'grok';
+export type AIProviderName = 'claude' | 'gemini' | 'grok' | 'openai';
 
 export interface CanvasAccountConfig {
   url: string;
@@ -10,7 +10,7 @@ export interface CanvasAccountConfig {
 export interface AppConfig {
   accounts: CanvasAccountConfig[];
   aiKeys: { claude?: string; gemini?: string; grok?: string; openai?: string };
-  defaultModels: { claude: string; gemini: string; grok: string };
+  defaultModels: { claude: string; gemini: string; grok: string; openai: string };
   modelFallback: Record<AIProviderName, string[]>;
   pollIntervalMs: number;
   maxRetryCount: number;

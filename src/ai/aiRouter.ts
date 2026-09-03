@@ -2,6 +2,7 @@ import type { AIAdapter, AIProviderName, AppConfig } from '../types';
 import { ClaudeAdapter } from './claudeAdapter';
 import { GeminiAdapter } from './geminiAdapter';
 import { GrokAdapter } from './grokAdapter';
+import { OpenAIAdapter } from './openaiAdapter';
 
 export interface KeyValidationResult {
   provider: AIProviderName;
@@ -36,6 +37,13 @@ export async function validateAllKeys(
         .catch((e: Error): KeyValidationResult => ({ provider: 'grok', ok: false, error: e.message }))
     );
   }
+  if (aiKeys.openai) {
+    tasks.push(
+      new OpenAIAdapter(aiKeys.openai).validate()
+        .then((): KeyValidationResult => ({ provider: 'openai', ok: true }))
+        .catch((e: Error): KeyValidationResult => ({ provider: 'openai', ok: false, error: e.message }))
+    );
+  }
 
   return Promise.all(tasks);
 }
@@ -57,6 +65,10 @@ const ADAPTER_FACTORIES: Record<AIProviderName, AdapterFactory> = {
   grok: (aiKeys, grokBaseUrl) => {
     if (!aiKeys.grok) throw new Error('GROK_API_KEY not configured');
     return new GrokAdapter(aiKeys.grok, grokBaseUrl);
+  },
+  openai: (aiKeys) => {
+    if (!aiKeys.openai) throw new Error('OPENAI_API_KEY not configured');
+    return new OpenAIAdapter(aiKeys.openai);
   },
 };
 

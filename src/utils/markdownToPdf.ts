@@ -58,7 +58,11 @@ export function buildMarked(): Marked {
     renderer: {
       code({ text, lang }) {
         const language = (lang || '').toLowerCase();
-        const body = escapeHtml(text);
+        let body = escapeHtml(text);
+        // Preserve leading indent for PDF copy-paste: convert leading spaces to &nbsp;
+        body = body.replace(/^( +)/gm, (m) => '&nbsp;'.repeat(m.length));
+        // Also preserve tabs
+        body = body.replace(/\t/g, '&nbsp;&nbsp;');
         if (language === 'mermaid') {
           return `<pre class="mermaid">${body}</pre>`;
         }
@@ -78,6 +82,47 @@ export async function collectAssetPaths(): Promise<{ katexCss: string; katexJs: 
     autoRenderJs: path.join(nm, 'katex', 'dist', 'contrib', 'auto-render.min.js'),
     mermaidJs: path.join(nm, 'mermaid', 'dist', 'mermaid.min.js'),
   };
+}
+
+export function normalizeCodeBlocks(body: string): string {
+  const lines = body.split('\n');
+  let inFence = false;
+  const out: string[] = [];
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (trimmed.startsWith('```')) {
+      inFence = !inFence;
+      out.push(rawLine);
+      continue;
+    }
+    if (inFence) {
+      out.push(rawLine);
+      continue;
+    }
+
+    // Heuristic: long line outside fence that looks like collapsed C code
+    const hasCodeKeyword = /pthread_|void\s*\*|static\s+pthread|int\s+\w+\s*[=;]|\bChannelCreate\b|\bMsgSend\b/.test(rawLine);
+    const semicolonCount = (rawLine.match(/;/g) || []).length;
+    const hasBraces = rawLine.includes('{') || rawLine.includes('}');
+
+    if (hasCodeKeyword && semicolonCount >= 2 && rawLine.length > 80) {
+      let code = rawLine
+        .replace(/;\s*/g, ';\n')
+        .replace(/\{\s*/g, '{\n')
+        .replace(/\}\s*/g, '\n}\n')
+        .replace(/\n\s*\n/g, '\n')
+        .trim();
+      // Clean up extra newlines around braces
+      code = code.replace(/\n\{\n/g, ' {\n').replace(/\n\}\n/g, '\n}');
+      out.push('```c');
+      out.push(code);
+      out.push('```');
+    } else {
+      out.push(rawLine);
+    }
+  }
+  return out.join('\n');
 }
 
 export function pathToFileUrl(p: string): string {
@@ -119,8 +164,8 @@ export function buildPageHtml(title: string, meta: Record<string, string>, bodyH
     color: #555; background: #f7f7f7;
   }
   code { font-family: 'Consolas', 'Courier New', monospace; background: #f1f1f1; padding: 1pt 3pt; border-radius: 3px; font-size: 9.5pt; }
-  pre { background: #f6f6f6; border: 1px solid #ddd; border-radius: 4px; padding: 8pt 10pt; overflow: hidden; }
-  pre code { background: none; padding: 0; }
+  pre { background: #f6f6f6; border: 1px solid #ddd; border-radius: 4px; padding: 8pt 10pt; overflow: hidden; white-space: pre; tab-size: 2; -moz-tab-size: 2; word-wrap: normal; }
+  pre code { background: none; padding: 0; white-space: pre; tab-size: 2; -moz-tab-size: 2; font-variant-ligatures: none; }
   table { border-collapse: collapse; width: 100%; margin: 8pt 0; }
   th, td { border: 1px solid #bbb; padding: 4pt 8pt; text-align: left; font-size: 9.5pt; }
   th { background: #eee; font-weight: 600; }
@@ -195,7 +240,8 @@ export async function markdownToPdf(
     throw new Error('katex dist not found');
   }
 
-  const normalized = normalizeMathDelimiters(body);
+  const normalizedCode = normalizeCodeBlocks(body);
+  const normalized = normalizeMathDelimiters(normalizedCode);
   const md = buildMarked();
   const bodyHtml = md.parse(normalized) as string;
 

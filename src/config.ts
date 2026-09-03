@@ -42,11 +42,13 @@ export function loadConfig(): AppConfig {
       claude: process.env.DEFAULT_MODEL_CLAUDE ?? 'claude-sonnet-4-6',
       gemini: process.env.DEFAULT_MODEL_GEMINI ?? 'gemini-2.0-flash',
       grok: process.env.DEFAULT_MODEL_GROK ?? 'grok-3',
+      openai: process.env.DEFAULT_MODEL_OPENAI ?? 'gpt-5',
     },
     modelFallback: {
       claude: (process.env.MODEL_FALLBACK_CLAUDE ?? 'claude-sonnet-4-6,claude-haiku-4-5-20251001').split(',').map(s => s.trim()).filter(Boolean),
       gemini: (process.env.MODEL_FALLBACK_GEMINI ?? 'gemini-3.5-flash,gemini-3.1-flash-lite,gemini-2.5-flash-lite').split(',').map(s => s.trim()).filter(Boolean),
       grok: (process.env.MODEL_FALLBACK_GROK ?? 'grok-3,grok-4-1-fast-reasoning').split(',').map(s => s.trim()).filter(Boolean),
+      openai: (process.env.MODEL_FALLBACK_OPENAI ?? 'gpt-5,o3-mini,gpt-4o,gpt-4o-mini').split(',').map(s => s.trim()).filter(Boolean),
     },
     pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS ?? '60000', 10),
     maxRetryCount: parseInt(process.env.MAX_RETRY_COUNT ?? '3', 10),
