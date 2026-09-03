@@ -13,42 +13,37 @@ async function main(): Promise<void> {
 
   const emailNotifier = new EmailNotifier(config.gmail.user, config.gmail.appPassword);
 
+  // Start API truoc de Render detect port ngay, tranh "No open ports detected"
+  const apiPort = parseInt(process.env.API_PORT ?? '3000', 10);
+  // Tam khoi tao orchestrator chua RAG, se cap nhat sau khi index xong
   let ragRetriever: RAGRetriever | undefined;
   let citationBuilder: CitationPromptBuilder | undefined;
+  let orchestrator = new PollOrchestrator(config, state, emailNotifier, ragRetriever, citationBuilder);
+  const apiServer = new ApiServer(() => orchestrator.pollAllAccounts(), config, emailNotifier, apiPort);
+  logger.startup(config.accounts.length, config.pollIntervalMs);
+  apiServer.start();
 
   if (config.vaultConfig) {
     const embedder = createEmbeddingService(
       config.vaultConfig.embeddingProvider,
       { gemini: config.aiKeys.gemini, openai: config.aiKeys.openai },
     );
-
-    try {
-      const indexer = new KnowledgeIndexer(config.vaultConfig, embedder);
-      await indexer.indexAll();
-      logger.info('Document vault indexed — RAG ready');
-
-      ragRetriever = new RAGRetriever(config.vaultConfig, embedder);
-      citationBuilder = new CitationPromptBuilder();
-    } catch (err) {
-      logger.info(`Vault indexing skipped or failed — falling back to knowledge.md: ${(err as Error).message}`);
-    }
+    // Chay index background khong block port
+    (async () => {
+      try {
+        const indexer = new KnowledgeIndexer(config.vaultConfig!, embedder);
+        await indexer.indexAll();
+        logger.info('Document vault indexed — RAG ready');
+        ragRetriever = new RAGRetriever(config.vaultConfig!, embedder);
+        citationBuilder = new CitationPromptBuilder();
+        // Cap nhat orchestrator de cac poll tiep theo dung RAG
+        (orchestrator as any).ragRetriever = ragRetriever;
+        (orchestrator as any).citationBuilder = citationBuilder;
+      } catch (err) {
+        logger.info(`Vault indexing skipped or failed — falling back to knowledge.md: ${(err as Error).message}`);
+      }
+    })();
   }
-
-  const orchestrator = new PollOrchestrator(
-    config, state, emailNotifier,
-    ragRetriever, citationBuilder,
-  );
-
-  const apiPort = parseInt(process.env.API_PORT ?? '3000', 10);
-  const apiServer = new ApiServer(
-    () => orchestrator.pollAllAccounts(),
-    config,
-    emailNotifier,
-    apiPort,
-  );
-
-  logger.startup(config.accounts.length, config.pollIntervalMs);
-  apiServer.start();
 }
 
 main().catch(err => {
