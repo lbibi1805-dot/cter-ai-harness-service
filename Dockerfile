@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
@@ -30,14 +31,13 @@ RUN npm ci --omit=dev && npm cache clean --force
 RUN npm install --omit=dev @napi-rs/canvas-linux-x64-musl@latest
 
 COPY --from=builder /app/dist ./dist
-# File runtime can thiet (doc theo src/config.ts:30-31)
-COPY system-prompt.md ./system-prompt.md
-COPY knowledge.md ./knowledge.md
-COPY .vault-manifest.json ./.vault-manifest.json
-COPY documents-vault ./documents-vault
-
-# Tao thu muc data de mount volume persistent
-RUN mkdir -p /app/data
+# Copy runtime files neu co trong build context - dung mount de khong fail khi repo chua push vault/manifest (fix Render)
+RUN --mount=type=bind,target=/tmp/context,source=. \
+    mkdir -p /app/data /app/documents-vault && \
+    if [ -f /tmp/context/system-prompt.md ]; then cp /tmp/context/system-prompt.md /app/system-prompt.md; else echo 'You are a helpful assistant.' > /app/system-prompt.md; fi && \
+    if [ -f /tmp/context/knowledge.md ]; then cp /tmp/context/knowledge.md /app/knowledge.md; else touch /app/knowledge.md; fi && \
+    if [ -f /tmp/context/.vault-manifest.json ]; then cp /tmp/context/.vault-manifest.json /app/.vault-manifest.json; else echo '{"files":{}}' > /app/.vault-manifest.json; fi && \
+    if [ -d /tmp/context/documents-vault ]; then cp -r /tmp/context/documents-vault/. /app/documents-vault/ 2>/dev/null || true; fi
 
 EXPOSE 3000
 CMD ["node", "dist/index.js"]
