@@ -123,7 +123,13 @@ export class VectorStore {
     if (ids.length === 0) return;
     const index = this.pc.index<ChunkMetadata>(this.indexName);
     for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-      await index.deleteMany({ ids: ids.slice(i, i + BATCH_SIZE) });
+      try {
+        await index.deleteMany({ ids: ids.slice(i, i + BATCH_SIZE) });
+      } catch (err) {
+        // Ignore 404 for new/empty index
+        if ((err as Error).message?.includes('404')) return;
+        throw err;
+      }
     }
   }
 }
