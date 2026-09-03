@@ -1,6 +1,6 @@
 import type { AIProviderName, ParsedFileName } from '../types';
 
-const FILE_PATTERN = /^START_(.+)_(claude|gemini|grok)(?:_(.+))?(\.[^.]+)$/i;
+const FILE_PATTERN = /^START_(.+)_(claude|gemini|grok|openai)(?:_(.+))?(\.[^.]+)$/i;
 
 export function parseFileName(name: string): ParsedFileName | null {
   const match = name.match(FILE_PATTERN);

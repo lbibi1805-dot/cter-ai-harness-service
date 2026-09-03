@@ -80,6 +80,47 @@ export async function collectAssetPaths(): Promise<{ katexCss: string; katexJs: 
   };
 }
 
+export function normalizeCodeBlocks(body: string): string {
+  const lines = body.split('\n');
+  let inFence = false;
+  const out: string[] = [];
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (trimmed.startsWith('```')) {
+      inFence = !inFence;
+      out.push(rawLine);
+      continue;
+    }
+    if (inFence) {
+      out.push(rawLine);
+      continue;
+    }
+
+    // Heuristic: long line outside fence that looks like collapsed C code
+    const hasCodeKeyword = /pthread_|void\s*\*|static\s+pthread|int\s+\w+\s*[=;]|\bChannelCreate\b|\bMsgSend\b/.test(rawLine);
+    const semicolonCount = (rawLine.match(/;/g) || []).length;
+    const hasBraces = rawLine.includes('{') || rawLine.includes('}');
+
+    if (hasCodeKeyword && semicolonCount >= 2 && rawLine.length > 80) {
+      let code = rawLine
+        .replace(/;\s*/g, ';\n')
+        .replace(/\{\s*/g, '{\n')
+        .replace(/\}\s*/g, '\n}\n')
+        .replace(/\n\s*\n/g, '\n')
+        .trim();
+      // Clean up extra newlines around braces
+      code = code.replace(/\n\{\n/g, ' {\n').replace(/\n\}\n/g, '\n}');
+      out.push('```c');
+      out.push(code);
+      out.push('```');
+    } else {
+      out.push(rawLine);
+    }
+  }
+  return out.join('\n');
+}
+
 export function pathToFileUrl(p: string): string {
   const resolved = path.resolve(p);
   const normalized = resolved.replace(/\\/g, '/');
@@ -195,7 +236,8 @@ export async function markdownToPdf(
     throw new Error('katex dist not found');
   }
 
-  const normalized = normalizeMathDelimiters(body);
+  const normalizedCode = normalizeCodeBlocks(body);
+  const normalized = normalizeMathDelimiters(normalizedCode);
   const md = buildMarked();
   const bodyHtml = md.parse(normalized) as string;
 

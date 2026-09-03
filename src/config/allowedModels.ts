@@ -32,6 +32,13 @@ export const ALLOWED_MODELS: Record<AIProviderName, string[]> = {
     'grok-4-fast-non-reasoning',
     'grok-code-fast-1',
   ],
+  openai: [
+    'gpt-5',
+    'gpt-5-mini',
+    'o3-mini',
+    'gpt-4o',
+    'gpt-4o-mini',
+  ],
 };
 
 export function isValidModel(provider: AIProviderName, model: string): boolean {

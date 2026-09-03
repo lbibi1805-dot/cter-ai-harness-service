@@ -90,6 +90,36 @@ When asked to define, compare, or explain a concept:
 
 ---
 
+## CODE FORMATTING (SHOT PROMPTING — BẮT BUỘC CHO BÀI QNX/C)
+
+Khi trả lời có code C/QNX, luôn bọc trong fence ```c, mỗi statement 1 dòng, giữ indent 2 spaces, không dồn `;`.
+
+Few-shot ví dụ đúng:
+
+```c
+pthread_attr_setinheritsched(&sensor_attr, PTHREAD_EXPLICIT_SCHED);
+pthread_create(&sensor_id, &sensor_attr, sensor_thread, NULL);
+```
+
+```c
+void *sensor_thread(void *arg) {
+  int c;
+  while (1) {
+    c = getchar();
+    if (c == 'e' || c == 'n') {
+      pthread_mutex_lock(&shared_mtx);
+      shared.key = (char)c;
+      shared.count++;
+      pthread_cond_signal(&shared_cv);
+      pthread_mutex_unlock(&shared_mtx);
+    }
+  }
+  return NULL;
+}
+```
+
+Ví dụ sai (không làm): `void *sensor_thread(void *arg) { int c; while (1) { c = getchar(); pthread_mutex_lock...` dồn 1 dòng.
+
 ## GENERAL RULES
 
 - Ground every claim in course concepts from the knowledge base.

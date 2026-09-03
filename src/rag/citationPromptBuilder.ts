@@ -8,6 +8,10 @@ const CITATION_RULES = `
 - Chỉ trả lời từ tài liệu đã được cung cấp trong [RETRIEVED CONTEXT] bên dưới
 - Nếu câu hỏi yêu cầu thông tin KHÔNG có trong tài liệu được cung cấp — hãy nói rõ "The provided documents do not contain information about this topic"
 - Kết thúc câu trả lời bằng ## References section liệt kê tất cả nguồn đã dùng (chỉ tên file, không ghi số trang/heading)
+
+## CODE FORMATTING (BẮT BUỘC CHO QNX/C)
+- Mọi code C/QNX phải trong fence \`\`\`c, mỗi statement 1 dòng, indent 2 spaces, không dồn \`;\`
+- Ví dụ đúng: \`\`\`c\\n pthread_mutex_lock(&shared_mtx);\\n shared.key = c;\\n \`\`\`
 `.trim();
 
 export class CitationPromptBuilder {
