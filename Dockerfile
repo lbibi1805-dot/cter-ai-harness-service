@@ -36,7 +36,7 @@ RUN --mount=type=bind,target=/tmp/context,source=. \
     mkdir -p /app/data /app/documents-vault && \
     if [ -f /tmp/context/system-prompt.md ]; then cp /tmp/context/system-prompt.md /app/system-prompt.md; else echo 'You are a helpful assistant.' > /app/system-prompt.md; fi && \
     if [ -f /tmp/context/knowledge.md ]; then cp /tmp/context/knowledge.md /app/knowledge.md; else touch /app/knowledge.md; fi && \
-    if [ -f /tmp/context/.vault-manifest.json ]; then cp /tmp/context/.vault-manifest.json /app/.vault-manifest.json; else echo '{"files":{}}' > /app/.vault-manifest.json; fi && \
+    if [ -f /tmp/context/.vault-manifest.json ]; then cp /tmp/context/.vault-manifest.json /app/.vault-manifest.json && cp /tmp/context/.vault-manifest.json /app/data/.vault-manifest.json; else echo '{"files":{}}' > /app/.vault-manifest.json && echo '{"files":{}}' > /app/data/.vault-manifest.json; fi && \
     if [ -d /tmp/context/documents-vault ]; then cp -r /tmp/context/documents-vault/. /app/documents-vault/ 2>/dev/null || true; fi
 
 EXPOSE 3000

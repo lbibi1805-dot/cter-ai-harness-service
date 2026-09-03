@@ -16,7 +16,20 @@ interface ParsedSection {
 
 const CHUNK_MAX_TOKENS = 800;
 const CHUNK_OVERLAP_TOKENS = 100;
-const MANIFEST_PATH = path.resolve(process.cwd(), '.vault-manifest.json');
+function getManifestPath(): string {
+  // Render disk mount o /app/data -> uu tien data/.vault-manifest.json de persist qua deploy
+  const dataManifest = path.resolve(process.cwd(), 'data/.vault-manifest.json');
+  const rootManifest = path.resolve(process.cwd(), '.vault-manifest.json');
+  // Neu data folder ton tai (Render disk) thi dung data manifest, dong thoi migrate tu root neu can
+  if (fs.existsSync(path.resolve(process.cwd(), 'data'))) {
+    if (!fs.existsSync(dataManifest) && fs.existsSync(rootManifest)) {
+      try { fs.copyFileSync(rootManifest, dataManifest); } catch {}
+    }
+    return dataManifest;
+  }
+  return rootManifest;
+}
+const MANIFEST_PATH = getManifestPath();
 
 interface VaultManifest {
   files: Record<string, { hash: string; chunkIds: string[]; indexed: boolean }>;
@@ -49,10 +62,14 @@ export class KnowledgeIndexer {
       logger.info('Pinecone unavailable — proceeding with manifest only');
     });
 
-    // Load manifest
+    // Load manifest - thu ca data/.vault-manifest.json lan .vault-manifest.json de tranh mat khi migrate
     let manifest: VaultManifest = { files: {} };
     try {
-      if (fs.existsSync(MANIFEST_PATH)) manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8'));
+      const altPath = path.resolve(process.cwd(), '.vault-manifest.json');
+      const primaryExists = fs.existsSync(MANIFEST_PATH);
+      const altExists = fs.existsSync(altPath) && altPath !== MANIFEST_PATH;
+      if (primaryExists) manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8'));
+      else if (altExists) manifest = JSON.parse(fs.readFileSync(altPath, 'utf-8'));
       // Normalize manifest keys to forward slashes for cross-platform compatibility
       const normalizedFiles: VaultManifest['files'] = {};
       for (const [k, v] of Object.entries(manifest.files)) {
@@ -93,9 +110,16 @@ export class KnowledgeIndexer {
       for (const s of deleted) delete manifest.files[s];
     }
 
-    // Save manifest if there were deletions (even if no files to index)
+    // Save manifest if there were deletions (even if no files to index) - sync ca 2 vi tri de Render disk + image dong bo
+    const syncManifest = (m: VaultManifest) => {
+      try { fs.writeFileSync(MANIFEST_PATH, JSON.stringify(m, null, 2)); } catch {}
+      try {
+        const alt = path.resolve(process.cwd(), '.vault-manifest.json');
+        if (alt !== MANIFEST_PATH) fs.writeFileSync(alt, JSON.stringify(m, null, 2));
+      } catch {}
+    };
     if (deleted.length > 0 && changed.length === 0) {
-      try { fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2)); } catch {}
+      syncManifest(manifest);
       logger.info('Manifest updated — deleted files cleaned up');
       return;
     }
@@ -154,6 +178,10 @@ export class KnowledgeIndexer {
     // Persist manifest BEFORE embedding so a crash mid-embedding does not
     // lose change detection (next run only re-indexes un-indexed files).
     try { fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2)); } catch {}
+    try {
+      const alt = path.resolve(process.cwd(), '.vault-manifest.json');
+      if (alt !== MANIFEST_PATH) fs.writeFileSync(alt, JSON.stringify(manifest, null, 2));
+    } catch {}
 
     // Embed new chunks - batch size & delay from config (strategy per provider)
     logger.info(`Embedding ${allNewChunks.length} new chunks... (provider=${this.config.embeddingProvider}, batch=${this.config.embeddingBatchSize}, delay=${this.config.embeddingDelayMs}ms)`);
@@ -215,8 +243,12 @@ export class KnowledgeIndexer {
       if (manifest.files[entry.source]) manifest.files[entry.source].indexed = allOk;
     }
 
-    // Save manifest
+    // Save manifest - sync ca data va root de lan sau khong re-index
     try { fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2)); } catch {}
+    try {
+      const alt = path.resolve(process.cwd(), '.vault-manifest.json');
+      if (alt !== MANIFEST_PATH) fs.writeFileSync(alt, JSON.stringify(manifest, null, 2));
+    } catch {}
     logger.info(`Vault indexing complete — ${validChunks.length} new chunks stored`);
   }
 
