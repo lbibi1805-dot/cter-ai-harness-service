@@ -58,7 +58,11 @@ export function buildMarked(): Marked {
     renderer: {
       code({ text, lang }) {
         const language = (lang || '').toLowerCase();
-        const body = escapeHtml(text);
+        let body = escapeHtml(text);
+        // Preserve leading indent for PDF copy-paste: convert leading spaces to &nbsp;
+        body = body.replace(/^( +)/gm, (m) => '&nbsp;'.repeat(m.length));
+        // Also preserve tabs
+        body = body.replace(/\t/g, '&nbsp;&nbsp;');
         if (language === 'mermaid') {
           return `<pre class="mermaid">${body}</pre>`;
         }
@@ -160,8 +164,8 @@ export function buildPageHtml(title: string, meta: Record<string, string>, bodyH
     color: #555; background: #f7f7f7;
   }
   code { font-family: 'Consolas', 'Courier New', monospace; background: #f1f1f1; padding: 1pt 3pt; border-radius: 3px; font-size: 9.5pt; }
-  pre { background: #f6f6f6; border: 1px solid #ddd; border-radius: 4px; padding: 8pt 10pt; overflow: hidden; }
-  pre code { background: none; padding: 0; }
+  pre { background: #f6f6f6; border: 1px solid #ddd; border-radius: 4px; padding: 8pt 10pt; overflow: hidden; white-space: pre; tab-size: 2; -moz-tab-size: 2; word-wrap: normal; }
+  pre code { background: none; padding: 0; white-space: pre; tab-size: 2; -moz-tab-size: 2; font-variant-ligatures: none; }
   table { border-collapse: collapse; width: 100%; margin: 8pt 0; }
   th, td { border: 1px solid #bbb; padding: 4pt 8pt; text-align: left; font-size: 9.5pt; }
   th { background: #eee; font-weight: 600; }
