@@ -92,6 +92,8 @@ export interface VaultConfig {
   embeddingProvider: EmbeddingProviderName;
   vaultPath: string;
   topK?: number;
+  embeddingDelayMs: number;
+  embeddingBatchSize: number;
 }
 
 export interface CitationResult {

@@ -53,14 +53,21 @@ export class KnowledgeIndexer {
     let manifest: VaultManifest = { files: {} };
     try {
       if (fs.existsSync(MANIFEST_PATH)) manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8'));
+      // Normalize manifest keys to forward slashes for cross-platform compatibility
+      const normalizedFiles: VaultManifest['files'] = {};
+      for (const [k, v] of Object.entries(manifest.files)) {
+        const nk = k.replace(/\\/g, '/');
+        normalizedFiles[nk] = v;
+      }
+      manifest.files = normalizedFiles;
     } catch { logger.info('Manifest corrupted — starting fresh'); }
 
     // Scan current files
     const mdFiles = this.scanMdFiles(vaultPath);
 
-    // Compute file hashes
+    // Compute file hashes - normalize to forward slashes for cross-platform (Windows Docker vs local)
     const fileEntries = mdFiles.map(fp => {
-      const source = path.relative(vaultPath, fp);
+      const source = path.relative(vaultPath, fp).replace(/\\/g, '/');
       const rawContent = fs.readFileSync(fp, 'utf-8');
       const content = normalizeText(rawContent);
       const hash = crypto.createHash('md5').update(content).digest('hex');
@@ -148,38 +155,48 @@ export class KnowledgeIndexer {
     // lose change detection (next run only re-indexes un-indexed files).
     try { fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2)); } catch {}
 
-    // Embed new chunks
-    logger.info(`Embedding ${allNewChunks.length} new chunks...`);
-    for (let i = 0; i < allNewChunks.length; i++) {
+    // Embed new chunks - batch size & delay from config (strategy per provider)
+    logger.info(`Embedding ${allNewChunks.length} new chunks... (provider=${this.config.embeddingProvider}, batch=${this.config.embeddingBatchSize}, delay=${this.config.embeddingDelayMs}ms)`);
+    const EMBED_BATCH_SIZE = this.config.embeddingBatchSize;
+    const EMBED_DELAY_MS = this.config.embeddingDelayMs;
+    for (let start = 0; start < allNewChunks.length; start += EMBED_BATCH_SIZE) {
+      const batch = allNewChunks.slice(start, Math.min(start + EMBED_BATCH_SIZE, allNewChunks.length));
+      const batchIndex = Math.floor(start / EMBED_BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(allNewChunks.length / EMBED_BATCH_SIZE);
+      logger.info(`Embedding batch ${batchIndex}/${totalBatches} (${batch.length} chunks, ${start + 1}-${start + batch.length}/${allNewChunks.length})`);
+
       let lastError: string | undefined;
-      let chunkDelay = 1300;
-      // Log progress every 10 chunks
-      if (i % 10 === 0 || i === allNewChunks.length - 1) {
-        logger.info(`Embedding chunk ${i + 1}/${allNewChunks.length} (${((i + 1) / allNewChunks.length * 100).toFixed(1)}%)`);
-      }
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
-          await new Promise(r => setTimeout(r, chunkDelay));
-          const vector = await this.embedder.embed(allNewChunks[i].text);
-          allNewChunks[i].vector = vector;
+          // Use batch API - OpenAI sends 1 request per 100 chunks, Gemini fans out internally
+          const vectors = await this.embedder.embedBatch(batch.map(c => c.text));
+          batch.forEach((chunk, idx) => { chunk.vector = vectors[idx] ?? []; });
           lastError = undefined;
-          chunkDelay = 1300;
           break;
         } catch (err) {
           lastError = (err as Error).message;
           if (lastError.includes('429')) {
-            chunkDelay = 5000;
             const wait = Math.min(3000 * Math.pow(2, attempt), 30000);
-            logger.info(`Rate limited on chunk ${i + 1}/${allNewChunks.length} — waiting ${wait}ms`);
+            logger.info(`Rate limited on batch ${batchIndex}/${totalBatches} — waiting ${wait}ms`);
+            await new Promise(r => setTimeout(r, wait));
+          } else if (lastError.includes('fetch failed') || lastError.includes('fetch')) {
+            const wait = Math.min(2000 * Math.pow(2, attempt), 15000);
+            logger.info(`Fetch failed on batch ${batchIndex}/${totalBatches} — retry ${attempt + 1}/5 waiting ${wait}ms`);
             await new Promise(r => setTimeout(r, wait));
           } else {
-            logger.info(`Skipping chunk ${i + 1}: ${lastError}`);
+            logger.info(`Skipping batch ${batchIndex}: ${lastError}`);
             break;
           }
         }
       }
-      if (lastError?.includes('429')) {
-        logger.info(`Giving up on chunk ${i + 1} after 5 retries`);
+      if (lastError) {
+        logger.info(`Giving up on batch ${batchIndex} after 5 retries: ${lastError}`);
+        // Mark batch vectors as empty so they will be retried next run via indexed:false
+        batch.forEach(c => { if (!c.vector.length) c.vector = []; });
+      }
+      // Small pause between batches to avoid burst TPM (config-driven)
+      if (start + EMBED_BATCH_SIZE < allNewChunks.length) {
+        await new Promise(r => setTimeout(r, EMBED_DELAY_MS));
       }
     }
 
@@ -190,11 +207,12 @@ export class KnowledgeIndexer {
       await this.vectorStore.upsertChunks(validChunks);
     }
 
-    // Mark fully-indexed files so change detection treats them as clean
-    if (validChunks.length === allNewChunks.length) {
-      for (const entry of changed) {
-        if (manifest.files[entry.source]) manifest.files[entry.source].indexed = true;
-      }
+    // Mark per-file indexed status so next run only retries failed files
+    for (const entry of changed) {
+      const ids = manifest.files[entry.source]?.chunkIds ?? [];
+      const fileChunks = allNewChunks.filter(c => ids.includes(c.id));
+      const allOk = fileChunks.length > 0 && fileChunks.every(c => c.vector.length > 0);
+      if (manifest.files[entry.source]) manifest.files[entry.source].indexed = allOk;
     }
 
     // Save manifest

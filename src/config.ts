@@ -59,13 +59,18 @@ export function loadConfig(): AppConfig {
       appPassword: process.env.GMAIL_APP_PASSWORD,
     },
     vaultConfig: process.env.PINECONE_API_KEY
-      ? {
-          pineconeApiKey: process.env.PINECONE_API_KEY,
-          pineconeIndex: process.env.PINECONE_INDEX ?? 'canvashelper-kb',
-          embeddingProvider: (process.env.EMBEDDING_PROVIDER as 'gemini' | 'openai') ?? 'gemini',
-          vaultPath: process.env.VAULT_PATH ?? './documents-vault',
-          topK: parseInt(process.env.RAG_TOP_K ?? '6', 10),
-        }
+      ? (() => {
+          const provider = (process.env.EMBEDDING_PROVIDER as 'gemini' | 'openai') ?? 'gemini';
+          return {
+            pineconeApiKey: process.env.PINECONE_API_KEY!,
+            pineconeIndex: process.env.PINECONE_INDEX ?? 'canvashelper-kb',
+            embeddingProvider: provider,
+            vaultPath: process.env.VAULT_PATH ?? './documents-vault',
+            topK: parseInt(process.env.RAG_TOP_K ?? '6', 10),
+            embeddingDelayMs: parseInt(process.env.EMBEDDING_DELAY_MS ?? (provider === 'gemini' ? '4000' : '500'), 10),
+            embeddingBatchSize: parseInt(process.env.EMBEDDING_BATCH_SIZE ?? (provider === 'gemini' ? '1' : '100'), 10),
+          };
+        })()
       : undefined,
     canvasFolder: {
       materials: process.env.CANVAS_MATERIALS_FOLDER ?? 'Materials2',
