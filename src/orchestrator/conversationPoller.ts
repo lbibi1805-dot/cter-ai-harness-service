@@ -12,7 +12,7 @@ import type {
   FileContent,
 } from '../types';
 import { createAIAdapter, resolveModel } from '../ai/aiRouter';
-import { ALLOWED_MODELS, isValidModel } from '../config/allowedModels';
+import { ALLOWED_MODELS, getModelApiMode, isValidModel } from '../config/allowedModels';
 import { withTimeout } from '../utils/withTimeout';
 import { injectKnowledge } from '../utils/injectKnowledge';
 import { CitationPromptBuilder } from '../rag/citationPromptBuilder';
@@ -324,8 +324,10 @@ export class ConversationPoller {
 
   private buildModelChain(provider: AIProviderName, primaryModel: string): string[] {
     const chain: string[] = [primaryModel];
+    const primaryMode = getModelApiMode(provider, primaryModel);
     for (const fb of this.config.modelFallback[provider]) {
-      if (fb !== primaryModel && !chain.includes(fb)) chain.push(fb);
+      if (fb !== primaryModel && !chain.includes(fb)
+        && (provider !== 'openai' || getModelApiMode(provider, fb) === primaryMode)) chain.push(fb);
     }
     return chain;
   }

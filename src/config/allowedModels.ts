@@ -38,9 +38,31 @@ export const ALLOWED_MODELS: Record<AIProviderName, string[]> = {
     'o3-mini',
     'gpt-4o',
     'gpt-4o-mini',
+    'gpt-6-astra',
+    'gpt-5.3-codex',
+    'gpt-5.2-codex',
+    'gpt-5.1-codex',
+    'gpt-5.1-codex-mini',
+    'codex-mini-latest',
   ],
 };
 
 export function isValidModel(provider: AIProviderName, model: string): boolean {
   return ALLOWED_MODELS[provider].includes(model);
+}
+
+export type OpenAIApiMode = 'chat-completions' | 'responses';
+
+const RESPONSES_MODELS = new Set([
+  'gpt-6-astra',
+  'gpt-5.3-codex',
+  'gpt-5.2-codex',
+  'gpt-5.1-codex',
+  'gpt-5.1-codex-mini',
+  'codex-mini-latest',
+]);
+
+export function getModelApiMode(provider: AIProviderName, model: string): OpenAIApiMode | null {
+  if (provider !== 'openai' || !isValidModel(provider, model)) return null;
+  return RESPONSES_MODELS.has(model) ? 'responses' : 'chat-completions';
 }
