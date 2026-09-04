@@ -72,6 +72,40 @@ export interface AIAdapter {
   validate(): Promise<void>;
 }
 
+// ── Canvas Conversations (extension chat — additive, Q/A file flow untouched) ──
+
+export interface ConversationAttachment {
+  id: string;
+  filename: string;
+  url: string;
+  contentType?: string;
+}
+
+export interface ConversationMessage {
+  id: number;
+  body: string;
+  createdAt: string;
+  attachments: ConversationAttachment[];
+}
+
+export type ConversationReplyStatus = 'done' | 'failed' | 'invalid-format' | 'pending';
+
+export interface ParsedConversationRequest {
+  provider: AIProviderName | string;
+  model?: string;
+  question: string;
+  valid: boolean;
+  error?: string;
+}
+
+export interface ConversationReply {
+  requestId: number;
+  status: ConversationReplyStatus;
+  provider: string;
+  model: string;
+  content: string;
+}
+
 // ── RAG / Document Vault ─────────────────────────────────────────
 
 export interface CitedChunk {

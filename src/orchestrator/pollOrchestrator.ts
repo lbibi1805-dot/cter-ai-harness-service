@@ -12,6 +12,7 @@ import { injectKnowledge } from '../utils/injectKnowledge';
 import { EmailNotifier } from '../utils/emailNotifier';
 import { CitationPromptBuilder } from '../rag/citationPromptBuilder';
 import type { RAGRetriever } from '../rag/ragRetriever';
+import type { ConversationPoller } from './conversationPoller';
 
 export class PollOrchestrator {
   private pollCount = 0;
@@ -23,6 +24,7 @@ export class PollOrchestrator {
     private emailNotifier: EmailNotifier,
     private ragRetriever?: RAGRetriever,
     private citationBuilder?: CitationPromptBuilder,
+    private conversationPoller?: ConversationPoller,
   ) {}
 
   async pollAllAccounts(): Promise<void> {
@@ -48,6 +50,17 @@ export class PollOrchestrator {
       await this.pollAccountInner(account, client);
     } catch (err) {
       logger.fetchError(account.index, (err as Error).message);
+    }
+
+    // Extension chat (Conversations API) — isolated try/catch so a conversation
+    // failure never affects the file flow above, and a file-flow early-return
+    // never skips the conversation poll.
+    if (this.conversationPoller) {
+      try {
+        await this.conversationPoller.pollAccountConversations(account);
+      } catch (err) {
+        logger.info(`[conv] account #${account.index} failed: ${(err as Error).message} — file flow unaffected`);
+      }
     }
   }
 
