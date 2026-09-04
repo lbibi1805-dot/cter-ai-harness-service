@@ -84,6 +84,35 @@ export async function collectAssetPaths(): Promise<{ katexCss: string; katexJs: 
   };
 }
 
+export function sanitizeMermaidGlyphs(body: string): string {
+  // Auto-fix cho gemini-flash-lite hay nhả raw glyph ngoài label -> Syntax error mermaid 11.17.2
+  // Chi sua dong stray, KHONG cham vao dong da dung cua openai/gpt-5
+  return body.replace(/```mermaid([\s\S]*?)```/g, (match, inner) => {
+    const lines = inner.split('\n');
+    const fixedLines = lines.map((line: string) => {
+      const hasGlyph = /[δℓ≥⋅×−→]/.test(line);
+      const hasEdge = /--|==|-\.|-->|==>|->/.test(line);
+      const hasNode = /\[|\(|\{|\)|\]/.test(line);
+      // Dong stray: chua glyph nhung khong co edge/node -> xoa (gemini hay de "δl" rieng dong)
+      // Giu lai dong cua openai vi co edge (-- "..." -->)
+      if (hasGlyph && !hasEdge && !hasNode) {
+        return '';
+      }
+      // Thay raw δ_l, ℓ_v trong label thanh HTML-safe - chi khi chua co <sub>
+      let out = line;
+      if (!out.includes('<sub>')) {
+        out = out.replace(/δ\s*_\s*l/g, 'δ<sub>l</sub>').replace(/δl/g, 'δ<sub>l</sub>');
+        out = out.replace(/ℓ\s*_\s*v/g, 'ℓ<sub>v</sub>').replace(/ℓv/g, 'ℓ<sub>v</sub>');
+      }
+      return out;
+    });
+    let fixed = fixedLines.join('\n');
+    // Dam bao khong de 3 dong trong lien tiep gay loi
+    fixed = fixed.replace(/\n{3,}/g, '\n\n');
+    return '```mermaid' + fixed + '```';
+  });
+}
+
 export function normalizeCodeBlocks(body: string): string {
   const lines = body.split('\n');
   let inFence = false;
@@ -241,7 +270,8 @@ export async function markdownToPdf(
   }
 
   const normalizedCode = normalizeCodeBlocks(body);
-  const normalized = normalizeMathDelimiters(normalizedCode);
+  const sanitized = sanitizeMermaidGlyphs(normalizedCode);
+  const normalized = normalizeMathDelimiters(sanitized);
   const md = buildMarked();
   const bodyHtml = md.parse(normalized) as string;
 

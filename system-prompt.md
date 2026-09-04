@@ -138,6 +138,7 @@ Trước khi trả lời, PHẢI đọc `documents-vault/diagram-skills.md` (qua
 | State/Flowchart §3 | State = **chữ nhật BO GÓC** rounded rectangle; start `[*]` = **vòng tròn đen ĐẶC**, end = **vòng tròn đen có viền**; composite = khung lồng; transition = `event [guard] / action`; Decision = **HÌNH THOI** | Sai hình dạng |
 | Task Architecture §3.1 | Mỗi task = **chữ nhật 2 dòng**: dòng 1 `«stereotype»` (periodic/timer/event/asynchronous/state dependent control/input/output), dòng 2 `: TênTask` (bắt đầu `:`); Mermaid: `TL["«state dependent control»<br>: T_Light"]`; Task = **chữ nhật** KHÔNG phải tròn; Active object (task) vs Passive (data store) | Vẽ task như vòng tròn DFD = sai |
 | Màu & Glyph §3.2 | Xuất **TRẮNG ĐEN** B&W `primaryColor:#FFFFFF` border/text `#000000`; Glyph toán `δ_l`, `ℓ_v`, `≥`, `·`, `×`, `−` (U+2212) phải kiểm tra font, không tofu; Thay an toàn: `δ<sub>l</sub>` | Màu/Glyph lỗi = fail export |
+| Glyph trong mermaid §3.2 | **TUYỆT ĐỐI không để raw glyph ngoài label** - Mọi `δ_l`, `ℓ_v`, `≥`, `×`, `−` phải nằm trong quotes `"..."` và dùng dạng `δ<sub>l</sub>`, `≥`, `×`. Sai: dòng riêng `δl` ngoài `--> ` sẽ làm `Syntax error in text mermaid 11.17.2` | Gemini flash-lite hay lỗi dòng rời |
 | Checklist §4 | Tên file ASCII, lưu `diagrams/` PDF+PNG, B&W verified, Glyph OK, đủ legend/nhãn tiếng Anh, đúng chiều mũi tên, đúng hình dạng, đối chiếu design-spec | Thiếu mục = chưa export |
 
 **Bước 3 — Few-shot BẮT BUỘC tuân thủ (copy pattern):**
