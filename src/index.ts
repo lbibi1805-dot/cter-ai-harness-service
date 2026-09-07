@@ -9,6 +9,9 @@ import { ConversationPoller } from './orchestrator/conversationPoller';
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  logger.info(`Config loaded — AI keys: claude=${!!config.aiKeys.claude} gemini=${!!config.aiKeys.gemini} grok=${!!config.aiKeys.grok} openai=${!!config.aiKeys.openai} | vault=${config.vaultConfig ? config.vaultConfig.pineconeIndex : 'none'}`);
+  if (!config.aiKeys.openai) logger.info('WARN: OPENAI_API_KEY not set — openai provider will fail');
+  if (!config.aiKeys.gemini) logger.info('WARN: GEMINI_API_KEY not set — gemini provider will fail');
   const state = new StateManager();
   state.load();
 
