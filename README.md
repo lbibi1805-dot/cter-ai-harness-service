@@ -151,6 +151,15 @@ Default trong code:
 
 Lưu ý: nếu bạn muốn dùng Grok theo danh sách validate hiện tại, nên đặt `DEFAULT_MODEL_GROK` thành một model nằm trong danh sách hỗ trợ, ví dụ `grok-4.3` hoặc `grok-4-fast-reasoning`.
 
+### OpenAI
+
+Catalog OpenAI hỗ trợ GPT-6 Astra, các model Codex (`gpt-5.3-codex`,
+`gpt-5.2-codex`, `gpt-5.1-codex`, `gpt-5.1-codex-mini`, `codex-mini-latest`)
+và các model OpenAI hiện có.
+
+GPT-6 Astra và Codex dùng Responses API; các model OpenAI còn lại dùng Chat
+Completions. Fallback chỉ chuyển giữa các model cùng API mode.
+
 ## File hỗ trợ
 
 | Loại file | Cách xử lý |

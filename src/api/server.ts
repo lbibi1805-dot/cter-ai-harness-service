@@ -110,6 +110,46 @@ export class ApiServer {
           index: account.index,
           email: account.email ? maskEmail(account.email) : null,
         })),
+        aiKeys: {
+          claude: !!this.config.aiKeys.claude,
+          gemini: !!this.config.aiKeys.gemini,
+          grok: !!this.config.aiKeys.grok,
+          openai: !!this.config.aiKeys.openai,
+        },
+        vault: this.config.vaultConfig ? { index: this.config.vaultConfig.pineconeIndex, provider: this.config.vaultConfig.embeddingProvider } : null,
+      }));
+      return;
+    }
+
+    if (path === '/health') {
+      const vaultManifestPath = require('path').resolve(process.cwd(), 'data/.vault-manifest.json');
+      let vaultStatus: string = 'no-vault-config';
+      try {
+        if (this.config.vaultConfig) {
+          const fs = require('fs');
+          if (fs.existsSync(vaultManifestPath)) {
+            const m = JSON.parse(fs.readFileSync(vaultManifestPath, 'utf-8'));
+            const total = Object.keys(m.files ?? {}).length;
+            const indexed = Object.values(m.files as Record<string, { indexed: boolean }>).filter((f) => f.indexed).length;
+            vaultStatus = `${indexed}/${total} indexed`;
+          } else if (fs.existsSync(require('path').resolve(process.cwd(), '.vault-manifest.json'))) {
+            vaultStatus = 'manifest at root (not on Disk)';
+          } else {
+            vaultStatus = 'no manifest';
+          }
+        }
+      } catch { vaultStatus = 'manifest read error'; }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'up',
+        aiKeys: {
+          claude: !!this.config.aiKeys.claude,
+          gemini: !!this.config.aiKeys.gemini,
+          grok: !!this.config.aiKeys.grok,
+          openai: !!this.config.aiKeys.openai,
+        },
+        vault: vaultStatus,
+        polling: this.running ? 'running' : 'stopped',
       }));
       return;
     }

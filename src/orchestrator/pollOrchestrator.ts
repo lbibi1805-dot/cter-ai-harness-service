@@ -3,7 +3,7 @@ import { extractContent } from '../extractor/fileExtractor';
 import { StateManager } from '../state/stateManager';
 import type { AIProviderName, AppConfig, CanvasAccountConfig, CanvasFile, ParsedFileName } from '../types';
 import { createAIAdapter, resolveModel } from '../ai/aiRouter';
-import { ALLOWED_MODELS, isValidModel } from '../config/allowedModels';
+import { ALLOWED_MODELS, getModelApiMode, isValidModel } from '../config/allowedModels';
 import { parseFileName } from '../utils/fileParser';
 import { buildErrorPdf, buildInvalidModelPdf, buildSuccessPdf, PDF_MIME } from '../utils/resultBuilder';
 import { logger } from '../utils/logger';
@@ -253,8 +253,10 @@ export class PollOrchestrator {
   private buildModelChain(provider: AIProviderName, primaryModel: string): string[] {
     const fallbackList = this.config.modelFallback[provider];
     const chain: string[] = [primaryModel];
+    const primaryMode = getModelApiMode(provider, primaryModel);
     for (const fb of fallbackList) {
-      if (fb !== primaryModel && !chain.includes(fb)) {
+      if (fb !== primaryModel && !chain.includes(fb)
+        && (provider !== 'openai' || getModelApiMode(provider, fb) === primaryMode)) {
         chain.push(fb);
       }
     }
