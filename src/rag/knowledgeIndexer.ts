@@ -90,20 +90,26 @@ export class KnowledgeIndexer {
       return prev?.hash !== e.hash || prev?.indexed !== true;
     });
 
-    // Handle deleted files
+    // Handle deleted files — guard: if vault folder is empty on disk (Render gitignored), don't delete all in Neon
     if (deleted.length > 0) {
-      const idsToDelete = deleted.flatMap(s => manifest.files[s]?.chunkIds ?? []);
-      if (idsToDelete.length > 0) {
-        await this.vectorStore.deleteByIds(idsToDelete);
-        logger.info(`Removed ${idsToDelete.length} chunks from ${deleted.length} deleted files`);
-      }
-      for (const s of deleted) {
-        delete manifest.files[s];
-        await storage.remove(s);
+      if (fileEntries.length === 0) {
+        logger.info(`Vault folder empty on disk (${mdFiles.length} files) — skipping deletion of ${deleted.length} files to preserve Neon (likely gitignored on Render)`);
+        // Don't delete when disk empty; treat as no-op
+      } else {
+        const idsToDelete = deleted.flatMap(s => manifest.files[s]?.chunkIds ?? []);
+        if (idsToDelete.length > 0) {
+          await this.vectorStore.deleteByIds(idsToDelete);
+          logger.info(`Removed ${idsToDelete.length} chunks from ${deleted.length} deleted files`);
+        }
+        for (const s of deleted) {
+          delete manifest.files[s];
+          await storage.remove(s);
+        }
       }
     }
 
     if (deleted.length > 0 && changed.length === 0) {
+      if (fileEntries.length === 0) return; // already guarded
       logger.info('Manifest updated — deleted files cleaned up');
       return;
     }

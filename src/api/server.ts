@@ -156,6 +156,28 @@ export class ApiServer {
       res.end(JSON.stringify({ accounts: this.config.accounts.map(a => ({ index: a.index, url: a.url, email: a.email ? maskEmail(a.email) : null })) }));
       return;
     }
+    if (pathname === '/api/cron') {
+      const { isCronEnabled, getCronIntervalMs, setCronEnabled, setCronInterval } = await import('../utils/cronManager');
+      if (req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ enabled: isCronEnabled(), intervalMs: getCronIntervalMs() }));
+        return;
+      }
+      if (req.method === 'POST') {
+        if (!checkAuth(req)) { res.writeHead(401, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+        let body = '';
+        req.on('data', (c: Buffer) => body += c.toString());
+        await new Promise<void>(res => req.on('end', () => res()));
+        try {
+          const j = JSON.parse(body || '{}');
+          if (typeof j.enabled === 'boolean') setCronEnabled(j.enabled, this.port);
+          if (typeof j.intervalMs === 'number') setCronInterval(j.intervalMs, this.port);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ enabled: isCronEnabled(), intervalMs: getCronIntervalMs() }));
+        } catch (e) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message })); }
+        return;
+      }
+    }
 
     // Vault API: need POST/DELETE support, so check vault prefix before GET-only guard
     if (pathname.startsWith('/api/vault')) {
@@ -334,7 +356,7 @@ export class ApiServer {
       // GET /api/vault/manifest (legacy compat) and GET /api/vault/files
       if ((pathname === '/api/vault/manifest' || pathname === '/api/vault/files') && req.method === 'GET' && !pathname.startsWith('/api/vault/files/')) {
         const storage = await createVaultStorageWithFallback();
-        const limit = Math.min(parseInt(query.limit ?? '50', 10) || 50, 100);
+        const limit = Math.min(parseInt(query.limit ?? '50', 10) || 50, 1000);
         const offset = parseInt(query.offset ?? '0', 10) || 0;
         const indexed = query.indexed === 'true' ? true : query.indexed === 'false' ? false : undefined;
         const { entries, total } = await storage.list({ q: query.q, indexed, limit, offset, folder: query.folder });
