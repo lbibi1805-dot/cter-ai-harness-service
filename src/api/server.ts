@@ -115,6 +115,13 @@ export class ApiServer {
     }
 
     if (pathname === '/api/logs') {
+      if (req.method === 'DELETE') {
+        if (!checkAuth(req)) { res.writeHead(401, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+        logger.clear();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
       const limit = Math.min(parseInt(query.limit ?? '100', 10) || 100, 500);
       const logs = logger.getLogs(limit);
       res.writeHead(200, { 'Content-Type': 'application/json' });

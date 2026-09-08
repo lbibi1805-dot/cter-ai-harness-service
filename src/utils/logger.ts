@@ -75,6 +75,10 @@ class Logger {
     return this.buffer.slice(-limit);
   }
 
+  clear(): void {
+    this.buffer = [];
+  }
+
   // ── Lifecycle ────────────────────────────────────────────────
   startup(accounts: number, intervalMs: number): void {
     this.write('info', 'STARTUP',
