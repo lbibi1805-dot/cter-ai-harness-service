@@ -20,15 +20,26 @@ function maskEmailName(value: string): string {
 }
 
 function setCors(res: http.ServerResponse, req: http.IncomingMessage): void {
-  const allowed = (process.env.FRONTEND_URL ?? process.env.ALLOWED_ORIGINS ?? '').split(',').map(s => s.trim()).filter(Boolean);
-  const origin = req.headers.origin ?? '';
+  const rawAllowed = (process.env.FRONTEND_URL ?? process.env.ALLOWED_ORIGINS ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  // normalize: remove trailing slash for comparison (origin never has trailing slash)
+  const allowed = rawAllowed.map(s => s.replace(/\/$/, ''));
+  const origin = (req.headers.origin ?? '').replace(/\/$/, '');
+  const isAllowed = (o: string) => {
+    if (!o) return false;
+    if (allowed.includes(o)) return true;
+    if (allowed.includes('*')) return true;
+    // allow all *.vercel.app previews when any vercel.app is in allowlist (handshake for preview deploys)
+    if (o.endsWith('.vercel.app') && allowed.some(a => a.endsWith('.vercel.app'))) return true;
+    return false;
+  };
   if (allowed.length === 0) {
-    // dev: allow all when not configured (handshake via env only for deploy)
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  } else if (origin && allowed.includes(origin)) {
+  } else if (isAllowed(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-  } else if (allowed.includes('*')) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else if (origin) {
+    // for handshake debugging, still allow preview vercel deploys
+    if (origin.endsWith('.vercel.app')) res.setHeader('Access-Control-Allow-Origin', origin);
+    else res.setHeader('Access-Control-Allow-Origin', allowed[0]);
   } else {
     res.setHeader('Access-Control-Allow-Origin', allowed[0]);
   }

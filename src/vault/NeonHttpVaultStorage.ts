@@ -13,7 +13,32 @@ export class NeonHttpVaultStorage implements VaultStorage {
   }
 
   async init(): Promise<void> {
-    const ddl = fs.readFileSync(path.resolve(process.cwd(), 'migrations/001_vault_manifest.sql'), 'utf-8');
+    let ddl: string;
+    try {
+      // Try file first (local dev: process.cwd() = repo/cter-ai-harness-service)
+      ddl = fs.readFileSync(path.resolve(process.cwd(), 'migrations/001_vault_manifest.sql'), 'utf-8');
+    } catch {
+      try {
+        // Fallback for Render repo deploy where cwd may be /opt/render/project/src or /app
+        ddl = fs.readFileSync(path.resolve(__dirname, '../../migrations/001_vault_manifest.sql'), 'utf-8');
+      } catch {
+        // Hardcode DDL inline — không phụ thuộc file khi deploy thẳng repo (không Docker context)
+        ddl = `
+CREATE TABLE IF NOT EXISTS vault_manifest (
+  file_path TEXT PRIMARY KEY CHECK (length(file_path) < 1024),
+  hash TEXT NOT NULL,
+  chunk_ids JSONB NOT NULL DEFAULT '[]',
+  indexed BOOLEAN NOT NULL DEFAULT false,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  folder_path TEXT GENERATED ALWAYS AS (regexp_replace(file_path, '/[^/]+$', '')) STORED,
+  depth INT GENERATED ALWAYS AS (length(file_path) - length(replace(file_path,'/',''))) STORED
+);
+CREATE INDEX IF NOT EXISTS idx_vault_manifest_indexed ON vault_manifest(indexed);
+CREATE INDEX IF NOT EXISTS idx_vault_manifest_folder ON vault_manifest(folder_path);
+CREATE INDEX IF NOT EXISTS idx_vault_manifest_depth ON vault_manifest(depth);
+`;
+      }
+    }
     for (const stmt of ddl.split(';').map(s => s.trim()).filter(Boolean)) {
       await (this.sql as any).query(stmt);
     }
