@@ -18,3 +18,8 @@ data/processed.json
 /documents-vault/
 /docs/
 .vault-manifest.json
+/test-artifacts/
+/test-questions-out/
+*.pdf
+*.docx
+*.zip

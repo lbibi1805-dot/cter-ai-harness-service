@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: canvasfilehelper
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: API_PORT
+        value: 3000
+      - key: VAULT_STORAGE_PROVIDER
+        value: postgres-r2
+      - key: DATABASE_URL
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX
+        sync: false
+      - key: EMBEDDING_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CLAUDE_API_KEY
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false

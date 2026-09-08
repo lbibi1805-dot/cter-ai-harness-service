@@ -132,4 +132,21 @@ export class VectorStore {
       }
     }
   }
+
+  async fetchByIds(ids: string[]): Promise<Record<string, ChunkMetadata & { id: string }>> {
+    if (ids.length === 0) return {};
+    const index = this.pc.index<ChunkMetadata>(this.indexName);
+    const result: Record<string, ChunkMetadata & { id: string }> = {};
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batch = ids.slice(i, i + BATCH_SIZE);
+      try {
+        const res: any = await (index as any).fetch({ ids: batch });
+        const records = res.records ?? res.vectors ?? {};
+        for (const [id, v] of Object.entries(records as Record<string, any>)) {
+          result[id] = { id, ...(v.metadata ?? v) } as any;
+        }
+      } catch {}
+    }
+    return result;
+  }
 }
