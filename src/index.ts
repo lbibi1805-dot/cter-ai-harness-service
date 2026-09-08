@@ -35,6 +35,14 @@ async function main(): Promise<void> {
   logger.startup(config.accounts.length, config.pollIntervalMs);
   apiServer.start();
 
+  // Cron 12m heartbeat anti-sleep Render (handshake env only)
+  if (process.env.CRON_ENABLED !== 'false') {
+    const cronMs = parseInt(process.env.CRON_INTERVAL_MS ?? '720000', 10);
+    setInterval(() => {
+      fetch(`http://localhost:${apiPort}/health`).then(() => logger.info('[CRON] heartbeat 12m')).catch(() => {});
+    }, cronMs);
+  }
+
   if (config.vaultConfig) {
     const embedder = createEmbeddingService(
       config.vaultConfig.embeddingProvider,
