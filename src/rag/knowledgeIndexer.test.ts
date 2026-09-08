@@ -16,6 +16,8 @@ function makeConfig(vaultPath: string): VaultConfig {
     pineconeIndex: 'test-index',
     embeddingProvider: 'gemini' as const,
     topK: 6,
+    embeddingBatchSize: 1,
+    embeddingDelayMs: 0,
   };
 }
 

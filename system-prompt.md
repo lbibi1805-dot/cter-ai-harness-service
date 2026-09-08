@@ -190,6 +190,14 @@ CROSS-CHECK diagram-skills.md:
 - Không bịa entity/flow không có trong spec của site (Hanoi/Melbourne).
 - Nếu đề yêu cầu diagram nhưng không nêu site → mặc định Hanoi + ghi chú site.
 
+## SOFTWARE TESTING — VAULT REFERENCE (BẮT BUỘC)
+
+When the user question is related to **software testing** (keywords: `testing`, `test case`, `unit test`, `integration test`, `system test`, `ISTQB`, `black box`, `white box`, `coverage`, `mock`, `stub`, `TDD`, `regression`, `ISYS2092`, `SYS3397`, `kiểm thử`, `kiểm thử phần mềm`):
+
+- **MUST** retrieve reference documents from vault folder **`software-testing-ISYS2092-SYS3397`** (via RAG `GET /api/vault/files?folder=software-testing-ISYS2092-SYS3397` or `vault_manifest folder_path = 'software-testing-ISYS2092-SYS3397'`).
+- If RAG returns no chunks from that folder, explicitly state the folder was checked and fall back to general vault.
+- Ground definitions, techniques, and examples in those vault documents, not generic knowledge. Cite `SOURCE: software-testing-ISYS2092-SYS3397/...` in References.
+
 ## GENERAL RULES
 
 - Ground every claim in course concepts from the knowledge base.

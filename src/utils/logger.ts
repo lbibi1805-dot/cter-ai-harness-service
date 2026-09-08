@@ -40,12 +40,18 @@ const TAG: Record<string, string> = {
 };
 
 const MAX_LINES = 200;
+const LOG_BUFFER_SIZE = 500;
 
 class Logger {
   private lineCount = 0;
+  private buffer: { ts: string; level: Level; tag: string; msg: string; line: string }[] = [];
 
   private ts(): string {
     return new Date().toISOString().replace('T', ' ').slice(0, 23);
+  }
+
+  private stripAnsi(s: string): string {
+    return s.replace(/\x1b\[[0-9;]*m/g, '');
   }
 
   private write(level: Level, tag: string, msg: string): void {
@@ -55,10 +61,18 @@ class Logger {
     }
     const color = TAG[tag] ?? LEVEL_COLOR[level];
     const paddedTag = tag.padEnd(10);
+    const ts = this.ts();
     process.stdout.write(
-      `${GRAY}[${this.ts()}]${R} ${color}[${paddedTag}]${R} ${msg}\n`
+      `${GRAY}[${ts}]${R} ${color}[${paddedTag}]${R} ${msg}\n`
     );
     this.lineCount += 1;
+    const line = `[${ts}] [${tag.padEnd(10)}] ${this.stripAnsi(msg)}`;
+    this.buffer.push({ ts, level, tag: tag.trim(), msg: this.stripAnsi(msg), line });
+    if (this.buffer.length > LOG_BUFFER_SIZE) this.buffer.shift();
+  }
+
+  getLogs(limit = 100): { ts: string; level: string; tag: string; msg: string; line: string }[] {
+    return this.buffer.slice(-limit);
   }
 
   // ── Lifecycle ────────────────────────────────────────────────

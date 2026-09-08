@@ -7,6 +7,7 @@ import type { IndexedChunk } from './vectorStore';
 import { VectorStore } from './vectorStore';
 import { logger } from '../utils/logger';
 import { normalizeText } from './textNormalizer';
+import { createVaultStorageWithFallback } from '../vault';
 
 interface ParsedSection {
   heading: string;
@@ -62,22 +63,11 @@ export class KnowledgeIndexer {
       logger.info('Pinecone unavailable — proceeding with manifest only');
     });
 
-    // Load manifest - thu ca data/.vault-manifest.json lan .vault-manifest.json de tranh mat khi migrate
-    let manifest: VaultManifest = { files: {} };
-    try {
-      const altPath = path.resolve(process.cwd(), '.vault-manifest.json');
-      const primaryExists = fs.existsSync(MANIFEST_PATH);
-      const altExists = fs.existsSync(altPath) && altPath !== MANIFEST_PATH;
-      if (primaryExists) manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8'));
-      else if (altExists) manifest = JSON.parse(fs.readFileSync(altPath, 'utf-8'));
-      // Normalize manifest keys to forward slashes for cross-platform compatibility
-      const normalizedFiles: VaultManifest['files'] = {};
-      for (const [k, v] of Object.entries(manifest.files)) {
-        const nk = k.replace(/\\/g, '/');
-        normalizedFiles[nk] = v;
-      }
-      manifest.files = normalizedFiles;
-    } catch { logger.info('Manifest corrupted — starting fresh'); }
+    const storage = await createVaultStorageWithFallback();
+    // Load manifest from storage (Neon PG or sqlite-disk fallback)
+    const { entries } = await storage.list({ limit: 10000, offset: 0 });
+    const manifest: VaultManifest = { files: {} };
+    for (const e of entries) manifest.files[e.filePath] = { hash: e.hash, chunkIds: e.chunkIds, indexed: e.indexed };
 
     // Scan current files
     const mdFiles = this.scanMdFiles(vaultPath);
@@ -107,19 +97,13 @@ export class KnowledgeIndexer {
         await this.vectorStore.deleteByIds(idsToDelete);
         logger.info(`Removed ${idsToDelete.length} chunks from ${deleted.length} deleted files`);
       }
-      for (const s of deleted) delete manifest.files[s];
+      for (const s of deleted) {
+        delete manifest.files[s];
+        await storage.remove(s);
+      }
     }
 
-    // Save manifest if there were deletions (even if no files to index) - sync ca 2 vi tri de Render disk + image dong bo
-    const syncManifest = (m: VaultManifest) => {
-      try { fs.writeFileSync(MANIFEST_PATH, JSON.stringify(m, null, 2)); } catch {}
-      try {
-        const alt = path.resolve(process.cwd(), '.vault-manifest.json');
-        if (alt !== MANIFEST_PATH) fs.writeFileSync(alt, JSON.stringify(m, null, 2));
-      } catch {}
-    };
     if (deleted.length > 0 && changed.length === 0) {
-      syncManifest(manifest);
       logger.info('Manifest updated — deleted files cleaned up');
       return;
     }
@@ -177,16 +161,14 @@ export class KnowledgeIndexer {
 
     // Persist manifest BEFORE embedding so a crash mid-embedding does not
     // lose change detection (next run only re-indexes un-indexed files).
-    try { fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2)); } catch {}
-    try {
-      const alt = path.resolve(process.cwd(), '.vault-manifest.json');
-      if (alt !== MANIFEST_PATH) fs.writeFileSync(alt, JSON.stringify(manifest, null, 2));
-    } catch {}
+    for (const e of changed) {
+      await storage.upsert({ filePath: e.source, hash: manifest.files[e.source].hash, chunkIds: manifest.files[e.source].chunkIds, indexed: false });
+    }
 
     // Embed new chunks - batch size & delay from config (strategy per provider)
-    logger.info(`Embedding ${allNewChunks.length} new chunks... (provider=${this.config.embeddingProvider}, batch=${this.config.embeddingBatchSize}, delay=${this.config.embeddingDelayMs}ms)`);
-    const EMBED_BATCH_SIZE = this.config.embeddingBatchSize;
-    const EMBED_DELAY_MS = this.config.embeddingDelayMs;
+    const EMBED_BATCH_SIZE = this.config.embeddingBatchSize ?? 1;
+    const EMBED_DELAY_MS = this.config.embeddingDelayMs ?? 0;
+    logger.info(`Embedding ${allNewChunks.length} new chunks... (provider=${this.config.embeddingProvider}, batch=${EMBED_BATCH_SIZE}, delay=${EMBED_DELAY_MS}ms)`);
     for (let start = 0; start < allNewChunks.length; start += EMBED_BATCH_SIZE) {
       const batch = allNewChunks.slice(start, Math.min(start + EMBED_BATCH_SIZE, allNewChunks.length));
       const batchIndex = Math.floor(start / EMBED_BATCH_SIZE) + 1;
@@ -241,14 +223,9 @@ export class KnowledgeIndexer {
       const fileChunks = allNewChunks.filter(c => ids.includes(c.id));
       const allOk = fileChunks.length > 0 && fileChunks.every(c => c.vector.length > 0);
       if (manifest.files[entry.source]) manifest.files[entry.source].indexed = allOk;
+      await storage.upsert({ filePath: entry.source, hash: manifest.files[entry.source].hash, chunkIds: manifest.files[entry.source].chunkIds, indexed: allOk });
     }
 
-    // Save manifest - sync ca data va root de lan sau khong re-index
-    try { fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2)); } catch {}
-    try {
-      const alt = path.resolve(process.cwd(), '.vault-manifest.json');
-      if (alt !== MANIFEST_PATH) fs.writeFileSync(alt, JSON.stringify(manifest, null, 2));
-    } catch {}
     logger.info(`Vault indexing complete — ${validChunks.length} new chunks stored`);
   }
 
