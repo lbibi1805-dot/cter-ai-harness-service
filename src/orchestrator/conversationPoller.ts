@@ -13,10 +13,11 @@ import type {
 } from '../types';
 import { createAIAdapter, resolveModel } from '../ai/aiRouter';
 import { ALLOWED_MODELS, getModelApiMode, isValidModel } from '../config/allowedModels';
-import { withTimeout } from '../utils/withTimeout';
-import { injectKnowledge } from '../utils/injectKnowledge';
+import { buildModelChain } from '../core/modelChain';
 import { CitationPromptBuilder } from '../rag/citationPromptBuilder';
 import type { RAGRetriever } from '../rag/ragRetriever';
+import { executeAIInvocation } from '../application/ai/executeAIInvocation';
+import { preparePrompt } from '../application/ai/preparePrompt';
 import {
   SETTINGS_CONVERSATION_MARKER,
   buildReply,
@@ -258,7 +259,7 @@ export class ConversationPoller {
     const content: FileContent = { textContent: question, imageBuffers };
 
     // Same retry chain as the file flow (copied, not refactored — Q/A untouched).
-    const modelChain = this.buildModelChain(provider, primaryModel);
+    const modelChain = buildModelChain(provider, primaryModel, this.config.modelFallback[provider], getModelApiMode);
     logger.info(`[conv] ${key} — ${provider}/${modelChain[0]} (${imageBuffers.length} image(s))`);
     const adapter = createAIAdapter(provider, this.config.aiKeys, this.config.grokBaseUrl);
 
@@ -272,12 +273,11 @@ export class ConversationPoller {
       for (let attempt = 0; attempt <= this.config.maxRetryCount; attempt++) {
         totalAttempts++;
         try {
-          const prepared = await this.preparePrompt(content, refs);
-          const rawResponse = await withTimeout(
-            adapter.process(prepared.fileContent, prepared.systemPrompt, currentModel),
-            this.config.aiTimeoutMs,
-            `${provider}/${currentModel}`,
-          );
+          const prepared = await preparePrompt(content, this.config.systemPrompt, this.config.knowledgeContent, refs);
+          const rawResponse = await executeAIInvocation({
+            adapter, content: prepared.fileContent, systemPrompt: prepared.systemPrompt, model: currentModel,
+            timeoutMs: this.config.aiTimeoutMs, timeoutLabel: `${provider}/${currentModel}`,
+          });
           const aiResponse = refs.builder ? CitationPromptBuilder.cleanResponse(rawResponse) : rawResponse;
           await client.addReply(conversationId, buildReply({
             requestId: msg.id,
@@ -320,31 +320,5 @@ export class ConversationPoller {
       updatedAt: new Date().toISOString(),
       error,
     });
-  }
-
-  private buildModelChain(provider: AIProviderName, primaryModel: string): string[] {
-    const chain: string[] = [primaryModel];
-    const primaryMode = getModelApiMode(provider, primaryModel);
-    for (const fb of this.config.modelFallback[provider]) {
-      if (fb !== primaryModel && !chain.includes(fb)
-        && (provider !== 'openai' || getModelApiMode(provider, fb) === primaryMode)) chain.push(fb);
-    }
-    return chain;
-  }
-
-  private async preparePrompt(
-    content: FileContent,
-    refs: { retriever?: RAGRetriever; builder?: CitationPromptBuilder },
-  ): Promise<{ systemPrompt: string; fileContent: FileContent }> {
-    if (refs.retriever && refs.builder && content.textContent.trim()) {
-      try {
-        const chunks = await refs.retriever.retrieve(content.textContent);
-        const result = refs.builder.build(this.config.systemPrompt, chunks, content.textContent);
-        return { systemPrompt: result.systemPrompt, fileContent: { ...content, textContent: result.userContent } };
-      } catch (err) {
-        logger.info(`RAG retrieval failed — falling back to knowledge.md: ${(err as Error).message}`);
-      }
-    }
-    return { systemPrompt: this.config.systemPrompt, fileContent: injectKnowledge(content, this.config.knowledgeContent) };
   }
 }

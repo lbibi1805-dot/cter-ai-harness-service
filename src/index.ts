@@ -3,7 +3,7 @@ import { StateManager } from './state/stateManager';
 import { PollOrchestrator } from './orchestrator/pollOrchestrator';
 import { EmailNotifier } from './utils/emailNotifier';
 import { logger } from './utils/logger';
-import { ApiServer } from './api/server';
+import { ApiServer } from './presentation/http/server';
 import { KnowledgeIndexer, RAGRetriever, CitationPromptBuilder, createEmbeddingService } from './rag';
 import { ConversationPoller } from './orchestrator/conversationPoller';
 
@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     retriever: convRagRefs.retriever,
     builder: convRagRefs.builder,
   }));
-  let orchestrator = new PollOrchestrator(config, state, emailNotifier, ragRetriever, citationBuilder, conversationPoller);
+  const orchestrator = new PollOrchestrator(config, state, emailNotifier, ragRetriever, citationBuilder, conversationPoller);
   const apiServer = new ApiServer(() => orchestrator.pollAllAccounts(), config, emailNotifier, apiPort);
   logger.startup(config.accounts.length, config.pollIntervalMs);
   apiServer.start();
@@ -53,8 +53,7 @@ async function main(): Promise<void> {
         ragRetriever = new RAGRetriever(config.vaultConfig!, embedder);
         citationBuilder = new CitationPromptBuilder();
         // Cap nhat orchestrator de cac poll tiep theo dung RAG
-        (orchestrator as any).ragRetriever = ragRetriever;
-        (orchestrator as any).citationBuilder = citationBuilder;
+        orchestrator.setRag(ragRetriever, citationBuilder);
         // Same update for the conversation poller (shared getter refs)
         convRagRefs.retriever = ragRetriever;
         convRagRefs.builder = citationBuilder;

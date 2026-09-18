@@ -1,6 +1,7 @@
-import type { CanvasFile, CanvasFolder } from '../types';
+import type { CanvasFile, CanvasFolder } from '../modules/canvas/dto';
+import type { ICanvasFileClient } from '../modules/canvas/ports';
 
-export class CanvasClient {
+export class CanvasClient implements ICanvasFileClient {
   constructor(private baseUrl: string, private apiKey: string) {}
 
   private get headers() {

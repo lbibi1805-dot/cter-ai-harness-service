@@ -1,11 +1,17 @@
-export * from './VaultStorage';
-export * from './SqliteVaultStorage';
-export * from './PostgresVaultStorage';
+export * from './dto';
+export * from './ports';
 
-import { VaultStorage } from './VaultStorage';
-import { SqliteVaultStorage } from './SqliteVaultStorage';
-import { NeonHttpVaultStorage } from './NeonHttpVaultStorage';
+import type { VaultStorage } from './ports';
+import { SqliteVaultStorage } from './internal/SqliteVaultStorage';
+import { NeonHttpVaultStorage } from './internal/NeonHttpVaultStorage';
+import { PostgresVaultStorage } from './internal/PostgresVaultStorage';
 
+export { SqliteVaultStorage, NeonHttpVaultStorage, PostgresVaultStorage };
+
+/**
+ * Vault storage factory + fallback — moved verbatim from `src/vault/index.ts`
+ * (Phase 1, mục 6 Phase 1 step 2). Behavior unchanged.
+ */
 export function createVaultStorage(): VaultStorage {
   const provider = (process.env.VAULT_STORAGE_PROVIDER ?? 'sqlite-disk') as string;
   if (provider === 'postgres-r2') {
@@ -32,7 +38,7 @@ export async function createVaultStorageWithFallback(): Promise<VaultStorage> {
     return storage;
   } catch (err) {
     const msg = (err as Error).message;
-    const code = (err as any).code ?? '';
+    const code = (err as { code?: string }).code ?? '';
     // Khi VAULT_STORAGE_PROVIDER=postgres-r2 thì KHÔNG fallback, throw thẳng để dùng Neon luôn
     if (provider === 'postgres-r2') throw err;
     const isConnErr = msg.includes('ENOTFOUND') || msg.includes('getaddrinfo') || msg.includes('DATABASE_URL') || msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT') || msg.includes('ECONNREFUSED') || code === 'ECONNRESET' || code === 'ENOTFOUND';

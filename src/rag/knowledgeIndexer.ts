@@ -7,7 +7,7 @@ import type { IndexedChunk } from './vectorStore';
 import { VectorStore } from './vectorStore';
 import { logger } from '../utils/logger';
 import { normalizeText } from './textNormalizer';
-import { createVaultStorageWithFallback } from '../vault';
+import { createVaultStorageWithFallback } from '../modules/vault';
 
 interface ParsedSection {
   heading: string;

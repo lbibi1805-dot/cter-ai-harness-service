@@ -41,7 +41,6 @@ export interface FileContent {
   textContent: string;
   imageBuffers: { data: Buffer; mimeType: string }[];
 }
-
 export interface ProcessingRecord {
   fileId: string;
   fileName: string;
@@ -52,20 +51,10 @@ export interface ProcessingRecord {
   error?: string;
 }
 
-export interface CanvasFolder {
-  id: number;
-  name: string;
-  full_name: string;
-  parent_folder_id: number | null;
-}
-
-export interface CanvasFile {
-  id: number;
-  display_name: string;
-  url: string;
-  size: number;
-  updated_at: string;
-}
+// Canvas entities moved to modules/canvas/dto.ts (Phase 1, mục 3.1). Re-exported
+// here so existing `from '../types'` import sites keep compiling during the
+// transition — see docs/types-classification.md.
+export type { CanvasFolder, CanvasFile } from './modules/canvas/dto';
 
 export interface AIAdapter {
   process(content: FileContent, systemPrompt: string, model: string): Promise<string>;

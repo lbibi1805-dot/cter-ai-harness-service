@@ -1,18 +1,20 @@
 import { CanvasClient } from '../canvas/canvasClient';
 import { extractContent } from '../extractor/fileExtractor';
 import { StateManager } from '../state/stateManager';
-import type { AIProviderName, AppConfig, CanvasAccountConfig, CanvasFile, ParsedFileName } from '../types';
+import type { AppConfig, CanvasAccountConfig, ParsedFileName } from '../types';
+import type { CanvasFile } from '../modules/canvas/dto';
 import { createAIAdapter, resolveModel } from '../ai/aiRouter';
 import { ALLOWED_MODELS, getModelApiMode, isValidModel } from '../config/allowedModels';
+import { buildModelChain } from '../core/modelChain';
 import { parseFileName } from '../utils/fileParser';
 import { buildErrorPdf, buildInvalidModelPdf, buildSuccessPdf, PDF_MIME } from '../utils/resultBuilder';
 import { logger } from '../utils/logger';
-import { withTimeout } from '../utils/withTimeout';
-import { injectKnowledge } from '../utils/injectKnowledge';
 import { EmailNotifier } from '../utils/emailNotifier';
 import { CitationPromptBuilder } from '../rag/citationPromptBuilder';
 import type { RAGRetriever } from '../rag/ragRetriever';
 import type { ConversationPoller } from './conversationPoller';
+import { executeAIInvocation } from '../application/ai/executeAIInvocation';
+import { preparePrompt } from '../application/ai/preparePrompt';
 
 export class PollOrchestrator {
   private pollCount = 0;
@@ -26,6 +28,13 @@ export class PollOrchestrator {
     private citationBuilder?: CitationPromptBuilder,
     private conversationPoller?: ConversationPoller,
   ) {}
+
+  /** Type-safe replacement for the previous `(orchestrator as any).ragRetriever = ...`
+   * cast in src/index.ts — used once RAG indexing finishes after startup. */
+  setRag(ragRetriever: RAGRetriever, citationBuilder: CitationPromptBuilder): void {
+    this.ragRetriever = ragRetriever;
+    this.citationBuilder = citationBuilder;
+  }
 
   async pollAllAccounts(): Promise<void> {
     this.pollCount += 1;
@@ -157,7 +166,7 @@ export class PollOrchestrator {
     }
 
     // Build model priority chain: filename-specified or default first, then fallback list
-    const modelChain = this.buildModelChain(parsed.provider, primaryModel);
+    const modelChain = buildModelChain(parsed.provider, primaryModel, this.config.modelFallback[parsed.provider], getModelApiMode);
     logger.validateOk(file.display_name, parsed.provider, modelChain[0]);
     this.state.setStatus({
       fileId: fileIdStr,
@@ -187,13 +196,15 @@ export class PollOrchestrator {
           logger.ai(parsed.provider, currentModel, file.display_name);
           const adapter = createAIAdapter(parsed.provider, this.config.aiKeys, this.config.grokBaseUrl);
 
-          const { systemPrompt: finalSystemPrompt, fileContent: finalContent } = await this.preparePrompt(content);
-
-          const rawResponse = await withTimeout(
-            adapter.process(finalContent, finalSystemPrompt, currentModel),
-            this.config.aiTimeoutMs,
-            `${parsed.provider}/${currentModel}`
+          const { systemPrompt: finalSystemPrompt, fileContent: finalContent } = await preparePrompt(
+            content, this.config.systemPrompt, this.config.knowledgeContent,
+            { retriever: this.ragRetriever, builder: this.citationBuilder },
           );
+
+          const rawResponse = await executeAIInvocation({
+            adapter, content: finalContent, systemPrompt: finalSystemPrompt, model: currentModel,
+            timeoutMs: this.config.aiTimeoutMs, timeoutLabel: `${parsed.provider}/${currentModel}`,
+          });
 
           const aiResponse = this.citationBuilder
             ? CitationPromptBuilder.cleanResponse(rawResponse)
@@ -248,42 +259,5 @@ export class PollOrchestrator {
     if (account.email) {
       await this.emailNotifier.notifyError(account.email, file.display_name, parsed.provider, currentModel, lastError?.message ?? 'unknown error');
     }
-  }
-
-  private buildModelChain(provider: AIProviderName, primaryModel: string): string[] {
-    const fallbackList = this.config.modelFallback[provider];
-    const chain: string[] = [primaryModel];
-    const primaryMode = getModelApiMode(provider, primaryModel);
-    for (const fb of fallbackList) {
-      if (fb !== primaryModel && !chain.includes(fb)
-        && (provider !== 'openai' || getModelApiMode(provider, fb) === primaryMode)) {
-        chain.push(fb);
-      }
-    }
-    return chain;
-  }
-
-  private async preparePrompt(content: import('../types').FileContent): Promise<{ systemPrompt: string; fileContent: import('../types').FileContent }> {
-    if (this.ragRetriever && this.citationBuilder && content.textContent.trim()) {
-      try {
-        const chunks = await this.ragRetriever.retrieve(content.textContent);
-        const result = this.citationBuilder.build(
-          this.config.systemPrompt,
-          chunks,
-          content.textContent,
-        );
-        return {
-          systemPrompt: result.systemPrompt,
-          fileContent: { ...content, textContent: result.userContent },
-        };
-      } catch (err) {
-        logger.info(`RAG retrieval failed — falling back to knowledge.md: ${(err as Error).message}`);
-      }
-    }
-
-    return {
-      systemPrompt: this.config.systemPrompt,
-      fileContent: injectKnowledge(content, this.config.knowledgeContent),
-    };
   }
 }

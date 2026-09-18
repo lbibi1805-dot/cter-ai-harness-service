@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { VaultEntry, VaultStorage } from './VaultStorage';
+import type { VaultEntry } from '../dto';
+import type { VaultStorage } from '../ports';
 
 const MANIFEST_NAME = '.vault-manifest.json';
 
@@ -16,6 +17,8 @@ function getManifestPath(): string {
   return rootManifest;
 }
 
+/** Disk-backed (JSON manifest) VaultStorage — moved verbatim from
+ * `src/vault/SqliteVaultStorage.ts` (Phase 1, mục 6 Phase 1 step 2). */
 export class SqliteVaultStorage implements VaultStorage {
   private manifestPath = getManifestPath();
   private data: Record<string, { hash: string; chunkIds: string[]; indexed: boolean; updatedAt?: string }> = {};
@@ -38,7 +41,7 @@ export class SqliteVaultStorage implements VaultStorage {
     } catch {}
   }
 
-  private toEntry(filePath: string, v: any): VaultEntry {
+  private toEntry(filePath: string, v: { hash: string; chunkIds: string[]; indexed: boolean; updatedAt?: string }): VaultEntry {
     const folderPath = filePath.includes('/') ? filePath.replace(/\/[^/]+$/, '') : '';
     const depth = (filePath.match(/\//g) || []).length;
     return { filePath, hash: v.hash, chunkIds: v.chunkIds ?? [], indexed: !!v.indexed, updatedAt: v.updatedAt ?? new Date().toISOString(), folderPath, depth };
