@@ -9,7 +9,7 @@ import {
   parseRequest,
   parseSettingMessageValue,
   ACTIVE_CONVERSATION_ID_SETTING_KEY,
-} from './conversationMessageParser';
+} from '../../src/utils/conversationMessageParser';
 
 describe('conversationMessageParser — mirror of extension/lib/messageFormat.js', () => {
   it('parses a standard request with provider + model + question', () => {

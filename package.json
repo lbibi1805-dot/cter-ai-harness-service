@@ -41,7 +41,7 @@
   "private": true,
   "vitest": {
     "include": [
-      "src/**/*.test.ts"
+      "tests/**/*.test.ts"
     ],
     "exclude": [
       "**/dist/**",

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RAGRetriever } from './ragRetriever';
+import { RAGRetriever } from '../../src/rag/ragRetriever';
 
 function makeRetriever(embedMock: ReturnType<typeof vi.fn>): RAGRetriever {
   const config = {

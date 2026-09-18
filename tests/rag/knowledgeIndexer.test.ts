@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { KnowledgeIndexer } from './knowledgeIndexer';
-import type { IEmbeddingService } from './embeddingService';
-import { VectorStore } from './vectorStore';
-import type { VaultConfig } from '../types';
+import { KnowledgeIndexer } from '../../src/rag/knowledgeIndexer';
+import type { IEmbeddingService } from '../../src/rag/embeddingService';
+import { VectorStore } from '../../src/rag/vectorStore';
+import type { VaultConfig } from '../../src/types';
 
 const TMP_DIR = path.resolve(process.cwd(), 'tmp-test-vault');
 const MANIFEST_PATH = path.resolve(process.cwd(), '.vault-manifest.json');

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeMathDelimiters } from './mathNormalizer';
+import { normalizeMathDelimiters } from '../../src/utils/mathNormalizer';
 
 describe('normalizeMathDelimiters', () => {
   it('keeps existing $$...$$ untouched', () => {

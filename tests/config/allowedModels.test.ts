@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ALLOWED_MODELS, getModelApiMode, isValidModel } from './allowedModels';
+import { ALLOWED_MODELS, getModelApiMode, isValidModel } from '../../src/config/allowedModels';
 
 describe('OpenAI model catalog', () => {
   it('accepts GPT-6 Astra and Codex models', () => {

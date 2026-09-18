@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { buildSuccessPdf, buildInvalidModelPdf, buildErrorPdf, PDF_MIME } from './resultBuilder';
-import { closeBrowser } from './markdownToPdf';
+import { buildSuccessPdf, buildInvalidModelPdf, buildErrorPdf, PDF_MIME } from '../../src/utils/resultBuilder';
+import { closeBrowser } from '../../src/utils/markdownToPdf';
 
 describe('resultBuilder — PDF output (was DOCX)', () => {
   afterAll(async () => {

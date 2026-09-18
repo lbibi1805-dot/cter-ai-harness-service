@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ConversationClient } from './conversationClient';
+import { ConversationClient } from '../../src/canvas/conversationClient';
 
 function jsonResponse(data: unknown, headers: Record<string, string> = {}, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...headers } });

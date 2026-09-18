@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll, beforeAll } from 'vitest';
-import { markdownToPdf, closeBrowser } from './markdownToPdf';
+import { markdownToPdf, closeBrowser } from '../../src/utils/markdownToPdf';
 
 describe('markdownToPdf — Mermaid + PDF output', () => {
   beforeAll(() => {

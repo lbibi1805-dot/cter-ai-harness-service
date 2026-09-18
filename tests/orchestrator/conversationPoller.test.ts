@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ConversationPoller, findPendingRequests, buildConvStateKey, MAX_CONV_PER_ROUND } from './conversationPoller';
-import { StateManager } from '../state/stateManager';
-import type { AppConfig, CanvasAccountConfig, ConversationMessage } from '../types';
+import { ConversationPoller, findPendingRequests, buildConvStateKey, MAX_CONV_PER_ROUND } from '../../src/orchestrator/conversationPoller';
+import { StateManager } from '../../src/state/stateManager';
+import type { AppConfig, CanvasAccountConfig, ConversationMessage } from '../../src/types';
 
 const mockProcess = vi.hoisted(() => vi.fn());
 
-vi.mock('../ai/aiRouter', () => ({
+vi.mock('../../src/ai/aiRouter', () => ({
   createAIAdapter: vi.fn(() => ({ process: mockProcess })),
   resolveModel: vi.fn((provider: string, model: string | undefined, defaults: Record<string, string>) => model ?? defaults[provider]),
 }));
