@@ -21,6 +21,11 @@ export function createVaultStorage(): VaultStorage {
 let cachedStorage: VaultStorage | null = null;
 let cachedProvider: string | null = null;
 
+export function resetVaultStorageCache(): void {
+  cachedStorage = null;
+  cachedProvider = null;
+}
+
 export async function createVaultStorageWithFallback(): Promise<VaultStorage> {
   const provider = process.env.VAULT_STORAGE_PROVIDER ?? 'sqlite-disk';
   if (cachedStorage && cachedProvider === provider) return cachedStorage;

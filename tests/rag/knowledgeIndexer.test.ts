@@ -5,9 +5,11 @@ import { KnowledgeIndexer } from '../../src/rag/knowledgeIndexer';
 import type { IEmbeddingService } from '../../src/rag/embeddingService';
 import { VectorStore } from '../../src/rag/vectorStore';
 import type { VaultConfig } from '../../src/types';
+import { resetVaultStorageCache } from '../../src/vault';
 
 const TMP_DIR = path.resolve(process.cwd(), 'tmp-test-vault');
 const MANIFEST_PATH = path.resolve(process.cwd(), '.vault-manifest.json');
+const DATA_MANIFEST_PATH = path.resolve(process.cwd(), 'data/.vault-manifest.json');
 
 function makeConfig(vaultPath: string): VaultConfig {
   return {
@@ -46,7 +48,9 @@ function writeFile(relative: string, content: string): string {
 
 function clean(): void {
   if (fs.existsSync(TMP_DIR)) fs.rmSync(TMP_DIR, { recursive: true });
-  if (fs.existsSync(MANIFEST_PATH)) fs.rmSync(MANIFEST_PATH);
+  if (fs.existsSync(MANIFEST_PATH)) fs.rmSync(MANIFEST_PATH, { force: true });
+  if (fs.existsSync(DATA_MANIFEST_PATH)) fs.rmSync(DATA_MANIFEST_PATH, { force: true });
+  resetVaultStorageCache();
 }
 
 describe('KnowledgeIndexer', () => {
@@ -235,12 +239,26 @@ describe('KnowledgeIndexer', () => {
     });
 
     it('handles deleted file in manifest', async () => {
+      writeFile('keep.md', '## Keep\n\nstay');
       writeFile('gone.md', '## G\n\ntext');
       await runIndex(TMP_DIR);
       fs.rmSync(path.join(TMP_DIR, 'gone.md'));
       try { await runIndex(TMP_DIR); } catch {}
-      const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8'));
+      const manifestPath = fs.existsSync(DATA_MANIFEST_PATH) ? DATA_MANIFEST_PATH : MANIFEST_PATH;
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
       expect(manifest.files['gone.md']).toBeUndefined();
+      expect(manifest.files['keep.md']).toBeDefined();
+    });
+
+    it('preserves manifest when vault becomes empty on disk (Render guard)', async () => {
+      writeFile('gone.md', '## G\n\ntext');
+      await runIndex(TMP_DIR);
+      fs.rmSync(path.join(TMP_DIR, 'gone.md'));
+      try { await runIndex(TMP_DIR); } catch {}
+      const manifestPath = fs.existsSync(DATA_MANIFEST_PATH) ? DATA_MANIFEST_PATH : MANIFEST_PATH;
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+      // Guard at knowledgeIndexer.ts:95 — vault empty on disk should NOT delete Neon entries
+      expect(manifest.files['gone.md']).toBeDefined();
     });
 
     it('reports all files changed when manifest is absent', async () => {
