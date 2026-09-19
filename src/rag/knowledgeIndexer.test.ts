@@ -185,8 +185,8 @@ describe('KnowledgeIndexer', () => {
     });
   });
 
-  // ── Manifest change detection ────────────────────────────────────────
-  describe('indexAll — change detection', () => {
+  // ── Legacy disk manifest tests — skipped (now Neon-only, see knowledgeIndexer.neon.test.ts) ──
+  describe.skip('indexAll — change detection (legacy disk, removed)', () => {
     async function runIndex(vaultPath: string) {
       const idx = new KnowledgeIndexer(
         makeConfig(vaultPath),
@@ -218,7 +218,6 @@ describe('KnowledgeIndexer', () => {
       await runIndex(TMP_DIR);
       const before = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8'));
       const beforeHash = before.files['stable.md'].hash;
-      // Re-run without any changes
       try { await runIndex(TMP_DIR); } catch {}
       const after = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8'));
       expect(after.files['stable.md'].hash).toBe(beforeHash);

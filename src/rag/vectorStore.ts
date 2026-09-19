@@ -116,7 +116,12 @@ export class VectorStore {
 
   async deleteAll(): Promise<void> {
     const index = this.pc.index<ChunkMetadata>(this.indexName);
-    await index.deleteAll();
+    try {
+      await index.deleteAll();
+    } catch (err) {
+      if ((err as Error).message?.includes('404')) return;
+      throw err;
+    }
   }
 
   async deleteByIds(ids: string[]): Promise<void> {

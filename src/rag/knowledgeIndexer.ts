@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import type { VaultConfig } from '../types';
@@ -17,24 +16,6 @@ interface ParsedSection {
 
 const CHUNK_MAX_TOKENS = 800;
 const CHUNK_OVERLAP_TOKENS = 100;
-function getManifestPath(): string {
-  // Render disk mount o /app/data -> uu tien data/.vault-manifest.json de persist qua deploy
-  const dataManifest = path.resolve(process.cwd(), 'data/.vault-manifest.json');
-  const rootManifest = path.resolve(process.cwd(), '.vault-manifest.json');
-  // Neu data folder ton tai (Render disk) thi dung data manifest, dong thoi migrate tu root neu can
-  if (fs.existsSync(path.resolve(process.cwd(), 'data'))) {
-    if (!fs.existsSync(dataManifest) && fs.existsSync(rootManifest)) {
-      try { fs.copyFileSync(rootManifest, dataManifest); } catch {}
-    }
-    return dataManifest;
-  }
-  return rootManifest;
-}
-const MANIFEST_PATH = getManifestPath();
-
-interface VaultManifest {
-  files: Record<string, { hash: string; chunkIds: string[]; indexed: boolean }>;
-}
 
 export class KnowledgeIndexer {
   private embedder: IEmbeddingService;
@@ -53,99 +34,73 @@ export class KnowledgeIndexer {
   }
 
   async indexAll(): Promise<void> {
-    const vaultPath = path.resolve(process.cwd(), this.config.vaultPath);
-    if (!fs.existsSync(vaultPath)) {
-      logger.info(`Vault path not found: ${vaultPath} — skipping indexing`);
-      return;
-    }
-
     await this.vectorStore.ensureIndex(this.embedder.dimension).catch(() => {
       logger.info('Pinecone unavailable — proceeding with manifest only');
     });
 
     const storage = await createVaultStorageWithFallback();
-    // Load manifest from storage (Neon PG or sqlite-disk fallback)
     const { entries } = await storage.list({ limit: 10000, offset: 0 });
-    const manifest: VaultManifest = { files: {} };
-    for (const e of entries) manifest.files[e.filePath] = { hash: e.hash, chunkIds: e.chunkIds, indexed: e.indexed };
 
-    // Scan current files
-    const mdFiles = this.scanMdFiles(vaultPath);
-
-    // Compute file hashes - normalize to forward slashes for cross-platform (Windows Docker vs local)
-    const fileEntries = mdFiles.map(fp => {
-      const source = path.relative(vaultPath, fp).replace(/\\/g, '/');
-      const rawContent = fs.readFileSync(fp, 'utf-8');
-      const content = normalizeText(rawContent);
-      const hash = crypto.createHash('md5').update(content).digest('hex');
-      return { filePath: fp, source, content, hash };
-    });
-
-    // Detect changes
-    const currentSources = new Set(fileEntries.map(e => e.source));
-    const prevSources = new Set(Object.keys(manifest.files));
-    const deleted = [...prevSources].filter(s => !currentSources.has(s));
-    const changed = fileEntries.filter(e => {
-      const prev = manifest.files[e.source];
-      return prev?.hash !== e.hash || prev?.indexed !== true;
-    });
-
-    // Handle deleted files — guard: if vault folder is empty on disk (Render gitignored), don't delete all in Neon
-    if (deleted.length > 0) {
-      if (fileEntries.length === 0) {
-        logger.info(`Vault folder empty on disk (${mdFiles.length} files) — skipping deletion of ${deleted.length} files to preserve Neon (likely gitignored on Render)`);
-        // Don't delete when disk empty; treat as no-op
-      } else {
-        const idsToDelete = deleted.flatMap(s => manifest.files[s]?.chunkIds ?? []);
-        if (idsToDelete.length > 0) {
-          await this.vectorStore.deleteByIds(idsToDelete);
-          logger.info(`Removed ${idsToDelete.length} chunks from ${deleted.length} deleted files`);
-        }
-        for (const s of deleted) {
-          delete manifest.files[s];
-          await storage.remove(s);
-        }
-      }
-    }
-
-    if (deleted.length > 0 && changed.length === 0) {
-      if (fileEntries.length === 0) return; // already guarded
-      logger.info('Manifest updated — deleted files cleaned up');
+    if (entries.length === 0) {
+      logger.info('Neon vault empty — nothing to index');
       return;
     }
 
-    // Skip if nothing changed
-    if (changed.length === 0) {
-      if (fileEntries.length === 0) {
-        logger.info('Vault is empty — nothing to index');
-      } else {
-        logger.info(`All ${fileEntries.length} files unchanged — indexing skipped`);
+    // Neon-only: content lives in DB, not on disk. Detect stale entries.
+    const changed: typeof entries = [];
+    const emptyContent: string[] = [];
+    for (const e of entries) {
+      const raw = e.content ?? '';
+      if (!raw.trim()) {
+        emptyContent.push(e.filePath);
+        // Force re-index attempt but will be skipped below due to empty content
+        if (!e.indexed) changed.push(e);
+        continue;
       }
+      const normalized = normalizeText(raw);
+      const computedHash = crypto.createHash('md5').update(normalized).digest('hex');
+      if (!e.indexed || computedHash !== e.hash) changed.push(e);
+    }
+
+    if (emptyContent.length > 0) {
+      logger.info(`Neon vault has ${emptyContent.length} files with empty content (need re-upload): ${emptyContent.slice(0, 5).join(', ')}${emptyContent.length > 5 ? '…' : ''}`);
+    }
+
+    // Filter out empty-content entries — cannot chunk/embed without content
+    const indexable = changed.filter(e => (e.content ?? '').trim().length > 0);
+
+    if (indexable.length === 0) {
+      const pending = entries.filter(e => !e.indexed).length;
+      if (pending === 0) logger.info(`All ${entries.length} files indexed — skipping`);
+      else logger.info(`Neon vault: ${entries.length} files, ${pending} pending but ${emptyContent.length} have empty content — skipping (re-upload needed)`);
       return;
     }
 
-    logger.info(`${changed.length}/${fileEntries.length} files changed — indexing ${changed.length} files`);
+    logger.info(`Neon vault: ${entries.length} files, ${indexable.length} pending — indexing ${indexable.length} files`);
 
-    // Index only changed files
+    // Build map for old chunkIds lookup
+    const entryMap = new Map(entries.map(e => [e.filePath, e]));
+
     const allNewChunks: IndexedChunk[] = [];
     let globalChunkIndex = 0;
+    const fileChunkMap = new Map<string, string[]>();
 
-    for (const entry of changed) {
-      const { source, content } = entry;
+    for (const entry of indexable) {
+      const source = entry.filePath;
+      const normalized = normalizeText(entry.content);
+      const hash = crypto.createHash('md5').update(normalized).digest('hex');
 
-      // Delete old chunks for this file
-      const oldChunkIds = manifest.files[source]?.chunkIds ?? [];
+      const oldChunkIds = entryMap.get(source)?.chunkIds ?? [];
       if (oldChunkIds.length > 0) {
-        await this.vectorStore.deleteByIds(oldChunkIds);
+        await this.vectorStore.deleteByIds(oldChunkIds).catch(() => {});
       }
 
-      // Parse and chunk
-      const sections = this.parseMarkdown(content);
+      const sections = this.parseMarkdown(normalized);
       const fileChunks: IndexedChunk[] = [];
 
-      if (sections.length === 0 && content.trim()) {
+      if (sections.length === 0 && normalized.trim()) {
         fileChunks.push(...this.chunkSection(
-          content.trim(), source, path.basename(source, '.md'), '',
+          normalized.trim(), source, path.basename(source, '.md'), '',
           () => globalChunkIndex++,
         ));
       } else {
@@ -158,17 +113,9 @@ export class KnowledgeIndexer {
       }
 
       allNewChunks.push(...fileChunks);
-      manifest.files[source] = {
-        hash: entry.hash,
-        chunkIds: fileChunks.map(c => c.id),
-        indexed: false,
-      };
-    }
-
-    // Persist manifest BEFORE embedding so a crash mid-embedding does not
-    // lose change detection (next run only re-indexes un-indexed files).
-    for (const e of changed) {
-      await storage.upsert({ filePath: e.source, hash: manifest.files[e.source].hash, chunkIds: manifest.files[e.source].chunkIds, indexed: false });
+      fileChunkMap.set(source, fileChunks.map(c => c.id));
+      // Persist BEFORE embedding so crash doesn't lose tracking
+      await storage.upsert({ filePath: source, hash, chunkIds: fileChunks.map(c => c.id), indexed: false, content: entry.content } as any);
     }
 
     // Embed new chunks - batch size & delay from config (strategy per provider)
@@ -184,7 +131,6 @@ export class KnowledgeIndexer {
       let lastError: string | undefined;
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
-          // Use batch API - OpenAI sends 1 request per 100 chunks, Gemini fans out internally
           const vectors = await this.embedder.embedBatch(batch.map(c => c.text));
           batch.forEach((chunk, idx) => { chunk.vector = vectors[idx] ?? []; });
           lastError = undefined;
@@ -207,48 +153,29 @@ export class KnowledgeIndexer {
       }
       if (lastError) {
         logger.info(`Giving up on batch ${batchIndex} after 5 retries: ${lastError}`);
-        // Mark batch vectors as empty so they will be retried next run via indexed:false
         batch.forEach(c => { if (!c.vector.length) c.vector = []; });
       }
-      // Small pause between batches to avoid burst TPM (config-driven)
       if (start + EMBED_BATCH_SIZE < allNewChunks.length) {
         await new Promise(r => setTimeout(r, EMBED_DELAY_MS));
       }
     }
 
-    // Upsert
     const validChunks = allNewChunks.filter(c => c.vector.length > 0);
     if (validChunks.length > 0) {
       logger.info(`Upserting ${validChunks.length}/${allNewChunks.length} chunks to Pinecone...`);
       await this.vectorStore.upsertChunks(validChunks);
     }
 
-    // Mark per-file indexed status so next run only retries failed files
-    for (const entry of changed) {
-      const ids = manifest.files[entry.source]?.chunkIds ?? [];
+    for (const entry of indexable) {
+      const ids = fileChunkMap.get(entry.filePath) ?? [];
       const fileChunks = allNewChunks.filter(c => ids.includes(c.id));
       const allOk = fileChunks.length > 0 && fileChunks.every(c => c.vector.length > 0);
-      if (manifest.files[entry.source]) manifest.files[entry.source].indexed = allOk;
-      await storage.upsert({ filePath: entry.source, hash: manifest.files[entry.source].hash, chunkIds: manifest.files[entry.source].chunkIds, indexed: allOk });
+      const normalized = normalizeText(entry.content);
+      const hash = crypto.createHash('md5').update(normalized).digest('hex');
+      await storage.upsert({ filePath: entry.filePath, hash, chunkIds: ids, indexed: allOk, content: entry.content } as any);
     }
 
     logger.info(`Vault indexing complete — ${validChunks.length} new chunks stored`);
-  }
-
-  private scanMdFiles(dir: string): string[] {
-    const results: string[] = [];
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        results.push(...this.scanMdFiles(fullPath));
-      } else if (entry.name.endsWith('.md')) {
-        results.push(fullPath);
-      }
-    }
-
-    return results;
   }
 
   private parseMarkdown(content: string): ParsedSection[] {
