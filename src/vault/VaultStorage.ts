@@ -4,6 +4,7 @@ export interface VaultEntry {
   chunkIds: string[];
   indexed: boolean;
   updatedAt: string;
+  content: string;
   folderPath?: string;
   depth?: number;
 }

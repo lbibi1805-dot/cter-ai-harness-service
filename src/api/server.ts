@@ -290,7 +290,7 @@ export class ApiServer {
           const dest = path.join(absVault, rel);
           fs.mkdirSync(path.dirname(dest), { recursive: true });
           fs.writeFileSync(dest, content);
-          await storage.upsert({ filePath: rel, hash, chunkIds: [], indexed: false });
+          await storage.upsert({ filePath: rel, hash, chunkIds: [], indexed: false, content: normalized } as any);
           results.push({ file: rel, hash, indexed: false });
         }
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, files: results }));

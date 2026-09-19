@@ -44,12 +44,19 @@ async function main(): Promise<void> {
       config.vaultConfig.embeddingProvider,
       { gemini: config.aiKeys.gemini, openai: config.aiKeys.openai },
     );
-    // Chay index background khong block port
+    // Chay index background khong block port — Neon-only, không phụ thuộc disk
     (async () => {
       try {
         const indexer = new KnowledgeIndexer(config.vaultConfig!, embedder);
         await indexer.indexAll();
-        logger.info('Document vault indexed — RAG ready');
+        try {
+          const { createVaultStorageWithFallback } = await import('./vault');
+          const st = await createVaultStorageWithFallback();
+          const { total, indexed } = await st.stats();
+          logger.info(`Neon vault stats: ${indexed}/${total} indexed — RAG ready`);
+        } catch {
+          logger.info('Document vault indexed — RAG ready');
+        }
         ragRetriever = new RAGRetriever(config.vaultConfig!, embedder);
         citationBuilder = new CitationPromptBuilder();
         // Cap nhat orchestrator de cac poll tiep theo dung RAG

@@ -21,6 +21,7 @@ export class PostgresVaultStorage implements VaultStorage {
   async init(): Promise<void> {
     const ddl = fs.readFileSync(path.resolve(process.cwd(), 'migrations/001_vault_manifest.sql'), 'utf-8');
     await this.pool.query(ddl);
+    await this.pool.query(`ALTER TABLE vault_manifest ADD COLUMN IF NOT EXISTS content TEXT NOT NULL DEFAULT ''`).catch(() => {});
   }
 
   private rowToEntry(r: any): VaultEntry {
@@ -30,6 +31,7 @@ export class PostgresVaultStorage implements VaultStorage {
       chunkIds: Array.isArray(r.chunk_ids) ? r.chunk_ids : JSON.parse(r.chunk_ids ?? '[]'),
       indexed: r.indexed,
       updatedAt: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
+      content: r.content ?? '',
       folderPath: r.folder_path ?? (r.file_path.includes('/') ? r.file_path.replace(/\/[^/]+$/, '') : ''),
       depth: typeof r.depth === 'number' ? r.depth : (r.file_path.match(/\//g) || []).length,
     };
@@ -58,10 +60,10 @@ export class PostgresVaultStorage implements VaultStorage {
 
   async upsert(entry: Omit<VaultEntry, 'updatedAt' | 'folderPath' | 'depth'>): Promise<void> {
     await this.pool.query(
-      `INSERT INTO vault_manifest (file_path, hash, chunk_ids, indexed, updated_at)
-       VALUES ($1,$2,$3::jsonb,$4, now())
-       ON CONFLICT (file_path) DO UPDATE SET hash=EXCLUDED.hash, chunk_ids=EXCLUDED.chunk_ids, indexed=EXCLUDED.indexed, updated_at=now()`,
-      [entry.filePath, entry.hash, JSON.stringify(entry.chunkIds), entry.indexed]
+      `INSERT INTO vault_manifest (file_path, hash, chunk_ids, indexed, updated_at, content)
+       VALUES ($1,$2,$3::jsonb,$4, now(), $5)
+       ON CONFLICT (file_path) DO UPDATE SET hash=EXCLUDED.hash, chunk_ids=EXCLUDED.chunk_ids, indexed=EXCLUDED.indexed, updated_at=now(), content=EXCLUDED.content`,
+      [entry.filePath, entry.hash, JSON.stringify(entry.chunkIds), entry.indexed, (entry as any).content ?? '']
     );
   }
 

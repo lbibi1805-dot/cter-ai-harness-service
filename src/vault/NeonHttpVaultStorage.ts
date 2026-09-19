@@ -42,6 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_vault_manifest_depth ON vault_manifest(depth);
     for (const stmt of ddl.split(';').map(s => s.trim()).filter(Boolean)) {
       await (this.sql as any).query(stmt);
     }
+    await (this.sql as any).query(`ALTER TABLE vault_manifest ADD COLUMN IF NOT EXISTS content TEXT NOT NULL DEFAULT ''`).catch(() => {});
   }
 
   private rowToEntry(r: any): VaultEntry {
@@ -51,6 +52,7 @@ CREATE INDEX IF NOT EXISTS idx_vault_manifest_depth ON vault_manifest(depth);
       chunkIds: Array.isArray(r.chunk_ids) ? r.chunk_ids : JSON.parse(r.chunk_ids ?? '[]'),
       indexed: r.indexed,
       updatedAt: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
+      content: r.content ?? '',
       folderPath: r.folder_path ?? (r.file_path.includes('/') ? r.file_path.replace(/\/[^/]+$/, '') : ''),
       depth: typeof r.depth === 'number' ? r.depth : (r.file_path.match(/\//g) || []).length,
     };
@@ -78,10 +80,10 @@ CREATE INDEX IF NOT EXISTS idx_vault_manifest_depth ON vault_manifest(depth);
 
   async upsert(entry: Omit<VaultEntry, 'updatedAt' | 'folderPath' | 'depth'>): Promise<void> {
     await (this.sql as any).query(
-      `INSERT INTO vault_manifest (file_path, hash, chunk_ids, indexed, updated_at)
-       VALUES ($1,$2,$3::jsonb,$4, now())
-       ON CONFLICT (file_path) DO UPDATE SET hash=EXCLUDED.hash, chunk_ids=EXCLUDED.chunk_ids, indexed=EXCLUDED.indexed, updated_at=now()`,
-      [entry.filePath, entry.hash, JSON.stringify(entry.chunkIds), entry.indexed]
+      `INSERT INTO vault_manifest (file_path, hash, chunk_ids, indexed, updated_at, content)
+       VALUES ($1,$2,$3::jsonb,$4, now(), $5)
+       ON CONFLICT (file_path) DO UPDATE SET hash=EXCLUDED.hash, chunk_ids=EXCLUDED.chunk_ids, indexed=EXCLUDED.indexed, updated_at=now(), content=EXCLUDED.content`,
+      [entry.filePath, entry.hash, JSON.stringify(entry.chunkIds), entry.indexed, (entry as any).content ?? '']
     );
   }
 

@@ -18,7 +18,7 @@ function getManifestPath(): string {
 
 export class SqliteVaultStorage implements VaultStorage {
   private manifestPath = getManifestPath();
-  private data: Record<string, { hash: string; chunkIds: string[]; indexed: boolean; updatedAt?: string }> = {};
+  private data: Record<string, { hash: string; chunkIds: string[]; indexed: boolean; updatedAt?: string; content?: string }> = {};
 
   async init(): Promise<void> {
     try {
@@ -41,7 +41,7 @@ export class SqliteVaultStorage implements VaultStorage {
   private toEntry(filePath: string, v: any): VaultEntry {
     const folderPath = filePath.includes('/') ? filePath.replace(/\/[^/]+$/, '') : '';
     const depth = (filePath.match(/\//g) || []).length;
-    return { filePath, hash: v.hash, chunkIds: v.chunkIds ?? [], indexed: !!v.indexed, updatedAt: v.updatedAt ?? new Date().toISOString(), folderPath, depth };
+    return { filePath, hash: v.hash, chunkIds: v.chunkIds ?? [], indexed: !!v.indexed, updatedAt: v.updatedAt ?? new Date().toISOString(), content: v.content ?? '', folderPath, depth };
   }
 
   async list(opts?: { folder?: string; q?: string; indexed?: boolean; limit?: number; offset?: number }): Promise<{ entries: VaultEntry[]; total: number }> {
@@ -65,7 +65,7 @@ export class SqliteVaultStorage implements VaultStorage {
   }
 
   async upsert(entry: Omit<VaultEntry, 'updatedAt' | 'folderPath' | 'depth'>): Promise<void> {
-    this.data[entry.filePath] = { hash: entry.hash, chunkIds: entry.chunkIds, indexed: entry.indexed, updatedAt: new Date().toISOString() };
+    this.data[entry.filePath] = { hash: entry.hash, chunkIds: entry.chunkIds, indexed: entry.indexed, updatedAt: new Date().toISOString(), content: (entry as any).content ?? this.data[entry.filePath]?.content ?? '' };
     this.persist();
   }
 
