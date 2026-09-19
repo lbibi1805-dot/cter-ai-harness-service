@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { AIAdapter, FileContent } from '../types';
+import type { IAIAdapter } from '../domain/ports/IAIAdapter';
+import type { FileContent } from '../types';
 
-export class ClaudeAdapter implements AIAdapter {
+export class ClaudeAdapter implements IAIAdapter {
   private client: Anthropic;
 
   constructor(apiKey: string) {

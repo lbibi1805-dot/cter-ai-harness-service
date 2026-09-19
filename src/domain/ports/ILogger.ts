@@ -1,0 +1,30 @@
+export interface ILogger {
+  startup(accounts: number, intervalMs: number): void;
+  interval(count: number): void;
+  fetch(accountIndex: number, url: string): void;
+  fetchDone(accountIndex: number, count: number): void;
+  fetchError(accountIndex: number, error: string): void;
+  skip(fileName: string, reason: 'done-on-canvas' | 'in-state' | 'is-result' | 'invalid-name'): void;
+  check(fileName: string): void;
+  validateOk(fileName: string, provider: string, model: string): void;
+  validateFail(fileName: string, provider: string, model: string, allowed: string[]): void;
+  download(fileName: string): void;
+  extract(fileName: string, extension: string): void;
+  ai(provider: string, model: string, fileName: string): void;
+  upload(doneFileName: string): void;
+  ok(originalName: string, doneFileName: string): void;
+  retry(attempt: number, max: number, fileName: string, error: string): void;
+  fallback(provider: string, fromModel: string, toModel: string, fileName: string, reason: string): void;
+  failed(fileName: string, error: string): void;
+  invalidModel(fileName: string, provider: string, model: string): void;
+  folderSkip(accountIndex: number, reason: string): void;
+  folderFound(name: string, id: number): void;
+  folderCreated(name: string, id: number): void;
+  staleReset(fileName: string, stuckSince: string): void;
+  uploadErrorFailed(doneFileName: string, error: string): void;
+  info(msg: string): void;
+  emailSent(to: string, subject: string): void;
+  emailFailed(to: string, error: string): void;
+  getLogs(limit?: number): { ts: string; level: string; tag: string; msg: string; line: string }[];
+  clear(): void;
+}

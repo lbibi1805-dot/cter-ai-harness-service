@@ -67,10 +67,7 @@ export interface CanvasFile {
   updated_at: string;
 }
 
-export interface AIAdapter {
-  process(content: FileContent, systemPrompt: string, model: string): Promise<string>;
-  validate(): Promise<void>;
-}
+export type { IAIAdapter as AIAdapter } from './domain/ports/IAIAdapter';
 
 // ── Canvas Conversations (extension chat — additive, Q/A file flow untouched) ──
 

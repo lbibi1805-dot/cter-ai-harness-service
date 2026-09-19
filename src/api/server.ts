@@ -2,7 +2,8 @@ import * as http from 'http';
 import type { AppConfig } from '../types';
 import { validateAllKeys, type KeyValidationResult } from '../ai/aiRouter';
 import { EmailNotifier } from '../utils/emailNotifier';
-import { logger } from '../utils/logger';
+import { logger as defaultLogger } from '../utils/logger';
+import type { ILogger } from '../domain/ports/ILogger';
 
 type PollFn = () => Promise<void>;
 
@@ -60,19 +61,21 @@ export class ApiServer {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private isPolling = false;
-
+  private logger: ILogger;
   constructor(
     private pollFn: PollFn,
     private config: AppConfig,
     private emailNotifier: EmailNotifier,
     private port: number,
+    logger?: ILogger,
   ) {
+    this.logger = logger ?? defaultLogger;
     this.server = http.createServer((req, res) => { void this.handle(req, res); });
   }
 
   start(): void {
     this.server.listen(this.port, () => {
-      logger.info(`API server listening on port ${this.port}`);
+      this.logger.info(`API server listening on port ${this.port}`);
     });
   }
 
@@ -91,13 +94,13 @@ export class ApiServer {
       if (!this.running) return;
       this.runPoll();
     }, this.config.pollIntervalMs);
-    logger.info('Polling started');
+    this.logger.info('Polling started');
   }
 
   private stopPolling(): void {
     if (this.timer !== null) { clearInterval(this.timer); this.timer = null; }
     this.running = false;
-    logger.info('Polling stopped — in-flight jobs will finish');
+    this.logger.info('Polling stopped — in-flight jobs will finish');
   }
 
   private notifyUsersWhenStartOrStop(action: 'started' | 'paused'): void { return; }
@@ -128,13 +131,13 @@ export class ApiServer {
     if (pathname === '/api/logs') {
       if (req.method === 'DELETE') {
         if (!checkAuth(req)) { res.writeHead(401, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
-        logger.clear();
+        this.logger.clear();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
         return;
       }
       const limit = Math.min(parseInt(query.limit ?? '100', 10) || 100, 500);
-      const logs = logger.getLogs(limit);
+      const logs = this.logger.getLogs(limit);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ logs }));
       return;
@@ -144,8 +147,8 @@ export class ApiServer {
         providers: this.config.modelFallback,
         defaults: this.config.defaultModels,
         // naive counters from logger buffer (count AI tag)
-        aiCalls: logger.getLogs(500).filter(l => l.tag === 'AI').length,
-        lastLogs: logger.getLogs(20).filter(l => l.tag === 'AI' || l.tag === 'RETRY' || l.tag === 'FAILED').slice(-10),
+        aiCalls: this.logger.getLogs(500).filter(l => l.tag === 'AI').length,
+        lastLogs: this.logger.getLogs(20).filter(l => l.tag === 'AI' || l.tag === 'RETRY' || l.tag === 'FAILED').slice(-10),
       };
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(usage));

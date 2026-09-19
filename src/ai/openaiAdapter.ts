@@ -1,8 +1,9 @@
 import OpenAI from 'openai';
-import type { AIAdapter, FileContent } from '../types';
+import type { IAIAdapter } from '../domain/ports/IAIAdapter';
+import type { FileContent } from '../types';
 import { getModelApiMode } from '../config/allowedModels';
 
-export class OpenAIAdapter implements AIAdapter {
+export class OpenAIAdapter implements IAIAdapter {
   private client: OpenAI;
 
   constructor(apiKey: string) {

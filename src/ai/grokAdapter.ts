@@ -1,7 +1,8 @@
 import OpenAI from 'openai';
-import type { AIAdapter, FileContent } from '../types';
+import type { IAIAdapter } from '../domain/ports/IAIAdapter';
+import type { FileContent } from '../types';
 
-export class GrokAdapter implements AIAdapter {
+export class GrokAdapter implements IAIAdapter {
   private client: OpenAI;
 
   constructor(apiKey: string, baseURL: string) {

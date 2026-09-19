@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI, type Part } from '@google/generative-ai';
-import type { AIAdapter, FileContent } from '../types';
+import type { IAIAdapter } from '../domain/ports/IAIAdapter';
+import type { FileContent } from '../types';
 
-export class GeminiAdapter implements AIAdapter {
+export class GeminiAdapter implements IAIAdapter {
   constructor(private apiKey: string) {}
 
   async validate(): Promise<void> {

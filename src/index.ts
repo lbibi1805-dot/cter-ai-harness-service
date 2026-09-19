@@ -29,9 +29,9 @@ async function main(): Promise<void> {
   const conversationPoller = new ConversationPoller(config, state, () => ({
     retriever: convRagRefs.retriever,
     builder: convRagRefs.builder,
-  }));
-  let orchestrator = new PollOrchestrator(config, state, emailNotifier, ragRetriever, citationBuilder, conversationPoller);
-  const apiServer = new ApiServer(() => orchestrator.pollAllAccounts(), config, emailNotifier, apiPort);
+  }), undefined, logger);
+  let orchestrator = new PollOrchestrator(config, state, emailNotifier, ragRetriever, citationBuilder, conversationPoller, logger);
+  const apiServer = new ApiServer(() => orchestrator.pollAllAccounts(), config, emailNotifier, apiPort, logger);
   logger.startup(config.accounts.length, config.pollIntervalMs);
   apiServer.start();
 
@@ -47,7 +47,7 @@ async function main(): Promise<void> {
     // Chay index background khong block port
     (async () => {
       try {
-        const indexer = new KnowledgeIndexer(config.vaultConfig!, embedder);
+        const indexer = new KnowledgeIndexer(config.vaultConfig!, embedder, undefined, logger);
         await indexer.indexAll();
         logger.info('Document vault indexed — RAG ready');
         ragRetriever = new RAGRetriever(config.vaultConfig!, embedder);

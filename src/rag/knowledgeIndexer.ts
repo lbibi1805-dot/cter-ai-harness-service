@@ -5,7 +5,8 @@ import type { VaultConfig } from '../types';
 import type { IEmbeddingService } from './embeddingService';
 import type { IndexedChunk } from './vectorStore';
 import { VectorStore } from './vectorStore';
-import { logger } from '../utils/logger';
+import { logger as defaultLogger } from '../utils/logger';
+import type { ILogger } from '../domain/ports/ILogger';
 import { normalizeText } from './textNormalizer';
 import { createVaultStorageWithFallback } from '../vault';
 
@@ -39,12 +40,15 @@ interface VaultManifest {
 export class KnowledgeIndexer {
   private embedder: IEmbeddingService;
   private vectorStore: VectorStore;
+  private logger: ILogger;
 
   constructor(
     private config: VaultConfig,
     embedder: IEmbeddingService,
     vectorStore?: VectorStore,
+    logger?: ILogger,
   ) {
+    this.logger = logger ?? defaultLogger;
     this.embedder = embedder;
     this.vectorStore = vectorStore ?? new VectorStore(
       config.pineconeApiKey,
@@ -55,12 +59,12 @@ export class KnowledgeIndexer {
   async indexAll(): Promise<void> {
     const vaultPath = path.resolve(process.cwd(), this.config.vaultPath);
     if (!fs.existsSync(vaultPath)) {
-      logger.info(`Vault path not found: ${vaultPath} — skipping indexing`);
+      this.logger.info(`Vault path not found: ${vaultPath} — skipping indexing`);
       return;
     }
 
     await this.vectorStore.ensureIndex(this.embedder.dimension).catch(() => {
-      logger.info('Pinecone unavailable — proceeding with manifest only');
+      this.logger.info('Pinecone unavailable — proceeding with manifest only');
     });
 
     const storage = await createVaultStorageWithFallback();
@@ -93,13 +97,13 @@ export class KnowledgeIndexer {
     // Handle deleted files — guard: if vault folder is empty on disk (Render gitignored), don't delete all in Neon
     if (deleted.length > 0) {
       if (fileEntries.length === 0) {
-        logger.info(`Vault folder empty on disk (${mdFiles.length} files) — skipping deletion of ${deleted.length} files to preserve Neon (likely gitignored on Render)`);
+        this.logger.info(`Vault folder empty on disk (${mdFiles.length} files) — skipping deletion of ${deleted.length} files to preserve Neon (likely gitignored on Render)`);
         // Don't delete when disk empty; treat as no-op
       } else {
         const idsToDelete = deleted.flatMap(s => manifest.files[s]?.chunkIds ?? []);
         if (idsToDelete.length > 0) {
           await this.vectorStore.deleteByIds(idsToDelete);
-          logger.info(`Removed ${idsToDelete.length} chunks from ${deleted.length} deleted files`);
+          this.logger.info(`Removed ${idsToDelete.length} chunks from ${deleted.length} deleted files`);
         }
         for (const s of deleted) {
           delete manifest.files[s];
@@ -110,21 +114,21 @@ export class KnowledgeIndexer {
 
     if (deleted.length > 0 && changed.length === 0) {
       if (fileEntries.length === 0) return; // already guarded
-      logger.info('Manifest updated — deleted files cleaned up');
+      this.logger.info('Manifest updated — deleted files cleaned up');
       return;
     }
 
     // Skip if nothing changed
     if (changed.length === 0) {
       if (fileEntries.length === 0) {
-        logger.info('Vault is empty — nothing to index');
+        this.logger.info('Vault is empty — nothing to index');
       } else {
-        logger.info(`All ${fileEntries.length} files unchanged — indexing skipped`);
+        this.logger.info(`All ${fileEntries.length} files unchanged — indexing skipped`);
       }
       return;
     }
 
-    logger.info(`${changed.length}/${fileEntries.length} files changed — indexing ${changed.length} files`);
+    this.logger.info(`${changed.length}/${fileEntries.length} files changed — indexing ${changed.length} files`);
 
     // Index only changed files
     const allNewChunks: IndexedChunk[] = [];
@@ -174,12 +178,12 @@ export class KnowledgeIndexer {
     // Embed new chunks - batch size & delay from config (strategy per provider)
     const EMBED_BATCH_SIZE = this.config.embeddingBatchSize ?? 1;
     const EMBED_DELAY_MS = this.config.embeddingDelayMs ?? 0;
-    logger.info(`Embedding ${allNewChunks.length} new chunks... (provider=${this.config.embeddingProvider}, batch=${EMBED_BATCH_SIZE}, delay=${EMBED_DELAY_MS}ms)`);
+    this.logger.info(`Embedding ${allNewChunks.length} new chunks... (provider=${this.config.embeddingProvider}, batch=${EMBED_BATCH_SIZE}, delay=${EMBED_DELAY_MS}ms)`);
     for (let start = 0; start < allNewChunks.length; start += EMBED_BATCH_SIZE) {
       const batch = allNewChunks.slice(start, Math.min(start + EMBED_BATCH_SIZE, allNewChunks.length));
       const batchIndex = Math.floor(start / EMBED_BATCH_SIZE) + 1;
       const totalBatches = Math.ceil(allNewChunks.length / EMBED_BATCH_SIZE);
-      logger.info(`Embedding batch ${batchIndex}/${totalBatches} (${batch.length} chunks, ${start + 1}-${start + batch.length}/${allNewChunks.length})`);
+      this.logger.info(`Embedding batch ${batchIndex}/${totalBatches} (${batch.length} chunks, ${start + 1}-${start + batch.length}/${allNewChunks.length})`);
 
       let lastError: string | undefined;
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -193,20 +197,20 @@ export class KnowledgeIndexer {
           lastError = (err as Error).message;
           if (lastError.includes('429')) {
             const wait = Math.min(3000 * Math.pow(2, attempt), 30000);
-            logger.info(`Rate limited on batch ${batchIndex}/${totalBatches} — waiting ${wait}ms`);
+            this.logger.info(`Rate limited on batch ${batchIndex}/${totalBatches} — waiting ${wait}ms`);
             await new Promise(r => setTimeout(r, wait));
           } else if (lastError.includes('fetch failed') || lastError.includes('fetch')) {
             const wait = Math.min(2000 * Math.pow(2, attempt), 15000);
-            logger.info(`Fetch failed on batch ${batchIndex}/${totalBatches} — retry ${attempt + 1}/5 waiting ${wait}ms`);
+            this.logger.info(`Fetch failed on batch ${batchIndex}/${totalBatches} — retry ${attempt + 1}/5 waiting ${wait}ms`);
             await new Promise(r => setTimeout(r, wait));
           } else {
-            logger.info(`Skipping batch ${batchIndex}: ${lastError}`);
+            this.logger.info(`Skipping batch ${batchIndex}: ${lastError}`);
             break;
           }
         }
       }
       if (lastError) {
-        logger.info(`Giving up on batch ${batchIndex} after 5 retries: ${lastError}`);
+        this.logger.info(`Giving up on batch ${batchIndex} after 5 retries: ${lastError}`);
         // Mark batch vectors as empty so they will be retried next run via indexed:false
         batch.forEach(c => { if (!c.vector.length) c.vector = []; });
       }
@@ -219,7 +223,7 @@ export class KnowledgeIndexer {
     // Upsert
     const validChunks = allNewChunks.filter(c => c.vector.length > 0);
     if (validChunks.length > 0) {
-      logger.info(`Upserting ${validChunks.length}/${allNewChunks.length} chunks to Pinecone...`);
+      this.logger.info(`Upserting ${validChunks.length}/${allNewChunks.length} chunks to Pinecone...`);
       await this.vectorStore.upsertChunks(validChunks);
     }
 
@@ -232,7 +236,7 @@ export class KnowledgeIndexer {
       await storage.upsert({ filePath: entry.source, hash: manifest.files[entry.source].hash, chunkIds: manifest.files[entry.source].chunkIds, indexed: allOk });
     }
 
-    logger.info(`Vault indexing complete — ${validChunks.length} new chunks stored`);
+    this.logger.info(`Vault indexing complete — ${validChunks.length} new chunks stored`);
   }
 
   private scanMdFiles(dir: string): string[] {

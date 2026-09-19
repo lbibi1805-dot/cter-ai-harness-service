@@ -12,9 +12,10 @@ import type {
   FileContent,
 } from '../types';
 import { createAIAdapter, resolveModel } from '../ai/aiRouter';
-import { ALLOWED_MODELS, getModelApiMode, isValidModel } from '../config/allowedModels';
+import { ALLOWED_MODELS, isValidModel } from '../config/allowedModels';
+import { ModelChainResolver } from '../domain/services/ModelChainResolver';
+import { PromptPreparationService } from '../application/PromptPreparationService';
 import { withTimeout } from '../utils/withTimeout';
-import { injectKnowledge } from '../utils/injectKnowledge';
 import { CitationPromptBuilder } from '../rag/citationPromptBuilder';
 import type { RAGRetriever } from '../rag/ragRetriever';
 import {
@@ -24,7 +25,8 @@ import {
   parseReplyMessage,
   parseRequest,
 } from '../utils/conversationMessageParser';
-import { logger } from '../utils/logger';
+import { logger as defaultLogger } from '../utils/logger';
+import type { ILogger } from '../domain/ports/ILogger';
 
 /** Max REQUEST messages answered per account per poll round (bounds latency). */
 export const MAX_CONV_PER_ROUND = 5;
@@ -101,13 +103,19 @@ export function findPendingRequests(messages: ConversationMessage[]): PendingCon
 }
 
 export class ConversationPoller {
+  private logger: ILogger;
+  private promptService: PromptPreparationService;
   constructor(
     private config: AppConfig,
     private state: StateManager,
     private ragProvider?: RagProvider,
     private clientFactory: (account: CanvasAccountConfig) => ConversationClient = (a) =>
       new ConversationClient(a.url, a.apiKey),
-  ) {}
+    logger?: ILogger,
+  ) {
+    this.logger = logger ?? defaultLogger;
+    this.promptService = new PromptPreparationService(this.logger);
+  }
 
   async pollAccountConversations(account: CanvasAccountConfig): Promise<void> {
     const started = Date.now();
@@ -117,11 +125,11 @@ export class ConversationPoller {
     try {
       settingsMatches = await client.listSettingsConversations(SETTINGS_CONVERSATION_MARKER);
     } catch (err) {
-      logger.info(`[conv] account #${account.index} settings discovery failed: ${(err as Error).message}`);
+      this.logger.info(`[conv] account #${account.index} settings discovery failed: ${(err as Error).message}`);
       return;
     }
     if (settingsMatches.length === 0) {
-      logger.info(`[conv] account #${account.index} no settings conversation — skipping`);
+      this.logger.info(`[conv] account #${account.index} no settings conversation — skipping`);
       return;
     }
 
@@ -129,15 +137,15 @@ export class ConversationPoller {
     try {
       const read = await client.readSettings(settingsMatches[0].id);
       if (read.sawSystemPrompt) {
-        logger.info('[conv] system_prompt setting present — ignored (phase 1), using config.systemPrompt');
+        this.logger.info('[conv] system_prompt setting present — ignored (phase 1), using config.systemPrompt');
       }
       activeConversationId = read.activeConversationId;
     } catch (err) {
-      logger.info(`[conv] account #${account.index} read settings failed: ${(err as Error).message}`);
+      this.logger.info(`[conv] account #${account.index} read settings failed: ${(err as Error).message}`);
       return;
     }
     if (!activeConversationId) {
-      logger.info(`[conv] account #${account.index} no active_conversation_id set — skipping`);
+      this.logger.info(`[conv] account #${account.index} no active_conversation_id set — skipping`);
       return;
     }
 
@@ -145,13 +153,13 @@ export class ConversationPoller {
     try {
       messages = await client.listMessages(activeConversationId);
     } catch (err) {
-      logger.info(`[conv] account #${account.index} list messages failed: ${(err as Error).message}`);
+      this.logger.info(`[conv] account #${account.index} list messages failed: ${(err as Error).message}`);
       return;
     }
 
     const pending = findPendingRequests(messages).slice(0, MAX_CONV_PER_ROUND);
     if (pending.length === 0) {
-      logger.info(`[conv] account #${account.index} conv ${activeConversationId} — no pending requests`);
+      this.logger.info(`[conv] account #${account.index} conv ${activeConversationId} — no pending requests`);
       return;
     }
 
@@ -160,7 +168,7 @@ export class ConversationPoller {
       const ok = await this.processOne(req, activeConversationId, account, client);
       if (ok) answered++;
     }
-    logger.info(`[conv] account #${account.index} conv ${activeConversationId} — answered ${answered}/${pending.length} in ${Date.now() - started}ms`);
+    this.logger.info(`[conv] account #${account.index} conv ${activeConversationId} — answered ${answered}/${pending.length} in ${Date.now() - started}ms`);
   }
 
   /**
@@ -180,7 +188,7 @@ export class ConversationPoller {
     // the record as "renamed" when fileName differs, which would duplicate replies.
     const key = buildConvStateKey(account.index, conversationId, msg.id);
     if (this.state.isProcessed(key, key)) {
-      logger.info(`[conv] skip ${key} (in-state)`);
+      this.logger.info(`[conv] skip ${key} (in-state)`);
       return false;
     }
     this.state.setStatus({
@@ -196,7 +204,7 @@ export class ConversationPoller {
       await this.processOneInner(req, conversationId, account, client, key);
       return true;
     } catch (err) {
-      logger.info(`[conv] ${key} transient failure, will retry next round: ${(err as Error).message}`);
+      this.logger.info(`[conv] ${key} transient failure, will retry next round: ${(err as Error).message}`);
       return false;
     }
   }
@@ -234,7 +242,7 @@ export class ConversationPoller {
         content: `**ERROR:** Model \`${primaryModel}\` is not supported for provider **${provider}**. Allowed: ${ALLOWED_MODELS[provider].join(', ')}`,
       }));
       this.markFailed(key, account, `Invalid model: ${primaryModel}`);
-      logger.info(`[conv] ${key} invalid model ${provider}/${primaryModel}`);
+      this.logger.info(`[conv] ${key} invalid model ${provider}/${primaryModel}`);
       return;
     }
 
@@ -259,7 +267,7 @@ export class ConversationPoller {
 
     // Same retry chain as the file flow (copied, not refactored — Q/A untouched).
     const modelChain = this.buildModelChain(provider, primaryModel);
-    logger.info(`[conv] ${key} — ${provider}/${modelChain[0]} (${imageBuffers.length} image(s))`);
+    this.logger.info(`[conv] ${key} — ${provider}/${modelChain[0]} (${imageBuffers.length} image(s))`);
     const adapter = createAIAdapter(provider, this.config.aiKeys, this.config.grokBaseUrl);
 
     const refs = this.ragProvider?.() ?? {};
@@ -294,13 +302,13 @@ export class ConversationPoller {
             retryCount: totalAttempts - 1,
             updatedAt: new Date().toISOString(),
           });
-          logger.info(`[conv] ${key} answered with ${provider}/${currentModel}`);
+          this.logger.info(`[conv] ${key} answered with ${provider}/${currentModel}`);
           return;
         } catch (err) {
           lastError = err as Error;
           if (mi === modelChain.length - 1 && attempt >= this.config.maxRetryCount) break;
           if (attempt >= this.config.maxRetryCount) {
-            logger.info(`[conv] ${key} fallback ${currentModel} → ${modelChain[mi + 1]}: ${lastError.message}`);
+            this.logger.info(`[conv] ${key} fallback ${currentModel} → ${modelChain[mi + 1]}: ${lastError.message}`);
           }
         }
       }
@@ -323,28 +331,13 @@ export class ConversationPoller {
   }
 
   private buildModelChain(provider: AIProviderName, primaryModel: string): string[] {
-    const chain: string[] = [primaryModel];
-    const primaryMode = getModelApiMode(provider, primaryModel);
-    for (const fb of this.config.modelFallback[provider]) {
-      if (fb !== primaryModel && !chain.includes(fb)
-        && (provider !== 'openai' || getModelApiMode(provider, fb) === primaryMode)) chain.push(fb);
-    }
-    return chain;
+    return ModelChainResolver.buildChain(provider, primaryModel, this.config.modelFallback[provider]);
   }
 
   private async preparePrompt(
     content: FileContent,
     refs: { retriever?: RAGRetriever; builder?: CitationPromptBuilder },
   ): Promise<{ systemPrompt: string; fileContent: FileContent }> {
-    if (refs.retriever && refs.builder && content.textContent.trim()) {
-      try {
-        const chunks = await refs.retriever.retrieve(content.textContent);
-        const result = refs.builder.build(this.config.systemPrompt, chunks, content.textContent);
-        return { systemPrompt: result.systemPrompt, fileContent: { ...content, textContent: result.userContent } };
-      } catch (err) {
-        logger.info(`RAG retrieval failed — falling back to knowledge.md: ${(err as Error).message}`);
-      }
-    }
-    return { systemPrompt: this.config.systemPrompt, fileContent: injectKnowledge(content, this.config.knowledgeContent) };
+    return this.promptService.prepare(content, this.config.systemPrompt, this.config.knowledgeContent, refs);
   }
 }

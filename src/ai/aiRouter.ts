@@ -1,14 +1,13 @@
-import type { AIAdapter, AIProviderName, AppConfig } from '../types';
+import type { AppConfig } from '../types';
+import type { AIProviderName } from '../domain/enums/AIProviderName';
+import type { IAIAdapter } from '../domain/ports/IAIAdapter';
+import type { IAIAdapterFactory, KeyValidationResult } from '../domain/ports/IAIAdapterFactory';
 import { ClaudeAdapter } from './claudeAdapter';
 import { GeminiAdapter } from './geminiAdapter';
 import { GrokAdapter } from './grokAdapter';
 import { OpenAIAdapter } from './openaiAdapter';
 
-export interface KeyValidationResult {
-  provider: AIProviderName;
-  ok: boolean;
-  error?: string;
-}
+export type { KeyValidationResult } from '../domain/ports/IAIAdapterFactory';
 
 export async function validateAllKeys(
   aiKeys: AppConfig['aiKeys'],
@@ -51,7 +50,7 @@ export async function validateAllKeys(
 type AdapterFactory = (
   aiKeys: AppConfig['aiKeys'],
   grokBaseUrl: string,
-) => AIAdapter;
+) => IAIAdapter;
 
 const ADAPTER_FACTORIES: Record<AIProviderName, AdapterFactory> = {
   claude: (aiKeys) => {
@@ -76,8 +75,21 @@ export function createAIAdapter(
   provider: AIProviderName,
   aiKeys: AppConfig['aiKeys'],
   grokBaseUrl: string
-): AIAdapter {
+): IAIAdapter {
   return ADAPTER_FACTORIES[provider](aiKeys, grokBaseUrl);
+}
+
+// Domain Factory class — pluggable AI entity: hôm nay Claude, mai provider khác chỉ cần implement IAIAdapter + đăng ký ở đây
+export class AiRouterFactory implements IAIAdapterFactory {
+  create(provider: AIProviderName, aiKeys: AppConfig['aiKeys'], grokBaseUrl: string): IAIAdapter {
+    return createAIAdapter(provider, aiKeys, grokBaseUrl);
+  }
+  async validateAll(aiKeys: AppConfig['aiKeys'], grokBaseUrl: string): Promise<KeyValidationResult[]> {
+    return validateAllKeys(aiKeys, grokBaseUrl);
+  }
+  resolveModel(provider: AIProviderName, modelFromFileName: string | undefined, defaultModels: AppConfig['defaultModels']): string {
+    return resolveModel(provider, modelFromFileName, defaultModels);
+  }
 }
 
 export function resolveModel(
