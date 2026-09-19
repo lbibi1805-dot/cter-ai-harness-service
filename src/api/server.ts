@@ -60,6 +60,9 @@ export class ApiServer {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private isPolling = false;
+  private isIndexing = false;
+  private needsRerun = false;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private pollFn: PollFn,
@@ -101,6 +104,29 @@ export class ApiServer {
   }
 
   private notifyUsersWhenStartOrStop(action: 'started' | 'paused'): void { return; }
+
+  private scheduleAutoIndex(): void {
+    if (!this.config.vaultConfig) return;
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      if (this.isIndexing) { this.needsRerun = true; return; }
+      this.isIndexing = true;
+      logger.info('Auto-index triggered by upload — background');
+      (async () => {
+        try {
+          const { createEmbeddingService } = await import('../rag/embeddingService');
+          const { KnowledgeIndexer } = await import('../rag/knowledgeIndexer');
+          const embedder = createEmbeddingService(this.config.vaultConfig!.embeddingProvider, { gemini: this.config.aiKeys.gemini, openai: this.config.aiKeys.openai });
+          const indexer = new KnowledgeIndexer(this.config.vaultConfig!, embedder);
+          await indexer.indexAll();
+        } catch (e) { logger.info(`Auto-index failed: ${(e as Error).message}`); }
+        finally {
+          this.isIndexing = false;
+          if (this.needsRerun) { this.needsRerun = false; this.scheduleAutoIndex(); }
+        }
+      })();
+    }, 2000);
+  }
 
   private async handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     setCors(res, req);
@@ -294,9 +320,30 @@ export class ApiServer {
           results.push({ file: rel, hash, indexed: false });
         }
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, files: results }));
+        this.scheduleAutoIndex();
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }));
       }
+      return;
+    }
+
+    // POST /api/vault/reindex — manual trigger (auth, 409 if already indexing)
+    if (pathname === '/api/vault/reindex' && req.method === 'POST') {
+      if (!this.config.vaultConfig) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'vault not configured' })); return; }
+      if (this.isIndexing) { res.writeHead(409, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'already indexing', retryAfter: 2 })); return; }
+      this.isIndexing = true;
+      logger.info('Manual reindex triggered — background');
+      (async () => {
+        try {
+          const { createEmbeddingService } = await import('../rag/embeddingService');
+          const { KnowledgeIndexer } = await import('../rag/knowledgeIndexer');
+          const embedder = createEmbeddingService(this.config.vaultConfig!.embeddingProvider, { gemini: this.config.aiKeys.gemini, openai: this.config.aiKeys.openai });
+          const indexer = new KnowledgeIndexer(this.config.vaultConfig!, embedder);
+          await indexer.indexAll();
+        } catch (e) { logger.info(`Manual reindex failed: ${(e as Error).message}`); }
+        finally { this.isIndexing = false; }
+      })();
+      res.writeHead(202, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, triggered: true }));
       return;
     }
 
