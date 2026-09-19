@@ -54,6 +54,13 @@ async function main(): Promise<void> {
           const st = await createVaultStorageWithFallback();
           const { total, indexed } = await st.stats();
           logger.info(`Neon vault stats: ${indexed}/${total} indexed — RAG ready`);
+          // Reconcile orphan Pinecone vectors if Neon was cleared via SQL Editor
+          if (total === 0) {
+            try {
+              const { reconcileOrphans } = await import('./vault/vaultPineconeSync');
+              await reconcileOrphans(st, config.vaultConfig!);
+            } catch {}
+          }
         } catch {
           logger.info('Document vault indexed — RAG ready');
         }

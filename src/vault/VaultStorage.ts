@@ -15,6 +15,7 @@ export interface VaultStorage {
   get(filePath: string): Promise<VaultEntry | null>;
   upsert(entry: Omit<VaultEntry, 'updatedAt' | 'folderPath' | 'depth'>): Promise<void>;
   remove(filePath: string): Promise<void>;
+  clear(): Promise<void>;
   listFolders(): Promise<{ path: string; depth: number; fileCount: number }[]>;
   stats(): Promise<{ total: number; indexed: number }>;
 }

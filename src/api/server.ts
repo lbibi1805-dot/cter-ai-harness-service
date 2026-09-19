@@ -43,7 +43,7 @@ function setCors(res: http.ServerResponse, req: http.IncomingMessage): void {
   } else {
     res.setHeader('Access-Control-Allow-Origin', allowed[0]);
   }
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Confirm');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Vary', 'Origin');
 }
@@ -300,6 +300,19 @@ export class ApiServer {
       return;
     }
 
+    // POST /api/vault/sync-pinecone — reconcile orphan vectors after SQL Editor DELETE
+    if (pathname === '/api/vault/sync-pinecone' && req.method === 'POST') {
+      try {
+        const { createVaultStorageWithFallback } = await import('../vault');
+        const storage = await createVaultStorageWithFallback();
+        if (!this.config.vaultConfig) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'vault not configured' })); return; }
+        const { reconcileOrphans } = await import('../vault/vaultPineconeSync');
+        const result = await reconcileOrphans(storage, this.config.vaultConfig);
+        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, result }));
+      } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message })); }
+      return;
+    }
+
     if (req.method !== 'GET' && req.method !== 'DELETE') {
       res.writeHead(405, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Method not allowed' })); return;
     }
@@ -353,6 +366,59 @@ export class ApiServer {
         return;
       }
 
+      // DELETE /api/vault/files?folder=...  and DELETE /api/vault/files (clear all, needs X-Confirm)
+      if (pathname === '/api/vault/files' && req.method === 'DELETE') {
+        const storage = await createVaultStorageWithFallback();
+        // Bulk folder delete
+        if (query.folder) {
+          const { entries } = await storage.list({ folder: query.folder as string, limit: 10000, offset: 0 });
+          if (entries.length === 0) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Folder not found or empty' })); return; }
+          const allIds = entries.flatMap(e => e.chunkIds);
+          if (allIds.length > 0 && this.config.vaultConfig) {
+            try {
+              const { VectorStore } = await import('../rag/vectorStore');
+              const vs = new VectorStore(this.config.vaultConfig.pineconeApiKey, this.config.vaultConfig.pineconeIndex);
+              await vs.deleteByIds(allIds);
+            } catch {}
+          }
+          for (const e of entries) await storage.remove(e.filePath);
+          try {
+            const p = await import('path'); const fs = await import('fs');
+            const vaultPath = this.config.vaultConfig?.vaultPath ?? './documents-vault';
+            for (const e of entries) {
+              const abs = p.resolve(process.cwd(), vaultPath, e.filePath);
+              if (fs.existsSync(abs)) try { fs.unlinkSync(abs); } catch {}
+            }
+          } catch {}
+          res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, deleted: entries.length }));
+          return;
+        }
+        // Clear all — requires X-Confirm: delete-all
+        const confirm = (req.headers['x-confirm'] as string) ?? (req.headers['X-Confirm'] as string);
+        if (confirm !== 'delete-all') { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Missing X-Confirm: delete-all header for clear all' })); return; }
+        const { entries } = await storage.list({ limit: 10000, offset: 0 });
+        if (this.config.vaultConfig) {
+          try {
+            const { syncDeleteAll } = await import('../vault/vaultPineconeSync');
+            await syncDeleteAll(this.config.vaultConfig);
+          } catch {}
+        }
+        await storage.clear();
+        try {
+          const p = await import('path'); const fs = await import('fs');
+          const vaultPath = this.config.vaultConfig?.vaultPath ?? './documents-vault';
+          const absRoot = p.resolve(process.cwd(), vaultPath);
+          if (fs.existsSync(absRoot)) {
+            for (const e of entries) {
+              const abs = p.resolve(absRoot, e.filePath);
+              if (fs.existsSync(abs)) try { fs.unlinkSync(abs); } catch {}
+            }
+          }
+        } catch {}
+        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, deleted: entries.length }));
+        return;
+      }
+
       // GET /api/vault/manifest (legacy compat) and GET /api/vault/files
       if ((pathname === '/api/vault/manifest' || pathname === '/api/vault/files') && req.method === 'GET' && !pathname.startsWith('/api/vault/files/')) {
         const storage = await createVaultStorageWithFallback();
@@ -385,12 +451,12 @@ export class ApiServer {
         if (req.method === 'DELETE') {
           const entry = await storage.get(filePath);
           if (!entry) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found' })); return; }
-          // delete vectors if indexed
-          if (entry.chunkIds.length > 0 && this.config.vaultConfig) {
+          // auto delete Pinecone vectors if indexed (best-effort, then remove Neon)
+          let pinecone: string = 'skip';
+          if (this.config.vaultConfig) {
             try {
-              const { VectorStore } = await import('../rag/vectorStore');
-              const vs = new VectorStore(this.config.vaultConfig.pineconeApiKey, this.config.vaultConfig.pineconeIndex);
-              await vs.deleteByIds(entry.chunkIds);
+              const { syncDeleteFile } = await import('../vault/vaultPineconeSync');
+              pinecone = await syncDeleteFile(entry, this.config.vaultConfig);
             } catch {}
           }
           await storage.remove(filePath);
@@ -401,7 +467,7 @@ export class ApiServer {
             const abs = p.resolve(process.cwd(), vaultPath, filePath);
             if (fs.existsSync(abs)) fs.unlinkSync(abs);
           } catch {}
-          res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true }));
+          res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, pinecone }));
           return;
         }
       }

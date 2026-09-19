@@ -71,6 +71,10 @@ export class PostgresVaultStorage implements VaultStorage {
     await this.pool.query('DELETE FROM vault_manifest WHERE file_path=$1', [filePath]);
   }
 
+  async clear(): Promise<void> {
+    await this.pool.query('DELETE FROM vault_manifest');
+  }
+
   async listFolders(): Promise<{ path: string; depth: number; fileCount: number }[]> {
     const r = await this.pool.query(`
       SELECT folder_path AS path, depth, COUNT(*)::int AS file_count

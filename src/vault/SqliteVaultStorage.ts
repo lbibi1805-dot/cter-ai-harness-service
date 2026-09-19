@@ -74,6 +74,11 @@ export class SqliteVaultStorage implements VaultStorage {
     this.persist();
   }
 
+  async clear(): Promise<void> {
+    this.data = {};
+    this.persist();
+  }
+
   async listFolders(): Promise<{ path: string; depth: number; fileCount: number }[]> {
     const map = new Map<string, number>();
     for (const fp of Object.keys(this.data)) {
