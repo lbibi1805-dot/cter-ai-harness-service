@@ -1,4 +1,4 @@
-import type { VaultStorageSettings } from './modules/vault/infrastructure/vaultRepository.factory';
+import type { DatabaseSettings } from './shared/database/database';
 
 export type AIProviderName = 'claude' | 'gemini' | 'grok' | 'openai';
 
@@ -22,7 +22,10 @@ export interface AppConfig {
   aiTimeoutMs: number;
   gmail: { user?: string; appPassword?: string };
   vaultConfig?: VaultConfig;
-  vaultStorage: VaultStorageSettings;
+  /** Neon (prod) or local JSON files — shared by vault manifest and poll cursors. */
+  database: DatabaseSettings;
+  /** Start polling on boot instead of waiting for GET /start. */
+  pollAutostart: boolean;
   /** Bearer token for write endpoints; unset means open (legacy behaviour). */
   adminToken?: string;
   canvasFolder: {

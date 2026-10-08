@@ -43,6 +43,11 @@ export class Router {
     private readonly adminToken: string | undefined,
   ) {}
 
+  /** True when some route owns this path (whatever the method). */
+  matches(pathname: string): boolean {
+    return this.routes.some((route) => route.match(pathname) !== null);
+  }
+
   async dispatch(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
     const query: QueryParams = Object.fromEntries(url.searchParams.entries());
     let pathMatched = false;

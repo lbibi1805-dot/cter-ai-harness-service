@@ -1,4 +1,4 @@
-import type { NeonQueryFunction } from '@neondatabase/serverless';
+import { SchemaGuard, type NeonSql } from '../../../shared/database/database';
 import {
   depthOf,
   folderPathOf,
@@ -12,8 +12,6 @@ import {
   type VaultStats,
 } from '../domain';
 import { VAULT_SCHEMA_STATEMENTS } from './vaultSchema';
-
-export type NeonSql = NeonQueryFunction<false, false>;
 
 interface VaultManifestRow {
   file_path: string;
@@ -33,9 +31,11 @@ interface WhereClause {
 
 /** Vault manifest in Neon Postgres. Every query is parameterized. */
 export class NeonVaultRepository implements VaultRepository {
-  private schemaReady: Promise<void> | null = null;
+  private readonly schema: SchemaGuard;
 
-  constructor(private readonly sql: NeonSql) {}
+  constructor(private readonly sql: NeonSql) {
+    this.schema = new SchemaGuard(sql, VAULT_SCHEMA_STATEMENTS);
+  }
 
   async search(criteria: VaultSearchCriteria): Promise<PagedResult<VaultEntry>> {
     const where = buildWhere(criteria);
@@ -105,23 +105,8 @@ export class NeonVaultRepository implements VaultRepository {
   }
 
   private async rows<T>(text: string, params: unknown[] = []): Promise<T[]> {
-    await this.ensureSchema();
+    await this.schema.ensure();
     return (await this.sql.query(text, params)) as T[];
-  }
-
-  /** Applies the schema once; a failed attempt is retried on the next query. */
-  private ensureSchema(): Promise<void> {
-    if (!this.schemaReady) {
-      this.schemaReady = this.applySchema().catch((err) => {
-        this.schemaReady = null;
-        throw err;
-      });
-    }
-    return this.schemaReady;
-  }
-
-  private async applySchema(): Promise<void> {
-    for (const statement of VAULT_SCHEMA_STATEMENTS) await this.sql.query(statement);
   }
 }
 

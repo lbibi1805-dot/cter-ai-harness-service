@@ -1,12 +1,10 @@
 import * as http from 'http';
 import type { AppConfig } from '../types';
-import { validateAllKeys, type KeyValidationResult } from '../ai/aiRouter';
 import { EmailNotifier } from '../utils/emailNotifier';
 import { logger } from '../utils/logger';
 import { isAuthorized } from '../shared/http/auth';
 import { VAULT_API_PREFIX, type VaultModule } from '../modules/vault';
-
-type PollFn = () => Promise<void>;
+import type { PollingModule } from '../modules/polling';
 
 function maskEmail(email: string): string {
   const atIndex = email.indexOf('@');
@@ -52,16 +50,13 @@ function setCors(res: http.ServerResponse, req: http.IncomingMessage): void {
 
 export class ApiServer {
   private server: http.Server;
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private running = false;
-  private isPolling = false;
 
   constructor(
-    private pollFn: PollFn,
     private config: AppConfig,
     private emailNotifier: EmailNotifier,
     private port: number,
     private vault: VaultModule,
+    private polling: PollingModule,
   ) {
     this.server = http.createServer((req, res) => { void this.handle(req, res); });
   }
@@ -71,32 +66,6 @@ export class ApiServer {
       logger.info(`API server listening on port ${this.port}`);
     });
   }
-
-  private runPoll(): void {
-    if (this.isPolling) return;
-    this.isPolling = true;
-    this.pollFn()
-      .catch(console.error)
-      .finally(() => { this.isPolling = false; });
-  }
-
-  startPolling(): void {
-    this.running = true;
-    this.runPoll();
-    this.timer = setInterval(() => {
-      if (!this.running) return;
-      this.runPoll();
-    }, this.config.pollIntervalMs);
-    logger.info('Polling started');
-  }
-
-  private stopPolling(): void {
-    if (this.timer !== null) { clearInterval(this.timer); this.timer = null; }
-    this.running = false;
-    logger.info('Polling stopped — in-flight jobs will finish');
-  }
-
-  private notifyUsersWhenStartOrStop(action: 'started' | 'paused'): void { return; }
 
   private async handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     setCors(res, req);
@@ -180,6 +149,10 @@ export class ApiServer {
       await this.vault.router.dispatch(req, res, u);
       return;
     }
+    if (this.polling.router.matches(pathname)) {
+      await this.polling.router.dispatch(req, res, u);
+      return;
+    }
 
     if (req.method !== 'GET') {
       res.writeHead(405, { 'Content-Type': 'application/json' });
@@ -191,7 +164,7 @@ export class ApiServer {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         status: 'up',
-        polling: this.running ? 'running' : 'stopped',
+        polling: this.polling.scheduler.status().state,
         canvasAccounts: this.config.accounts.map(a => ({ index: a.index, email: a.email ? maskEmail(a.email) : null })),
         aiKeys: { claude: !!this.config.aiKeys.claude, gemini: !!this.config.aiKeys.gemini, grok: !!this.config.aiKeys.grok, openai: !!this.config.aiKeys.openai },
         vault: this.config.vaultConfig ? { index: this.config.vaultConfig.pineconeIndex, provider: this.config.vaultConfig.embeddingProvider } : null,
@@ -208,26 +181,7 @@ export class ApiServer {
         } catch (e) { vaultStatus = `error: ${(e as Error).message}`; }
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'up', aiKeys: { claude: !!this.config.aiKeys.claude, gemini: !!this.config.aiKeys.gemini, grok: !!this.config.aiKeys.grok, openai: !!this.config.aiKeys.openai }, vault: vaultStatus, polling: this.running ? 'running' : 'stopped' }));
-      return;
-    }
-
-    if (pathname === '/start') {
-      if (this.running) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ status: 'already_running' })); return; }
-      try {
-        const results: KeyValidationResult[] = await validateAllKeys(this.config.aiKeys, this.config.grokBaseUrl);
-        this.startPolling();
-        this.notifyUsersWhenStartOrStop('started');
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ status: 'started', validation: results }));
-      } catch (err) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: (err as Error).message })); }
-      return;
-    }
-
-    if (pathname === '/stop') {
-      if (!this.running) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ status: 'already_stopped' })); return; }
-      this.stopPolling();
-      this.notifyUsersWhenStartOrStop('paused');
-      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ status: 'stopped' }));
+      res.end(JSON.stringify({ status: 'up', aiKeys: { claude: !!this.config.aiKeys.claude, gemini: !!this.config.aiKeys.gemini, grok: !!this.config.aiKeys.grok, openai: !!this.config.aiKeys.openai }, vault: vaultStatus, polling: this.polling.scheduler.status().state }));
       return;
     }
 

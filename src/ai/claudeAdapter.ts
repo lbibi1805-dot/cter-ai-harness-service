@@ -1,11 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AIAdapter, FileContent } from '../types';
+import { SDK_MAX_RETRIES } from './sdkOptions';
 
 export class ClaudeAdapter implements AIAdapter {
   private client: Anthropic;
 
   constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey });
+    this.client = new Anthropic({ apiKey, maxRetries: SDK_MAX_RETRIES });
   }
 
   async validate(): Promise<void> {

@@ -1,9 +1,3 @@
-/** Backing store for the vault manifest. Values match `VAULT_STORAGE_PROVIDER`. */
-export enum VaultStorageProvider {
-  FILE = 'sqlite-disk',
-  NEON = 'postgres-r2',
-}
-
 /** Outcome of removing a file's chunks from the vector index. */
 export enum VectorSyncResult {
   OK = 'ok',

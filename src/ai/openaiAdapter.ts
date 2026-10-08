@@ -1,12 +1,13 @@
 import OpenAI from 'openai';
 import type { AIAdapter, FileContent } from '../types';
 import { getModelApiMode } from '../config/allowedModels';
+import { SDK_MAX_RETRIES } from './sdkOptions';
 
 export class OpenAIAdapter implements AIAdapter {
   private client: OpenAI;
 
   constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+    this.client = new OpenAI({ apiKey, maxRetries: SDK_MAX_RETRIES });
   }
 
   async validate(): Promise<void> {

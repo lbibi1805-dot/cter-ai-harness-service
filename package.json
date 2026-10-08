@@ -8,7 +8,8 @@
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "eval:rag": "tsx eval/rag/cli/evalRag.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",
@@ -41,7 +42,8 @@
   "private": true,
   "vitest": {
     "include": [
-      "src/**/*.test.ts"
+      "src/**/*.test.ts",
+      "eval/**/*.test.ts"
     ],
     "exclude": [
       "**/dist/**",

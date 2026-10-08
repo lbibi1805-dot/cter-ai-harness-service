@@ -1,11 +1,12 @@
 import OpenAI from 'openai';
 import type { AIAdapter, FileContent } from '../types';
+import { SDK_MAX_RETRIES } from './sdkOptions';
 
 export class GrokAdapter implements AIAdapter {
   private client: OpenAI;
 
   constructor(apiKey: string, baseURL: string) {
-    this.client = new OpenAI({ apiKey, baseURL });
+    this.client = new OpenAI({ apiKey, baseURL, maxRetries: SDK_MAX_RETRIES });
   }
 
   async validate(): Promise<void> {

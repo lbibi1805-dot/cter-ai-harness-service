@@ -23,7 +23,7 @@ export interface VaultModule {
 
 /** Wires the vault module: repository → services → controller → routes. */
 export function createVaultModule(config: AppConfig): VaultModule {
-  const repository = createVaultRepository(config.vaultStorage);
+  const repository = createVaultRepository(config.database);
   const vectors = config.vaultConfig
     ? new PineconeVectorIndex(new VectorStore(config.vaultConfig.pineconeApiKey, config.vaultConfig.pineconeIndex))
     : null;
@@ -39,9 +39,5 @@ export function createVaultModule(config: AppConfig): VaultModule {
 
 export { VAULT_API_PREFIX } from './presentation/vault.routes';
 export { RECONCILE_ALL_VECTORS_DELETED } from './application/vault.service';
-export {
-  createVaultRepository,
-  parseVaultStorageProvider,
-  type VaultStorageSettings,
-} from './infrastructure/vaultRepository.factory';
+export { createVaultRepository } from './infrastructure/vaultRepository.factory';
 export * from './domain';

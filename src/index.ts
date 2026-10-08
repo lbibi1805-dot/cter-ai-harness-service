@@ -1,12 +1,15 @@
 import { loadConfig } from './config';
 import { StateManager } from './state/stateManager';
-import { PollOrchestrator } from './orchestrator/pollOrchestrator';
+import { FileQAJob } from './orchestrator/fileQAJob';
 import { EmailNotifier } from './utils/emailNotifier';
 import { logger } from './utils/logger';
 import { ApiServer } from './api/server';
 import { RAGRetriever, CitationPromptBuilder, createEmbeddingService } from './rag';
 import { createVaultModule } from './modules/vault';
 import { ConversationPoller } from './orchestrator/conversationPoller';
+import { AIInvocationService, PromptPreparer, type RagRefs } from './modules/ai';
+import { createPollingModule } from './modules/polling';
+import { validateAllKeys } from './ai/aiRouter';
 
 async function main(): Promise<void> {
   // 1. LOAD THE CONFIGURATIONS
@@ -21,21 +24,32 @@ async function main(): Promise<void> {
 
   // Start API truoc de Render detect port ngay, tranh "No open ports detected"
   const apiPort = parseInt(process.env.API_PORT ?? '3000', 10);
-  // Tam khoi tao orchestrator chua RAG, se cap nhat sau khi index xong
-  let ragRetriever: RAGRetriever | undefined;
-  let citationBuilder: CitationPromptBuilder | undefined;
-  // Shared RAG refs for the conversation poller — read via getter each message
-  // (a constructor snapshot would stay undefined forever, see conversationPoller.ts).
-  const convRagRefs: { retriever?: RAGRetriever; builder?: CitationPromptBuilder } = {};
-  const conversationPoller = new ConversationPoller(config, state, () => ({
-    retriever: convRagRefs.retriever,
-    builder: convRagRefs.builder,
-  }));
-  let orchestrator = new PollOrchestrator(config, state, emailNotifier, ragRetriever, citationBuilder, conversationPoller);
+  // RAG is filled in after the vault finishes indexing; every flow reads it
+  // through this getter, so the update reaches them without re-wiring.
+  const ragRefs: RagRefs = {};
+  const prompts = new PromptPreparer(config.systemPrompt, config.knowledgeContent, () => ragRefs);
+  const ai = new AIInvocationService(config, prompts);
+
+  const fileQAJob = new FileQAJob(config, state, emailNotifier, ai);
+  const conversationPoller = new ConversationPoller(config, state, () => ragRefs, undefined, ai);
+  const staleThresholdMs = config.aiTimeoutMs * (config.maxRetryCount + 2);
+  const polling = createPollingModule(config, {
+    jobs: [fileQAJob, conversationPoller],
+    validateKeys: () => validateAllKeys(config.aiKeys, config.grokBaseUrl),
+    beforeTick: () => {
+      for (const record of state.resetStaleProcessing(staleThresholdMs)) logger.staleReset(record.fileName, record.updatedAt);
+    },
+  });
+
   const vault = createVaultModule(config);
-  const apiServer = new ApiServer(() => orchestrator.pollAllAccounts(), config, emailNotifier, apiPort, vault);
+  const apiServer = new ApiServer(config, emailNotifier, apiPort, vault, polling);
   logger.startup(config.accounts.length, config.pollIntervalMs);
   apiServer.start();
+
+  // Polling is mandatory: start it on boot so a restart/redeploy never leaves
+  // it silently stopped. Set POLL_AUTOSTART=false to require GET /start.
+  if (config.pollAutostart) polling.scheduler.start();
+  else logger.info('POLL_AUTOSTART=false — waiting for GET /start');
 
   // Cron 12m heartbeat anti-sleep Render (handshake env only) — controllable via /api/cron
   const { startCron } = await import('./utils/cronManager');
@@ -58,14 +72,8 @@ async function main(): Promise<void> {
         } catch {
           logger.info('Document vault indexed — RAG ready');
         }
-        ragRetriever = new RAGRetriever(config.vaultConfig!, embedder);
-        citationBuilder = new CitationPromptBuilder();
-        // Cap nhat orchestrator de cac poll tiep theo dung RAG
-        (orchestrator as any).ragRetriever = ragRetriever;
-        (orchestrator as any).citationBuilder = citationBuilder;
-        // Same update for the conversation poller (shared getter refs)
-        convRagRefs.retriever = ragRetriever;
-        convRagRefs.builder = citationBuilder;
+        ragRefs.retriever = new RAGRetriever(config.vaultConfig!, embedder);
+        ragRefs.builder = new CitationPromptBuilder();
       } catch (err) {
         logger.info(`Vault indexing skipped or failed — falling back to knowledge.md: ${(err as Error).message}`);
       }

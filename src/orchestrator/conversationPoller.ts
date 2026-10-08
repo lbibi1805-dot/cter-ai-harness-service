@@ -11,12 +11,10 @@ import type {
   ConversationMessage,
   FileContent,
 } from '../types';
-import { createAIAdapter, resolveModel } from '../ai/aiRouter';
-import { ALLOWED_MODELS, getModelApiMode, isValidModel } from '../config/allowedModels';
-import { withTimeout } from '../utils/withTimeout';
-import { injectKnowledge } from '../utils/injectKnowledge';
-import { CitationPromptBuilder } from '../rag/citationPromptBuilder';
-import type { RAGRetriever } from '../rag/ragRetriever';
+import { resolveModel } from '../ai/aiRouter';
+import { ALLOWED_MODELS, isValidModel } from '../config/allowedModels';
+import { AIInvocationService, PromptPreparer, type RagRefs, type RagRefsProvider } from '../modules/ai';
+import { KEEP_CURSOR, PollJobName, type PollJob, type PollJobResult } from '../modules/polling/domain';
 import {
   SETTINGS_CONVERSATION_MARKER,
   buildReply,
@@ -29,17 +27,21 @@ import { logger } from '../utils/logger';
 /** Max REQUEST messages answered per account per poll round (bounds latency). */
 export const MAX_CONV_PER_ROUND = 5;
 
-export interface RagRefs {
-  retriever?: RAGRetriever;
-  builder?: CitationPromptBuilder;
-}
-
 /**
- * Getter for RAG instances — NOT a snapshot. `src/index.ts` fills RAG in
- * asynchronously after `indexAll()`; a constructor-captured copy would stay
- * `undefined` forever and silently degrade to knowledge.md fallback.
+ * The settings conversation is rediscovered at most this often. Discovery pages
+ * through every sent conversation (8+ requests per account), so doing it on
+ * every tick made each tick slower than the poll interval.
  */
-export type RagProvider = () => RagRefs;
+export const SETTINGS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+export type { RagRefs };
+/** Getter for RAG instances — read on every message, never snapshotted. */
+export type RagProvider = RagRefsProvider;
+
+interface CachedSettings {
+  conversationId: number;
+  expiresAt: number;
+}
 
 export interface PendingConversationRequest {
   message: ConversationMessage;
@@ -100,39 +102,45 @@ export function findPendingRequests(messages: ConversationMessage[]): PendingCon
   return pending;
 }
 
-export class ConversationPoller {
+export class ConversationPoller implements PollJob {
+  readonly name = PollJobName.CONVERSATION;
+  private readonly ai: AIInvocationService;
+  private readonly settingsCache = new Map<number, CachedSettings>();
+
   constructor(
     private config: AppConfig,
     private state: StateManager,
-    private ragProvider?: RagProvider,
+    ragProvider?: RagProvider,
     private clientFactory: (account: CanvasAccountConfig) => ConversationClient = (a) =>
       new ConversationClient(a.url, a.apiKey),
-  ) {}
+    ai?: AIInvocationService,
+    private now: () => number = Date.now,
+  ) {
+    this.ai = ai ?? new AIInvocationService(config, new PromptPreparer(config.systemPrompt, config.knowledgeContent, ragProvider));
+  }
+
+  /** Conversations are matched REQUEST↔REPLY in full every time, so no cursor is needed. */
+  async run(account: CanvasAccountConfig): Promise<PollJobResult> {
+    await this.pollAccountConversations(account);
+    return KEEP_CURSOR;
+  }
 
   async pollAccountConversations(account: CanvasAccountConfig): Promise<void> {
     const started = Date.now();
     const client = this.clientFactory(account);
 
-    let settingsMatches: { id: number; subject: string }[];
-    try {
-      settingsMatches = await client.listSettingsConversations(SETTINGS_CONVERSATION_MARKER);
-    } catch (err) {
-      logger.info(`[conv] account #${account.index} settings discovery failed: ${(err as Error).message}`);
-      return;
-    }
-    if (settingsMatches.length === 0) {
-      logger.info(`[conv] account #${account.index} no settings conversation — skipping`);
-      return;
-    }
+    const settingsConversationId = await this.findSettingsConversation(account, client);
+    if (settingsConversationId === null) return;
 
     let activeConversationId: number | null;
     try {
-      const read = await client.readSettings(settingsMatches[0].id);
+      const read = await client.readSettings(settingsConversationId);
       if (read.sawSystemPrompt) {
         logger.info('[conv] system_prompt setting present — ignored (phase 1), using config.systemPrompt');
       }
       activeConversationId = read.activeConversationId;
     } catch (err) {
+      this.settingsCache.delete(account.index);
       logger.info(`[conv] account #${account.index} read settings failed: ${(err as Error).message}`);
       return;
     }
@@ -161,6 +169,27 @@ export class ConversationPoller {
       if (ok) answered++;
     }
     logger.info(`[conv] account #${account.index} conv ${activeConversationId} — answered ${answered}/${pending.length} in ${Date.now() - started}ms`);
+  }
+
+  private async findSettingsConversation(account: CanvasAccountConfig, client: ConversationClient): Promise<number | null> {
+    const cached = this.settingsCache.get(account.index);
+    if (cached && cached.expiresAt > this.now()) return cached.conversationId;
+
+    let settingsMatches: { id: number; subject: string }[];
+    try {
+      settingsMatches = await client.listSettingsConversations(SETTINGS_CONVERSATION_MARKER);
+    } catch (err) {
+      logger.info(`[conv] account #${account.index} settings discovery failed: ${(err as Error).message}`);
+      return null;
+    }
+    if (settingsMatches.length === 0) {
+      this.settingsCache.delete(account.index);
+      logger.info(`[conv] account #${account.index} no settings conversation — skipping`);
+      return null;
+    }
+    const conversationId = settingsMatches[0].id;
+    this.settingsCache.set(account.index, { conversationId, expiresAt: this.now() + SETTINGS_CACHE_TTL_MS });
+    return conversationId;
   }
 
   /**
@@ -257,57 +286,25 @@ export class ConversationPoller {
     const question = [req.question, ...notes].filter(Boolean).join('\n');
     const content: FileContent = { textContent: question, imageBuffers };
 
-    // Same retry chain as the file flow (copied, not refactored — Q/A untouched).
-    const modelChain = this.buildModelChain(provider, primaryModel);
-    logger.info(`[conv] ${key} — ${provider}/${modelChain[0]} (${imageBuffers.length} image(s))`);
-    const adapter = createAIAdapter(provider, this.config.aiKeys, this.config.grokBaseUrl);
-
-    const refs = this.ragProvider?.() ?? {};
-    let lastError: Error | undefined;
-    let currentModel = modelChain[0];
-    let totalAttempts = 0;
-
-    for (let mi = 0; mi < modelChain.length; mi++) {
-      currentModel = modelChain[mi];
-      for (let attempt = 0; attempt <= this.config.maxRetryCount; attempt++) {
-        totalAttempts++;
-        try {
-          const prepared = await this.preparePrompt(content, refs);
-          const rawResponse = await withTimeout(
-            adapter.process(prepared.fileContent, prepared.systemPrompt, currentModel),
-            this.config.aiTimeoutMs,
-            `${provider}/${currentModel}`,
-          );
-          const aiResponse = refs.builder ? CitationPromptBuilder.cleanResponse(rawResponse) : rawResponse;
-          await client.addReply(conversationId, buildReply({
-            requestId: msg.id,
-            status: 'done',
-            provider,
-            model: currentModel,
-            content: aiResponse,
-          }));
-          this.state.setStatus({
-            fileId: key,
-            fileName: key,
-            accountIndex: account.index,
-            status: 'done',
-            retryCount: totalAttempts - 1,
-            updatedAt: new Date().toISOString(),
-          });
-          logger.info(`[conv] ${key} answered with ${provider}/${currentModel}`);
-          return;
-        } catch (err) {
-          lastError = err as Error;
-          if (mi === modelChain.length - 1 && attempt >= this.config.maxRetryCount) break;
-          if (attempt >= this.config.maxRetryCount) {
-            logger.info(`[conv] ${key} fallback ${currentModel} → ${modelChain[mi + 1]}: ${lastError.message}`);
-          }
-        }
-      }
-    }
-
-    // Transient: throw so the record stays `processing` for a later round.
-    throw lastError ?? new Error('unknown AI error');
+    // AI failures and reply-post failures both throw: the record stays
+    // `processing`, so a later round retries it after the stale reset.
+    const answer = await this.ai.answer({ provider, model: primaryModel, content, label: key });
+    await client.addReply(conversationId, buildReply({
+      requestId: msg.id,
+      status: 'done',
+      provider,
+      model: answer.model,
+      content: answer.text,
+    }));
+    this.state.setStatus({
+      fileId: key,
+      fileName: key,
+      accountIndex: account.index,
+      status: 'done',
+      retryCount: answer.attempts - 1,
+      updatedAt: new Date().toISOString(),
+    });
+    logger.info(`[conv] ${key} answered with ${provider}/${answer.model}`);
   }
 
   private markFailed(key: string, account: CanvasAccountConfig, error: string): void {
@@ -320,31 +317,5 @@ export class ConversationPoller {
       updatedAt: new Date().toISOString(),
       error,
     });
-  }
-
-  private buildModelChain(provider: AIProviderName, primaryModel: string): string[] {
-    const chain: string[] = [primaryModel];
-    const primaryMode = getModelApiMode(provider, primaryModel);
-    for (const fb of this.config.modelFallback[provider]) {
-      if (fb !== primaryModel && !chain.includes(fb)
-        && (provider !== 'openai' || getModelApiMode(provider, fb) === primaryMode)) chain.push(fb);
-    }
-    return chain;
-  }
-
-  private async preparePrompt(
-    content: FileContent,
-    refs: { retriever?: RAGRetriever; builder?: CitationPromptBuilder },
-  ): Promise<{ systemPrompt: string; fileContent: FileContent }> {
-    if (refs.retriever && refs.builder && content.textContent.trim()) {
-      try {
-        const chunks = await refs.retriever.retrieve(content.textContent);
-        const result = refs.builder.build(this.config.systemPrompt, chunks, content.textContent);
-        return { systemPrompt: result.systemPrompt, fileContent: { ...content, textContent: result.userContent } };
-      } catch (err) {
-        logger.info(`RAG retrieval failed — falling back to knowledge.md: ${(err as Error).message}`);
-      }
-    }
-    return { systemPrompt: this.config.systemPrompt, fileContent: injectKnowledge(content, this.config.knowledgeContent) };
   }
 }

@@ -30,9 +30,10 @@ async function main() {
   console.log(`Local vault: ${mdFiles.length} .md under ${vaultPath}`);
   if (mdFiles.length === 0) { console.log('Nothing to backfill'); return; }
 
-  const { createVaultRepository, parseVaultStorageProvider } = await import('../dist/modules/vault/index.js');
+  const { createVaultRepository } = await import('../dist/modules/vault/index.js');
+  const { parseStorageProvider } = await import('../dist/shared/database/database.js');
   const repository = createVaultRepository({
-    provider: parseVaultStorageProvider(process.env.VAULT_STORAGE_PROVIDER),
+    provider: parseStorageProvider(process.env.VAULT_STORAGE_PROVIDER),
     databaseUrl: process.env.DATABASE_URL || undefined,
   });
 

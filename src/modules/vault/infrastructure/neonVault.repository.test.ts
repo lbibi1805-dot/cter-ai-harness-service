@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { NeonVaultRepository, type NeonSql } from './neonVault.repository';
+import type { NeonSql } from '../../../shared/database/database';
+import { NeonVaultRepository } from './neonVault.repository';
 import { VAULT_SCHEMA_STATEMENTS } from './vaultSchema';
 
 interface RecordedQuery {
