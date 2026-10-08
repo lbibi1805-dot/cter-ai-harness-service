@@ -3,6 +3,8 @@ import type { AppConfig } from '../types';
 import { validateAllKeys, type KeyValidationResult } from '../ai/aiRouter';
 import { EmailNotifier } from '../utils/emailNotifier';
 import { logger } from '../utils/logger';
+import { isAuthorized } from '../shared/http/auth';
+import { VAULT_API_PREFIX, type VaultModule } from '../modules/vault';
 
 type PollFn = () => Promise<void>;
 
@@ -48,27 +50,18 @@ function setCors(res: http.ServerResponse, req: http.IncomingMessage): void {
   res.setHeader('Vary', 'Origin');
 }
 
-function checkAuth(req: http.IncomingMessage): boolean {
-  const token = process.env.ADMIN_TOKEN;
-  if (!token) return true;
-  const auth = req.headers.authorization ?? '';
-  return auth === `Bearer ${token}`;
-}
-
 export class ApiServer {
   private server: http.Server;
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private isPolling = false;
-  private isIndexing = false;
-  private needsRerun = false;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private pollFn: PollFn,
     private config: AppConfig,
     private emailNotifier: EmailNotifier,
     private port: number,
+    private vault: VaultModule,
   ) {
     this.server = http.createServer((req, res) => { void this.handle(req, res); });
   }
@@ -105,29 +98,6 @@ export class ApiServer {
 
   private notifyUsersWhenStartOrStop(action: 'started' | 'paused'): void { return; }
 
-  private scheduleAutoIndex(): void {
-    if (!this.config.vaultConfig) return;
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      if (this.isIndexing) { this.needsRerun = true; return; }
-      this.isIndexing = true;
-      logger.info('Auto-index triggered by upload — background');
-      (async () => {
-        try {
-          const { createEmbeddingService } = await import('../rag/embeddingService');
-          const { KnowledgeIndexer } = await import('../rag/knowledgeIndexer');
-          const embedder = createEmbeddingService(this.config.vaultConfig!.embeddingProvider, { gemini: this.config.aiKeys.gemini, openai: this.config.aiKeys.openai });
-          const indexer = new KnowledgeIndexer(this.config.vaultConfig!, embedder);
-          await indexer.indexAll();
-        } catch (e) { logger.info(`Auto-index failed: ${(e as Error).message}`); }
-        finally {
-          this.isIndexing = false;
-          if (this.needsRerun) { this.needsRerun = false; this.scheduleAutoIndex(); }
-        }
-      })();
-    }, 2000);
-  }
-
   private async handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     setCors(res, req);
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
@@ -153,7 +123,7 @@ export class ApiServer {
 
     if (pathname === '/api/logs') {
       if (req.method === 'DELETE') {
-        if (!checkAuth(req)) { res.writeHead(401, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+        if (!isAuthorized(req, this.config.adminToken)) { res.writeHead(401, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
         logger.clear();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
@@ -190,7 +160,7 @@ export class ApiServer {
         return;
       }
       if (req.method === 'POST') {
-        if (!checkAuth(req)) { res.writeHead(401, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+        if (!isAuthorized(req, this.config.adminToken)) { res.writeHead(401, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
         let body = '';
         req.on('data', (c: Buffer) => body += c.toString());
         await new Promise<void>(res => req.on('end', () => res()));
@@ -206,8 +176,8 @@ export class ApiServer {
     }
 
     // Vault API: need POST/DELETE support, so check vault prefix before GET-only guard
-    if (pathname.startsWith('/api/vault')) {
-      await this.handleVault(req, res, pathname, query);
+    if (pathname.startsWith(VAULT_API_PREFIX)) {
+      await this.vault.router.dispatch(req, res, u);
       return;
     }
 
@@ -233,9 +203,7 @@ export class ApiServer {
       let vaultStatus = 'no-vault-config';
       if (this.config.vaultConfig) {
         try {
-          const { createVaultStorageWithFallback } = await import('../vault');
-          const storage = await createVaultStorageWithFallback();
-          const { total, indexed } = await storage.stats();
+          const { total, indexed } = await this.vault.service.stats();
           vaultStatus = `${indexed}/${total} indexed`;
         } catch (e) { vaultStatus = `error: ${(e as Error).message}`; }
       }
@@ -264,264 +232,5 @@ export class ApiServer {
     }
 
     res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found' }));
-  }
-
-  private async handleVault(req: http.IncomingMessage, res: http.ServerResponse, pathname: string, query: Record<string, string>): Promise<void> {
-    // Auth for write operations
-    if ((req.method === 'POST' || req.method === 'DELETE') && !checkAuth(req)) {
-      res.writeHead(401, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unauthorized' })); return;
-    }
-
-    // POST /api/vault/files — upload with hierarchies (formidable)
-    if (pathname === '/api/vault/files' && req.method === 'POST') {
-      try {
-        const formidable = await import('formidable');
-        const form = formidable.default ? formidable.default({ multiples: true, maxFileSize: 50 * 1024 * 1024 }) : (formidable as any)({ multiples: true });
-        const { fields, files } = await new Promise<{ fields: any; files: any }>((resolve, reject) => {
-          (form as any).parse(req, (err: any, f: any, fl: any) => err ? reject(err) : resolve({ fields: f, files: fl }));
-        });
-        const rawFiles: any[] = [];
-        for (const v of Object.values(files as Record<string, any>)) {
-          if (Array.isArray(v)) rawFiles.push(...v); else if (v) rawFiles.push(v);
-        }
-        if (rawFiles.length === 0) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No files' })); return; }
-
-        const fs = await import('fs');
-        const path = await import('path');
-        const crypto = await import('crypto');
-        const { normalizeText } = await import('../rag/textNormalizer');
-        const { createVaultStorageWithFallback } = await import('../vault');
-        const vaultPath = this.config.vaultConfig?.vaultPath ?? './documents-vault';
-        const storage = await createVaultStorageWithFallback();
-        const absVault = path.resolve(process.cwd(), vaultPath);
-        if (!fs.existsSync(absVault)) fs.mkdirSync(absVault, { recursive: true });
-
-        const results: any[] = [];
-        for (const f of rawFiles) {
-          // Preserve hierarchies: use webkitRelativePath / originalFilename with slashes
-          let rel = String(f.originalFilename ?? f.newFilename ?? 'file.md');
-          // formidable v3 may put relative path in originalFilename; also check field 'path' or custom header
-          const fieldRel = (fields as any).path ?? (fields as any).webkitRelativePath;
-          if (fieldRel) {
-            const first = Array.isArray(fieldRel) ? fieldRel[0] : fieldRel;
-            if (typeof first === 'string' && first.includes('/')) rel = first;
-          }
-          // Sanitize: remove .. and leading /
-          rel = rel.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\.\.\//g, '');
-          if (!rel.endsWith('.md')) rel = rel.replace(/\.[^.]+$/, '.md');
-          if (rel.length > 1024) { results.push({ file: rel, error: 'path too long' }); continue; }
-          const content = fs.readFileSync(f.filepath, 'utf-8');
-          const normalized = normalizeText(content);
-          const hash = crypto.createHash('md5').update(normalized).digest('hex');
-          const dest = path.join(absVault, rel);
-          fs.mkdirSync(path.dirname(dest), { recursive: true });
-          fs.writeFileSync(dest, content);
-          await storage.upsert({ filePath: rel, hash, chunkIds: [], indexed: false, content: normalized } as any);
-          results.push({ file: rel, hash, indexed: false });
-        }
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, files: results }));
-        this.scheduleAutoIndex();
-      } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }));
-      }
-      return;
-    }
-
-    // POST /api/vault/reindex — manual trigger (auth, 409 if already indexing)
-    if (pathname === '/api/vault/reindex' && req.method === 'POST') {
-      if (!this.config.vaultConfig) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'vault not configured' })); return; }
-      if (this.isIndexing) { res.writeHead(409, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'already indexing', retryAfter: 2 })); return; }
-      this.isIndexing = true;
-      logger.info('Manual reindex triggered — background');
-      (async () => {
-        try {
-          const { createEmbeddingService } = await import('../rag/embeddingService');
-          const { KnowledgeIndexer } = await import('../rag/knowledgeIndexer');
-          const embedder = createEmbeddingService(this.config.vaultConfig!.embeddingProvider, { gemini: this.config.aiKeys.gemini, openai: this.config.aiKeys.openai });
-          const indexer = new KnowledgeIndexer(this.config.vaultConfig!, embedder);
-          await indexer.indexAll();
-        } catch (e) { logger.info(`Manual reindex failed: ${(e as Error).message}`); }
-        finally { this.isIndexing = false; }
-      })();
-      res.writeHead(202, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, triggered: true }));
-      return;
-    }
-
-    // POST /api/vault/sync-pinecone — reconcile orphan vectors after SQL Editor DELETE
-    if (pathname === '/api/vault/sync-pinecone' && req.method === 'POST') {
-      try {
-        const { createVaultStorageWithFallback } = await import('../vault');
-        const storage = await createVaultStorageWithFallback();
-        if (!this.config.vaultConfig) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'vault not configured' })); return; }
-        const { reconcileOrphans } = await import('../vault/vaultPineconeSync');
-        const result = await reconcileOrphans(storage, this.config.vaultConfig);
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, result }));
-      } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message })); }
-      return;
-    }
-
-    if (req.method !== 'GET' && req.method !== 'DELETE') {
-      res.writeHead(405, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Method not allowed' })); return;
-    }
-
-    try {
-      const { createVaultStorageWithFallback } = await import('../vault');
-
-      // GET /api/vault/folders
-      if (pathname === '/api/vault/folders' && req.method === 'GET') {
-        const storage = await createVaultStorageWithFallback();
-        const folders = await storage.listFolders();
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ folders }));
-        return;
-      }
-
-      // GET /api/vault/chunks?file=&limit=&offset=  && GET /api/vault/files/:path/chunks
-      if ((pathname === '/api/vault/chunks' || pathname.endsWith('/chunks')) && req.method === 'GET') {
-        const storage = await createVaultStorageWithFallback();
-        let filePath = query.file as string | undefined;
-        // /api/vault/files/:path/chunks
-        if (pathname.startsWith('/api/vault/files/') && pathname.endsWith('/chunks')) {
-          filePath = decodeURIComponent(pathname.slice('/api/vault/files/'.length, -'/chunks'.length));
-        }
-        if (filePath) {
-          const entry = await storage.get(filePath);
-          if (!entry) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'File not found' })); return; }
-          const ids = entry.chunkIds;
-          const limit = Math.min(parseInt(query.limit ?? '50', 10) || 50, 100);
-          const offset = parseInt(query.offset ?? '0', 10) || 0;
-          const pagedIds = ids.slice(offset, offset + limit);
-          let chunks: any[] = pagedIds.map((id, i) => ({ id, index: offset + i, indexed: entry.indexed }));
-          // enrich with Pinecone metadata if indexed
-          if (entry.indexed && pagedIds.length > 0 && this.config.vaultConfig) {
-            try {
-              const { VectorStore } = await import('../rag/vectorStore');
-              const vs = new VectorStore(this.config.vaultConfig.pineconeApiKey, this.config.vaultConfig.pineconeIndex);
-              const meta = await vs.fetchByIds(pagedIds);
-              chunks = chunks.map(c => ({ ...c, ...(meta[c.id] ?? {}) }));
-            } catch {}
-          }
-          res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ file: filePath, total: ids.length, limit, offset, chunks }));
-          return;
-        }
-        // list all chunks (aggregate chunkIds from manifest)
-        const { entries } = await storage.list({ limit: 10000, offset: 0 });
-        const allIds = entries.flatMap(e => e.chunkIds);
-        const limit = Math.min(parseInt(query.limit ?? '50', 10) || 50, 100);
-        const offset = parseInt(query.offset ?? '0', 10) || 0;
-        const pagedIds = allIds.slice(offset, offset + limit);
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ total: allIds.length, limit, offset, chunkIds: pagedIds }));
-        return;
-      }
-
-      // DELETE /api/vault/files?folder=...  and DELETE /api/vault/files (clear all, needs X-Confirm)
-      if (pathname === '/api/vault/files' && req.method === 'DELETE') {
-        const storage = await createVaultStorageWithFallback();
-        // Bulk folder delete
-        if (query.folder) {
-          const { entries } = await storage.list({ folder: query.folder as string, limit: 10000, offset: 0 });
-          if (entries.length === 0) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Folder not found or empty' })); return; }
-          const allIds = entries.flatMap(e => e.chunkIds);
-          if (allIds.length > 0 && this.config.vaultConfig) {
-            try {
-              const { VectorStore } = await import('../rag/vectorStore');
-              const vs = new VectorStore(this.config.vaultConfig.pineconeApiKey, this.config.vaultConfig.pineconeIndex);
-              await vs.deleteByIds(allIds);
-            } catch {}
-          }
-          for (const e of entries) await storage.remove(e.filePath);
-          try {
-            const p = await import('path'); const fs = await import('fs');
-            const vaultPath = this.config.vaultConfig?.vaultPath ?? './documents-vault';
-            for (const e of entries) {
-              const abs = p.resolve(process.cwd(), vaultPath, e.filePath);
-              if (fs.existsSync(abs)) try { fs.unlinkSync(abs); } catch {}
-            }
-          } catch {}
-          res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, deleted: entries.length }));
-          return;
-        }
-        // Clear all — requires X-Confirm: delete-all
-        const confirm = (req.headers['x-confirm'] as string) ?? (req.headers['X-Confirm'] as string);
-        if (confirm !== 'delete-all') { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Missing X-Confirm: delete-all header for clear all' })); return; }
-        const { entries } = await storage.list({ limit: 10000, offset: 0 });
-        if (this.config.vaultConfig) {
-          try {
-            const { syncDeleteAll } = await import('../vault/vaultPineconeSync');
-            await syncDeleteAll(this.config.vaultConfig);
-          } catch {}
-        }
-        await storage.clear();
-        try {
-          const p = await import('path'); const fs = await import('fs');
-          const vaultPath = this.config.vaultConfig?.vaultPath ?? './documents-vault';
-          const absRoot = p.resolve(process.cwd(), vaultPath);
-          if (fs.existsSync(absRoot)) {
-            for (const e of entries) {
-              const abs = p.resolve(absRoot, e.filePath);
-              if (fs.existsSync(abs)) try { fs.unlinkSync(abs); } catch {}
-            }
-          }
-        } catch {}
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, deleted: entries.length }));
-        return;
-      }
-
-      // GET /api/vault/manifest (legacy compat) and GET /api/vault/files
-      if ((pathname === '/api/vault/manifest' || pathname === '/api/vault/files') && req.method === 'GET' && !pathname.startsWith('/api/vault/files/')) {
-        const storage = await createVaultStorageWithFallback();
-        const limit = Math.min(parseInt(query.limit ?? '50', 10) || 50, 1000);
-        const offset = parseInt(query.offset ?? '0', 10) || 0;
-        const indexed = query.indexed === 'true' ? true : query.indexed === 'false' ? false : undefined;
-        const { entries, total } = await storage.list({ q: query.q, indexed, limit, offset, folder: query.folder });
-        // legacy manifest compat: /api/vault/manifest returns {files: {...}}
-        if (pathname === '/api/vault/manifest') {
-          const files: Record<string, any> = {};
-          for (const e of entries) files[e.filePath] = { hash: e.hash, chunkIds: e.chunkIds, indexed: e.indexed, updatedAt: e.updatedAt, folderPath: e.folderPath, depth: e.depth };
-          res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ files, total }));
-          return;
-        }
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ files: entries, total, limit, offset }));
-        return;
-      }
-
-      // GET /api/vault/files/:path  and DELETE /api/vault/files/:path
-      const prefix = '/api/vault/files/';
-      if (pathname.startsWith(prefix)) {
-        const filePath = decodeURIComponent(pathname.slice(prefix.length));
-        const storage = await createVaultStorageWithFallback();
-        if (req.method === 'GET') {
-          const entry = await storage.get(filePath);
-          if (!entry) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found' })); return; }
-          res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(entry));
-          return;
-        }
-        if (req.method === 'DELETE') {
-          const entry = await storage.get(filePath);
-          if (!entry) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found' })); return; }
-          // auto delete Pinecone vectors if indexed (best-effort, then remove Neon)
-          let pinecone: string = 'skip';
-          if (this.config.vaultConfig) {
-            try {
-              const { syncDeleteFile } = await import('../vault/vaultPineconeSync');
-              pinecone = await syncDeleteFile(entry, this.config.vaultConfig);
-            } catch {}
-          }
-          await storage.remove(filePath);
-          // also remove from disk if exists
-          try {
-            const p = await import('path'); const fs = await import('fs');
-            const vaultPath = this.config.vaultConfig?.vaultPath ?? './documents-vault';
-            const abs = p.resolve(process.cwd(), vaultPath, filePath);
-            if (fs.existsSync(abs)) fs.unlinkSync(abs);
-          } catch {}
-          res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, pinecone }));
-          return;
-        }
-      }
-
-      res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Not found' }));
-    } catch (e) {
-      res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }));
-    }
   }
 }

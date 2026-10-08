@@ -4,7 +4,8 @@ import { PollOrchestrator } from './orchestrator/pollOrchestrator';
 import { EmailNotifier } from './utils/emailNotifier';
 import { logger } from './utils/logger';
 import { ApiServer } from './api/server';
-import { KnowledgeIndexer, RAGRetriever, CitationPromptBuilder, createEmbeddingService } from './rag';
+import { RAGRetriever, CitationPromptBuilder, createEmbeddingService } from './rag';
+import { createVaultModule } from './modules/vault';
 import { ConversationPoller } from './orchestrator/conversationPoller';
 
 async function main(): Promise<void> {
@@ -31,7 +32,8 @@ async function main(): Promise<void> {
     builder: convRagRefs.builder,
   }));
   let orchestrator = new PollOrchestrator(config, state, emailNotifier, ragRetriever, citationBuilder, conversationPoller);
-  const apiServer = new ApiServer(() => orchestrator.pollAllAccounts(), config, emailNotifier, apiPort);
+  const vault = createVaultModule(config);
+  const apiServer = new ApiServer(() => orchestrator.pollAllAccounts(), config, emailNotifier, apiPort, vault);
   logger.startup(config.accounts.length, config.pollIntervalMs);
   apiServer.start();
 
@@ -47,20 +49,12 @@ async function main(): Promise<void> {
     // Chay index background khong block port — Neon-only, không phụ thuộc disk
     (async () => {
       try {
-        const indexer = new KnowledgeIndexer(config.vaultConfig!, embedder);
-        await indexer.indexAll();
+        await vault.indexing.runNow();
         try {
-          const { createVaultStorageWithFallback } = await import('./vault');
-          const st = await createVaultStorageWithFallback();
-          const { total, indexed } = await st.stats();
+          const { total, indexed } = await vault.service.stats();
           logger.info(`Neon vault stats: ${indexed}/${total} indexed — RAG ready`);
           // Reconcile orphan Pinecone vectors if Neon was cleared via SQL Editor
-          if (total === 0) {
-            try {
-              const { reconcileOrphans } = await import('./vault/vaultPineconeSync');
-              await reconcileOrphans(st, config.vaultConfig!);
-            } catch {}
-          }
+          if (total === 0) await vault.service.reconcileVectors();
         } catch {
           logger.info('Document vault indexed — RAG ready');
         }

@@ -30,11 +30,11 @@ async function main() {
   console.log(`Local vault: ${mdFiles.length} .md under ${vaultPath}`);
   if (mdFiles.length === 0) { console.log('Nothing to backfill'); return; }
 
-  const { createVaultStorageWithFallback } = await import('../dist/vault/index.js');
-  const storage = await createVaultStorageWithFallback();
-  await storage.init();
-  // ensure column exists (idempotent)
-  try { await storage.init(); } catch {}
+  const { createVaultRepository, parseVaultStorageProvider } = await import('../dist/modules/vault/index.js');
+  const repository = createVaultRepository({
+    provider: parseVaultStorageProvider(process.env.VAULT_STORAGE_PROVIDER),
+    databaseUrl: process.env.DATABASE_URL || undefined,
+  });
 
   let ok = 0, skip = 0, fail = 0;
   for (const fp of mdFiles) {
@@ -49,7 +49,7 @@ async function main() {
       continue;
     }
     try {
-      await storage.upsert({ filePath: rel, hash, chunkIds: [], indexed: false, content: normalized });
+      await repository.save({ filePath: rel, hash, chunkIds: [], indexed: false, content: normalized });
       ok++;
       if (ok % 50 === 0) console.log(`  ... ${ok}/${mdFiles.length} upserted`);
     } catch (e) {
@@ -59,8 +59,8 @@ async function main() {
   }
   console.log(`Done: ok=${ok} skipEmpty=${skip} fail=${fail}`);
   if (!dryRun) {
-    const { total, indexed } = await storage.stats();
-    const { entries } = await storage.list({ limit: 5, offset: 0 });
+    const { total, indexed } = await repository.stats();
+    const { items: entries } = await repository.search({ limit: 5, offset: 0 });
     console.log(`Neon stats: ${indexed}/${total} indexed`);
     console.log(`Sample: ${entries.slice(0,3).map(e=> `${e.filePath} len=${(e.content||'').length} indexed=${e.indexed}`).join(' | ')}`);
     console.log('\nNext: Render will auto-index on next deploy (indexAll reads Neon). Or trigger re-index via redeploy.');

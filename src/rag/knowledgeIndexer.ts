@@ -1,12 +1,11 @@
 import * as path from 'path';
-import * as crypto from 'crypto';
 import type { VaultConfig } from '../types';
 import type { IEmbeddingService } from './embeddingService';
 import type { IndexedChunk } from './vectorStore';
 import { VectorStore } from './vectorStore';
 import { logger } from '../utils/logger';
 import { normalizeText } from './textNormalizer';
-import { createVaultStorageWithFallback } from '../vault';
+import { computeContentHash, type VaultRepository } from '../modules/vault/domain';
 
 interface ParsedSection {
   heading: string;
@@ -24,6 +23,7 @@ export class KnowledgeIndexer {
   constructor(
     private config: VaultConfig,
     embedder: IEmbeddingService,
+    private repository: VaultRepository,
     vectorStore?: VectorStore,
   ) {
     this.embedder = embedder;
@@ -38,8 +38,7 @@ export class KnowledgeIndexer {
       logger.info('Pinecone unavailable — proceeding with manifest only');
     });
 
-    const storage = await createVaultStorageWithFallback();
-    const { entries } = await storage.list({ limit: 10000, offset: 0 });
+    const entries = await this.repository.findAll();
 
     if (entries.length === 0) {
       logger.info('Neon vault empty — nothing to index');
@@ -57,9 +56,7 @@ export class KnowledgeIndexer {
         if (!e.indexed) changed.push(e);
         continue;
       }
-      const normalized = normalizeText(raw);
-      const computedHash = crypto.createHash('md5').update(normalized).digest('hex');
-      if (!e.indexed || computedHash !== e.hash) changed.push(e);
+      if (!e.indexed || computeContentHash(raw) !== e.hash) changed.push(e);
     }
 
     if (emptyContent.length > 0) {
@@ -88,7 +85,7 @@ export class KnowledgeIndexer {
     for (const entry of indexable) {
       const source = entry.filePath;
       const normalized = normalizeText(entry.content);
-      const hash = crypto.createHash('md5').update(normalized).digest('hex');
+      const hash = computeContentHash(entry.content);
 
       const oldChunkIds = entryMap.get(source)?.chunkIds ?? [];
       if (oldChunkIds.length > 0) {
@@ -115,7 +112,7 @@ export class KnowledgeIndexer {
       allNewChunks.push(...fileChunks);
       fileChunkMap.set(source, fileChunks.map(c => c.id));
       // Persist BEFORE embedding so crash doesn't lose tracking
-      await storage.upsert({ filePath: source, hash, chunkIds: fileChunks.map(c => c.id), indexed: false, content: entry.content } as any);
+      await this.repository.save({ filePath: source, hash, chunkIds: fileChunks.map(c => c.id), indexed: false, content: entry.content });
     }
 
     // Embed new chunks - batch size & delay from config (strategy per provider)
@@ -170,9 +167,8 @@ export class KnowledgeIndexer {
       const ids = fileChunkMap.get(entry.filePath) ?? [];
       const fileChunks = allNewChunks.filter(c => ids.includes(c.id));
       const allOk = fileChunks.length > 0 && fileChunks.every(c => c.vector.length > 0);
-      const normalized = normalizeText(entry.content);
-      const hash = crypto.createHash('md5').update(normalized).digest('hex');
-      await storage.upsert({ filePath: entry.filePath, hash, chunkIds: ids, indexed: allOk, content: entry.content } as any);
+      const hash = computeContentHash(entry.content);
+      await this.repository.save({ filePath: entry.filePath, hash, chunkIds: ids, indexed: allOk, content: entry.content });
     }
 
     logger.info(`Vault indexing complete — ${validChunks.length} new chunks stored`);

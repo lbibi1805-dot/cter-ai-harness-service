@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { AppConfig, VaultConfig } from './types';
+import type { AppConfig } from './types';
+import { parseVaultStorageProvider } from './modules/vault/infrastructure/vaultRepository.factory';
 
 function loadFile(filePath: string, required: true): string;
 function loadFile(filePath: string, required: false): string;
@@ -74,6 +75,11 @@ export function loadConfig(): AppConfig {
           };
         })()
       : undefined,
+    vaultStorage: {
+      provider: parseVaultStorageProvider(process.env.VAULT_STORAGE_PROVIDER),
+      databaseUrl: process.env.DATABASE_URL || undefined,
+    },
+    adminToken: process.env.ADMIN_TOKEN || undefined,
     canvasFolder: {
       materials: process.env.CANVAS_MATERIALS_FOLDER ?? 'Materials2',
       input: process.env.CANVAS_INPUT_FOLDER ?? 'Q',

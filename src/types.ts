@@ -1,3 +1,5 @@
+import type { VaultStorageSettings } from './modules/vault/infrastructure/vaultRepository.factory';
+
 export type AIProviderName = 'claude' | 'gemini' | 'grok' | 'openai';
 
 export interface CanvasAccountConfig {
@@ -20,6 +22,9 @@ export interface AppConfig {
   aiTimeoutMs: number;
   gmail: { user?: string; appPassword?: string };
   vaultConfig?: VaultConfig;
+  vaultStorage: VaultStorageSettings;
+  /** Bearer token for write endpoints; unset means open (legacy behaviour). */
+  adminToken?: string;
   canvasFolder: {
     materials: string;
     input: string;
