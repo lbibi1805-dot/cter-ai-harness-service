@@ -19,11 +19,18 @@ import type { AIAdapter, AppConfig } from '../types';
 import type { EmailNotifier } from '../utils/emailNotifier';
 import { closeBrowser, getBrowser } from '../utils/markdownToPdf';
 import { FakeCanvasServer } from './fakeCanvasServer';
+import { FakeOpenAIResponsesServer } from './fakeOpenAIResponsesServer';
+import { AgentToolName, createAgentModule } from '../modules/agent';
+import { createOpenAIToolModelFactory } from '../modules/agent/infrastructure/openaiResponsesToolModel';
+import { FileVaultRepository } from '../modules/vault/infrastructure/fileVault.repository';
 
 const PDF_MAGIC = '%PDF';
 
 describe.skipIf(process.env.SKIP_BROWSER_TESTS === '1')('polling end-to-end', () => {
   const canvas = new FakeCanvasServer();
+  const openai = new FakeOpenAIResponsesServer();
+  const VAULT_DOC = 'mon-qnx-current/lab-4/Mutex-vs-Semaphore.md';
+  let vaultRepository: FileVaultRepository;
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'polling-e2e-'));
   const cursorFile = path.join(workDir, 'poll-cursors.json');
   const aiProcess = vi.fn(async (content: { textContent: string }) => `# Answer\n\nYou asked: ${content.textContent.split('\n')[0]}`);
@@ -39,8 +46,14 @@ describe.skipIf(process.env.SKIP_BROWSER_TESTS === '1')('polling end-to-end', ()
     const adapter: AIAdapter = { validate: async () => undefined, process: aiProcess as AIAdapter['process'] };
     const ai = new AIInvocationService(config, new PromptPreparer('sys', ''), { createAdapter: () => adapter, sleep: async () => undefined });
     const notifier = { notifySuccess: vi.fn(), notifyError: vi.fn() } as unknown as EmailNotifier;
+    const { answers } = createAgentModule(config, {
+      ai,
+      vaultRepository,
+      createModel: createOpenAIToolModelFactory({ apiKey: 'test', timeoutMs: 5000, baseURL: openai.baseURL, sleep: async () => undefined }),
+      searcher: { search: async () => [{ chunkId: 'c1', source: VAULT_DOC, heading: 'Mutex', parentHeading: '', text: 'Mutex: chỉ thread đang giữ khóa mới được unlock.', tokenCount: 10, score: 0.82 }] },
+    });
     return createPollingModule(config, {
-      jobs: [new FileQAJob(config, state, notifier, ai), new ConversationPoller(config, state, undefined, undefined, ai)],
+      jobs: [new FileQAJob(config, state, notifier, answers), new ConversationPoller(config, state, undefined, undefined, answers)],
       validateKeys: async () => [{ provider: 'gemini', ok: true }],
       beforeTick: () => { state.resetStaleProcessing(60_000); },
       cursors: new FilePollCursorRepository(cursorFile),
@@ -54,10 +67,16 @@ describe.skipIf(process.env.SKIP_BROWSER_TESTS === '1')('polling end-to-end', ()
 
   beforeAll(async () => {
     await canvas.start();
+    await openai.start();
+    vaultRepository = new FileVaultRepository(workDir);
+    await vaultRepository.save({
+      filePath: VAULT_DOC, hash: 'h', chunkIds: [], indexed: true,
+      content: '## Mutex\nOwner thread unlocks; priority inheritance.\n## Semaphore\nsem_wait blocks at zero.',
+    });
     config = {
       accounts: [{ url: canvas.baseUrl, apiKey: 'token', index: 1 }],
-      aiKeys: { gemini: 'k' },
-      defaultModels: { claude: 'c', gemini: 'gemini-3.5-flash', grok: 'g', openai: 'o' },
+      aiKeys: { gemini: 'k', openai: 'k' },
+      defaultModels: { claude: 'c', gemini: 'gemini-3.5-flash', grok: 'g', openai: 'gpt-6-astra' },
       modelFallback: { claude: [], gemini: [], grok: [], openai: [] },
       pollIntervalMs: 60_000,
       maxRetryCount: 1,
@@ -69,6 +88,7 @@ describe.skipIf(process.env.SKIP_BROWSER_TESTS === '1')('polling end-to-end', ()
       canvasFolder: { materials: 'Materials2', input: 'Q', output: 'A' },
       database: { provider: StorageProvider.FILE },
       pollAutostart: false,
+      agent: { maxToolCalls: 4, maxDurationMs: 30_000 },
     };
     polling = bootApp();
     const vaultStub = { router: new Router([], undefined), service: { stats: async () => ({ total: 0, indexed: 0 }) } } as unknown as VaultModule;
@@ -83,6 +103,7 @@ describe.skipIf(process.env.SKIP_BROWSER_TESTS === '1')('polling end-to-end', ()
     polling.scheduler.stop();
     (apiServer as unknown as { server: import('http').Server }).server.close();
     await canvas.stop();
+    await openai.stop();
     await closeBrowser();
     fs.rmSync(workDir, { recursive: true, force: true });
   });
@@ -158,5 +179,62 @@ describe.skipIf(process.env.SKIP_BROWSER_TESTS === '1')('polling end-to-end', ()
     expect((await api('/stop')).body).toEqual({ status: 'stopped' });
     expect((await api('/')).body).toMatchObject({ polling: 'stopped' });
     expect((await api('/nope')).status).toBe(404);
+  }, 60_000);
+
+  it('7. agent mode: a `_agent` file researches the vault through tools before answering', async () => {
+    await polling.scheduler.whenIdle(); // test 6 started a background tick via /start
+    openai.requests.length = 0;
+    openai.responder = (_body, i) => {
+      if (i === 0) return { functionCall: { name: AgentToolName.SEARCH_VAULT, arguments: { query: 'mutex ownership' } } };
+      if (i === 1) return { functionCall: { name: AgentToolName.READ_DOCUMENT, arguments: { path: VAULT_DOC, heading: 'Semaphore' } } };
+      return { text: `# Answer
+
+Evidence: ${openai.lastToolOutputs().join(' || ')}
+
+## References
+- ${VAULT_DOC}` };
+    };
+    const singleShotCalls = aiProcess.mock.calls.length;
+    canvas.addInputFile('START_agentq_openai_agent.txt', '2026-10-01T13:00:00Z', 'Compare mutex and semaphore');
+
+    const report = await polling.scheduler.runTick();
+
+    expect(report!.failures).toEqual([]);
+    const pdf = canvas.output.find((f) => f.name === 'START_agentq_openai_agent_DONE.pdf');
+    expect(pdf?.body.subarray(0, 4).toString()).toBe(PDF_MAGIC);
+    expect(openai.requests).toHaveLength(3);
+    const toolOutputs = openai.lastToolOutputs().join('\n');
+    expect(toolOutputs).toContain('chỉ thread đang giữ khóa');
+    expect(toolOutputs).toContain('sem_wait blocks at zero');
+    expect(toolOutputs).not.toContain('Owner thread unlocks');
+    expect(aiProcess.mock.calls.length).toBe(singleShotCalls);
+  }, 60_000);
+
+  it('8. agent mode in chat: `mode: agent` request gets an agent reply', async () => {
+    openai.requests.length = 0;
+    openai.responder = (_body, i) => (i === 0
+      ? { functionCall: { name: AgentToolName.SEARCH_VAULT, arguments: { query: 'semaphore' } } }
+      : { text: 'agent chat answer' });
+    const id = canvas.addConversationRequest('mode test');
+    const request = canvas.conversation.find((m) => m.id === id)!;
+    request.body = request.body.replace('provider: gemini', 'provider: openai\nmode: agent');
+
+    await polling.scheduler.runTick();
+
+    const reply = canvas.conversation.find((m) => m.body.includes(`request_id: ${id}`));
+    expect(reply?.body).toContain('mode: agent');
+    expect(reply?.body).toContain('agent chat answer');
+  }, 60_000);
+
+  it('9. agent failure falls back to single-shot — the answer is never lost', async () => {
+    openai.responder = () => ({ status: 400, error: 'tool schema rejected' });
+    const singleShotCalls = aiProcess.mock.calls.length;
+    canvas.addInputFile('START_fallback_openai_agent.txt', '2026-10-01T14:00:00Z', 'Fallback please');
+
+    const report = await polling.scheduler.runTick();
+
+    expect(report!.failures).toEqual([]);
+    expect(canvas.output.some((f) => f.name === 'START_fallback_openai_agent_DONE.pdf')).toBe(true);
+    expect(aiProcess.mock.calls.length).toBe(singleShotCalls + 1);
   }, 60_000);
 });

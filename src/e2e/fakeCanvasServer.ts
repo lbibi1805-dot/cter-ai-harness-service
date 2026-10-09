@@ -20,8 +20,8 @@ export interface StoredMessage {
 const MATERIALS_ID = 1;
 const INPUT_ID = 2;
 const OUTPUT_ID = 3;
-const SETTINGS_CONVERSATION_ID = 10;
-const ACTIVE_CONVERSATION_ID = 20;
+export const SETTINGS_CONVERSATION_ID = 10;
+export const ACTIVE_CONVERSATION_ID = 20;
 const SELF_USER_ID = 7;
 /** Forces pagination even with per_page=100 so Link handling is exercised. */
 const PAGE_SIZE = 2;

@@ -2,7 +2,8 @@ import { CanvasClient } from '../canvas/canvasClient';
 import { resolveModel } from '../ai/aiRouter';
 import { ALLOWED_MODELS, isValidModel } from '../config/allowedModels';
 import { extractContent } from '../extractor/fileExtractor';
-import { AIInvocationError, type AIInvocationService } from '../modules/ai';
+import { AIInvocationError } from '../modules/ai';
+import { AnswerMode, type Answerer, type AnswerResult } from '../modules/agent/domain';
 import { KEEP_CURSOR, PollJobName, advanceWatermark, type PollJob, type PollJobContext, type PollJobResult, type PolledItem } from '../modules/polling/domain';
 import { errorMessage, retryTransient, type Sleep } from '../shared/resilience';
 import type { StateManager } from '../state/stateManager';
@@ -30,7 +31,7 @@ export type CanvasFilesClient = Pick<
 >;
 
 export interface ResultRenderer {
-  success(originalName: string, provider: string, model: string, answer: string): Promise<Buffer>;
+  success(originalName: string, provider: string, model: string, answer: string, details?: Record<string, string>): Promise<Buffer>;
   error(originalName: string, provider: string, model: string, error: Error): Promise<Buffer>;
   invalidModel(originalName: string, provider: string, model: string, allowed: string[]): Promise<Buffer>;
 }
@@ -70,7 +71,7 @@ export class FileQAJob implements PollJob {
     private readonly config: AppConfig,
     private readonly state: StateManager,
     private readonly notifier: EmailNotifier,
-    private readonly ai: AIInvocationService,
+    private readonly ai: Answerer,
     deps: FileQAJobDeps = {},
   ) {
     this.createClient = deps.createClient ?? ((account) => new CanvasClient(account.url, account.apiKey));
@@ -167,9 +168,9 @@ export class FileQAJob implements PollJob {
       return this.fail(file, parsed, model, err as Error, 0, account, target);
     }
 
-    let answer;
+    let answer: AnswerResult;
     try {
-      answer = await this.ai.answer({ provider: parsed.provider, model, content, label: file.display_name });
+      answer = await this.ai.answer({ provider: parsed.provider, model, content, label: file.display_name, mode: parsed.mode });
     } catch (err) {
       const attempts = err instanceof AIInvocationError ? err.attempts : 0;
       const lastModel = err instanceof AIInvocationError ? err.lastModel : model;
@@ -178,7 +179,7 @@ export class FileQAJob implements PollJob {
 
     // Past this point the AI answer exists: a render/upload failure defers the
     // file (state stays `processing`) instead of marking it failed.
-    const pdf = await retryTransient(() => this.renderer.success(file.display_name, parsed.provider, answer.model, answer.text), { maxAttempts: RENDER_ATTEMPTS, sleep: this.sleep });
+    const pdf = await retryTransient(() => this.renderer.success(file.display_name, parsed.provider, answer.model, answer.text, describeAnswer(answer)), { maxAttempts: RENDER_ATTEMPTS, sleep: this.sleep });
     logger.upload(parsed.doneFileName);
     await this.io(() => target.client.uploadFileToFolder(target.folderId, parsed.doneFileName, pdf, PDF_MIME));
 
@@ -226,6 +227,18 @@ export class FileQAJob implements PollJob {
       error,
     });
   }
+}
+
+/** Extra PDF header lines for agent requests (nothing for plain single-shot answers). */
+export function describeAnswer(answer: AnswerResult): Record<string, string> {
+  if (answer.mode === AnswerMode.AGENT && answer.agent) {
+    return {
+      Mode: `agent (${answer.agent.toolCalls} tool calls, ${answer.agent.stopReason})`,
+      'Sources read': answer.agent.sourcesRead.join(', ') || 'none',
+    };
+  }
+  if (answer.fallbackReason) return { Mode: `single-shot (agent unavailable: ${answer.fallbackReason})` };
+  return {};
 }
 
 function byUpdatedAtAsc(a: CanvasFile, b: CanvasFile): number {

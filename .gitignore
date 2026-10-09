@@ -27,3 +27,4 @@ data/processed.json
 # RAG eval: production credentials and run outputs stay local
 eval/.env.eval
 eval/rag/runs/
+eval/answers/runs/

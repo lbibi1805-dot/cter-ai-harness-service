@@ -9,7 +9,8 @@
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "eval:rag": "tsx eval/rag/cli/evalRag.ts"
+    "eval:rag": "tsx eval/rag/cli/evalRag.ts",
+    "eval:answers": "tsx eval/answers/cli/evalAnswers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",

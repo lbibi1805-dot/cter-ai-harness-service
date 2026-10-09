@@ -9,13 +9,7 @@ import { loadEvalSettings, maskSecret } from '../infrastructure/evalEnv';
 import { loadGoldenSet } from '../infrastructure/goldenFile';
 import { createPineconeQueryRetriever } from '../infrastructure/pineconeQueryRetriever';
 import { formatReport, writeReport } from '../infrastructure/reportWriter';
-
-function readFlag(flag: EvalCliFlag): string | undefined {
-  const args = process.argv.slice(2);
-  const index = args.indexOf(flag);
-  if (index !== -1) return args[index + 1];
-  return args.find((a) => a.startsWith(`${flag}=`))?.slice(flag.length + 1);
-}
+import { readFlag } from '../../shared/cliArgs';
 
 function parseK(value: string | undefined): number[] {
   if (!value) return [...DEFAULT_K_VALUES];

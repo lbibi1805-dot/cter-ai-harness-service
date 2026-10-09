@@ -48,6 +48,7 @@ export interface PollSchedulerOptions {
 export class PollSchedulerService {
   private timer: ReturnType<typeof setInterval> | null = null;
   private ticking = false;
+  private inFlight: Promise<TickReport> | null = null;
   private tickCount = 0;
   private skippedTicks = 0;
   private lastTick: TickReport | null = null;
@@ -84,6 +85,11 @@ export class PollSchedulerService {
     return StopOutcome.STOPPED;
   }
 
+  /** Resolves once the tick in progress (if any) has finished — e.g. for a graceful stop. */
+  async whenIdle(): Promise<void> {
+    await this.inFlight?.catch(() => undefined);
+  }
+
   /** Returns null when the previous tick is still running (the tick is skipped). */
   async runTick(): Promise<TickReport | null> {
     if (this.ticking) {
@@ -91,6 +97,15 @@ export class PollSchedulerService {
       return null;
     }
     this.ticking = true;
+    this.inFlight = this.executeTick();
+    try {
+      return await this.inFlight;
+    } finally {
+      this.inFlight = null;
+    }
+  }
+
+  private async executeTick(): Promise<TickReport> {
     const startedAt = new Date();
     const failures: JobFailure[] = [];
     try {

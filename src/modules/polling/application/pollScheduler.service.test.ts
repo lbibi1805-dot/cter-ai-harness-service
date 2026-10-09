@@ -89,6 +89,29 @@ describe('PollSchedulerService', () => {
     expect(s.status().skippedTicks).toBe(1);
   });
 
+  it('whenIdle waits for the tick in progress', async () => {
+    let release!: () => void;
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => { markStarted = resolve; });
+    const slow = job(PollJobName.FILE_QA, () => new Promise((resolve) => {
+      release = () => resolve({ nextCursor: null });
+      markStarted();
+    }));
+    const s = new PollSchedulerService({ intervalMs: 1000, accounts: [ACCOUNTS[0]], jobs: [slow], cursors: memoryCursors() });
+    await expect(s.whenIdle()).resolves.toBeUndefined();
+
+    void s.runTick();
+    await started;
+    let idle = false;
+    const waiting = s.whenIdle().then(() => { idle = true; });
+    await Promise.resolve();
+    expect(idle).toBe(false);
+    release();
+    await waiting;
+    expect(idle).toBe(true);
+    expect(s.status().lastTick).not.toBeNull();
+  });
+
   it('survives a throwing beforeTick hook', async () => {
     const fileJob = job(PollJobName.FILE_QA, async () => ({ nextCursor: null }));
     await expect(scheduler([fileJob], memoryCursors(), () => { throw new Error('state file locked'); }).runTick()).resolves.not.toBeNull();

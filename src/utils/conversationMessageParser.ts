@@ -1,6 +1,7 @@
 // Conversation marker protocol — backend mirror of `extension/lib/messageFormat.js`.
 // Keep both in sync: this file parses [CFH:REQUEST] bodies and builds [CFH:REPLY]
 // bodies; the extension does the reverse. If markers change, update both files.
+import { AnswerMode } from '../modules/agent/domain/agent.enums';
 import type { ConversationReply, ParsedConversationRequest } from '../types';
 
 export const REQUEST_MARKER = '[CFH:REQUEST]';
@@ -64,21 +65,22 @@ function parseHeaderBlock(body: string): HeaderBlock {
  */
 export function parseRequest(body: string | undefined): ParsedConversationRequest {
   if (!isRequestMessage(body)) {
-    return { provider: '', question: '', valid: false, error: 'Not a [CFH:REQUEST] message' };
+    return { provider: '', question: '', valid: false, error: 'Not a [CFH:REQUEST] message', mode: AnswerMode.SINGLE_SHOT };
   }
   const { headers, content: question } = parseHeaderBlock(body ?? '');
   const provider = (headers.provider ?? '').toLowerCase();
   const model = headers.model || undefined;
+  const mode = (headers.mode ?? '').toLowerCase() === AnswerMode.AGENT ? AnswerMode.AGENT : AnswerMode.SINGLE_SHOT;
   if (!provider) {
-    return { provider, model, question, valid: false, error: 'Missing provider header' };
+    return { provider, model, question, valid: false, error: 'Missing provider header', mode };
   }
   if (!SERVABLE_PROVIDERS.has(provider)) {
     return {
-      provider, model, question, valid: false,
+      provider, model, question, valid: false, mode,
       error: `Provider "${provider}" is not servable by the backend (supported: claude, gemini, grok, openai)`,
     };
   }
-  return { provider: provider as ParsedConversationRequest['provider'], model, question, valid: true };
+  return { provider: provider as ParsedConversationRequest['provider'], model, question, valid: true, mode };
 }
 
 export function buildReply(reply: ConversationReply): string {
@@ -89,6 +91,7 @@ export function buildReply(reply: ConversationReply): string {
     `provider: ${reply.provider}`,
   ];
   if (reply.model) headerLines.push(`model: ${reply.model}`);
+  if (reply.mode === AnswerMode.AGENT) headerLines.push(`mode: ${reply.mode}`);
   return [...headerLines, '', reply.content ?? ''].join('\n');
 }
 

@@ -81,6 +81,10 @@ export function loadConfig(): AppConfig {
     },
     adminToken: process.env.ADMIN_TOKEN || undefined,
     pollAutostart: process.env.POLL_AUTOSTART !== 'false',
+    agent: {
+      maxToolCalls: parseInt(process.env.AGENT_MAX_TOOL_CALLS ?? '6', 10),
+      maxDurationMs: parseInt(process.env.AGENT_MAX_DURATION_MS ?? '180000', 10),
+    },
     canvasFolder: {
       materials: process.env.CANVAS_MATERIALS_FOLDER ?? 'Materials2',
       input: process.env.CANVAS_INPUT_FOLDER ?? 'Q',

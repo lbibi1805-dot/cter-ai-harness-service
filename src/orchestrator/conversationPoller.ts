@@ -14,6 +14,7 @@ import type {
 import { resolveModel } from '../ai/aiRouter';
 import { ALLOWED_MODELS, isValidModel } from '../config/allowedModels';
 import { AIInvocationService, PromptPreparer, type RagRefs, type RagRefsProvider } from '../modules/ai';
+import type { AnswerMode, Answerer } from '../modules/agent/domain';
 import { KEEP_CURSOR, PollJobName, type PollJob, type PollJobResult } from '../modules/polling/domain';
 import {
   SETTINGS_CONVERSATION_MARKER,
@@ -50,6 +51,7 @@ export interface PendingConversationRequest {
   question: string;
   valid: boolean;
   invalidReason?: string;
+  mode: AnswerMode;
 }
 
 export function buildConvStateKey(accountIndex: number, conversationId: number, messageId: number): string {
@@ -97,6 +99,7 @@ export function findPendingRequests(messages: ConversationMessage[]): PendingCon
       question: parsed.question,
       valid: parsed.valid,
       invalidReason: parsed.error,
+      mode: parsed.mode,
     });
   }
   return pending;
@@ -104,7 +107,7 @@ export function findPendingRequests(messages: ConversationMessage[]): PendingCon
 
 export class ConversationPoller implements PollJob {
   readonly name = PollJobName.CONVERSATION;
-  private readonly ai: AIInvocationService;
+  private readonly ai: Answerer;
   private readonly settingsCache = new Map<number, CachedSettings>();
 
   constructor(
@@ -113,7 +116,7 @@ export class ConversationPoller implements PollJob {
     ragProvider?: RagProvider,
     private clientFactory: (account: CanvasAccountConfig) => ConversationClient = (a) =>
       new ConversationClient(a.url, a.apiKey),
-    ai?: AIInvocationService,
+    ai?: Answerer,
     private now: () => number = Date.now,
   ) {
     this.ai = ai ?? new AIInvocationService(config, new PromptPreparer(config.systemPrompt, config.knowledgeContent, ragProvider));
@@ -288,13 +291,14 @@ export class ConversationPoller implements PollJob {
 
     // AI failures and reply-post failures both throw: the record stays
     // `processing`, so a later round retries it after the stale reset.
-    const answer = await this.ai.answer({ provider, model: primaryModel, content, label: key });
+    const answer = await this.ai.answer({ provider, model: primaryModel, content, label: key, mode: req.mode });
     await client.addReply(conversationId, buildReply({
       requestId: msg.id,
       status: 'done',
       provider,
       model: answer.model,
       content: answer.text,
+      mode: answer.mode,
     }));
     this.state.setStatus({
       fileId: key,

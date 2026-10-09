@@ -1,4 +1,5 @@
 import type { DatabaseSettings } from './shared/database/database';
+import type { AnswerMode } from './modules/agent/domain/agent.enums';
 
 export type AIProviderName = 'claude' | 'gemini' | 'grok' | 'openai';
 
@@ -26,6 +27,8 @@ export interface AppConfig {
   database: DatabaseSettings;
   /** Start polling on boot instead of waiting for GET /start. */
   pollAutostart: boolean;
+  /** Limits for agent-mode answers (opt-in per request). */
+  agent: { maxToolCalls: number; maxDurationMs: number };
   /** Bearer token for write endpoints; unset means open (legacy behaviour). */
   adminToken?: string;
   canvasFolder: {
@@ -43,6 +46,7 @@ export interface ParsedFileName {
   model?: string;
   extension: string;
   doneFileName: string;
+  mode: AnswerMode;
 }
 
 export interface FileContent {
@@ -104,6 +108,7 @@ export interface ParsedConversationRequest {
   question: string;
   valid: boolean;
   error?: string;
+  mode: AnswerMode;
 }
 
 export interface ConversationReply {
@@ -112,6 +117,8 @@ export interface ConversationReply {
   provider: string;
   model: string;
   content: string;
+  /** Only written for agent answers, so legacy clients see unchanged replies. */
+  mode?: AnswerMode;
 }
 
 // ── RAG / Document Vault ─────────────────────────────────────────

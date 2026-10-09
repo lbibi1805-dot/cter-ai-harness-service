@@ -9,6 +9,7 @@ import { createVaultModule } from './modules/vault';
 import { ConversationPoller } from './orchestrator/conversationPoller';
 import { AIInvocationService, PromptPreparer, type RagRefs } from './modules/ai';
 import { createPollingModule } from './modules/polling';
+import { createAgentModule } from './modules/agent';
 import { validateAllKeys } from './ai/aiRouter';
 
 async function main(): Promise<void> {
@@ -29,9 +30,12 @@ async function main(): Promise<void> {
   const ragRefs: RagRefs = {};
   const prompts = new PromptPreparer(config.systemPrompt, config.knowledgeContent, () => ragRefs);
   const ai = new AIInvocationService(config, prompts);
+  const vault = createVaultModule(config);
+  // Single-shot by default; `_agent` files / `mode: agent` chats use the agent with fallback.
+  const { answers } = createAgentModule(config, { ai, vaultRepository: vault.repository });
 
-  const fileQAJob = new FileQAJob(config, state, emailNotifier, ai);
-  const conversationPoller = new ConversationPoller(config, state, () => ragRefs, undefined, ai);
+  const fileQAJob = new FileQAJob(config, state, emailNotifier, answers);
+  const conversationPoller = new ConversationPoller(config, state, () => ragRefs, undefined, answers);
   const staleThresholdMs = config.aiTimeoutMs * (config.maxRetryCount + 2);
   const polling = createPollingModule(config, {
     jobs: [fileQAJob, conversationPoller],
@@ -41,7 +45,6 @@ async function main(): Promise<void> {
     },
   });
 
-  const vault = createVaultModule(config);
   const apiServer = new ApiServer(config, emailNotifier, apiPort, vault, polling);
   logger.startup(config.accounts.length, config.pollIntervalMs);
   apiServer.start();
