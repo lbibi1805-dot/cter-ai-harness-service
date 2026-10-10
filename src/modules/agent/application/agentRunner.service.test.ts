@@ -13,7 +13,7 @@ import { AgentRunner } from './agentRunner.service';
 
 const USAGE = { inputTokens: 10, outputTokens: 2 };
 const CONTENT = { textContent: 'Q?', imageBuffers: [] };
-const BUDGET = { maxToolCalls: 3, maxDurationMs: 60_000, maxToolResultChars: 50 };
+const BUDGET = { maxToolCalls: 3, minToolCalls: 0, maxDurationMs: 60_000, maxToolResultChars: 50 };
 
 const calls = (...items: Array<[string, Record<string, unknown> | string]>): ModelTurn => ({
   kind: ModelTurnKind.TOOL_CALLS,
@@ -24,12 +24,12 @@ const final = (text: string): ModelTurn => ({ kind: ModelTurnKind.FINAL, text, u
 
 /** Model whose turns are scripted; records what the runner sent each turn. */
 function scriptedModel(turns: Array<ModelTurn | ((allowTools: boolean) => ModelTurn)>) {
-  const received: Array<{ outputs: ToolOutput[]; allowTools: boolean }> = [];
+  const received: Array<{ outputs: ToolOutput[]; allowTools: boolean; requireTool: boolean }> = [];
   const model: ToolCallingModel = {
     model: 'gpt-6-astra',
     startSession: () => ({
-      next: async (outputs, { allowTools }) => {
-        received.push({ outputs, allowTools });
+      next: async (outputs, { allowTools, requireTool = false }) => {
+        received.push({ outputs, allowTools, requireTool });
         const turn = turns.shift();
         if (!turn) throw new Error('script exhausted');
         return typeof turn === 'function' ? turn(allowTools) : turn;
@@ -60,6 +60,28 @@ describe('AgentRunner', () => {
     expect(result.usage).toEqual({ inputTokens: 30, outputTokens: 6 });
     expect(received[1].outputs).toEqual([{ callId: 'c0-search_vault', output: 'hits for mutex' }]);
     expect(received.every((r) => r.allowTools)).toBe(true);
+  });
+
+  it('requires tool calls until minToolCalls is reached, then lets the model decide', async () => {
+    const { model, received } = scriptedModel([
+      calls([AgentToolName.SEARCH_VAULT, { query: 'a' }]),
+      calls([AgentToolName.SEARCH_VAULT, { query: 'b' }]),
+      final('grounded answer'),
+    ]);
+    const result = await new AgentRunner([search], { ...BUDGET, minToolCalls: 2 }).run({ model, systemPrompt: 's', content: CONTENT, label: 'q' });
+
+    expect(result.text).toBe('grounded answer');
+    expect(received.map((r) => r.requireTool)).toEqual([true, true, false]);
+  });
+
+  it('never requires a tool when minToolCalls is 0 or the budget is exhausted', async () => {
+    const free = scriptedModel([final('from memory')]);
+    await new AgentRunner([search], BUDGET).run({ model: free.model, systemPrompt: 's', content: CONTENT, label: 'q' });
+    expect(free.received[0].requireTool).toBe(false);
+
+    const tight = scriptedModel([calls([AgentToolName.SEARCH_VAULT, { query: 'a' }]), final('forced')]);
+    await new AgentRunner([search], { ...BUDGET, maxToolCalls: 1, minToolCalls: 1 }).run({ model: tight.model, systemPrompt: 's', content: CONTENT, label: 'q' });
+    expect(tight.received.map((r) => [r.allowTools, r.requireTool])).toEqual([[true, true], [false, false]]);
   });
 
   it('truncates long tool results to the budget', async () => {

@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { AppConfig } from './types';
 import { parseStorageProvider } from './shared/database/database';
+import { DEFAULT_RERANK_CONFIG, parseRerankProvider } from './modules/rerank/domain/rerankConfig';
 
 function loadFile(filePath: string, required: true): string;
 function loadFile(filePath: string, required: false): string;
@@ -83,7 +84,17 @@ export function loadConfig(): AppConfig {
     pollAutostart: process.env.POLL_AUTOSTART !== 'false',
     agent: {
       maxToolCalls: parseInt(process.env.AGENT_MAX_TOOL_CALLS ?? '6', 10),
+      minToolCalls: parseInt(process.env.AGENT_MIN_TOOL_CALLS ?? '1', 10),
       maxDurationMs: parseInt(process.env.AGENT_MAX_DURATION_MS ?? '180000', 10),
+    },
+    rerank: {
+      provider: parseRerankProvider(process.env.RERANK_PROVIDER),
+      model: process.env.RERANK_MODEL || DEFAULT_RERANK_CONFIG.model,
+      candidates: parseInt(process.env.RERANK_CANDIDATES ?? String(DEFAULT_RERANK_CONFIG.candidates), 10),
+      topN: parseInt(process.env.RERANK_TOP_N ?? String(DEFAULT_RERANK_CONFIG.topN), 10),
+      timeoutMs: parseInt(process.env.RERANK_TIMEOUT_MS ?? String(DEFAULT_RERANK_CONFIG.timeoutMs), 10),
+      maxQueryChars: DEFAULT_RERANK_CONFIG.maxQueryChars,
+      maxDocumentChars: DEFAULT_RERANK_CONFIG.maxDocumentChars,
     },
     canvasFolder: {
       materials: process.env.CANVAS_MATERIALS_FOLDER ?? 'Materials2',

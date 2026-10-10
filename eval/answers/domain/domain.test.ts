@@ -60,6 +60,25 @@ describe('citations', () => {
     expect(parseCitedSources('no references here')).toEqual([]);
   });
 
+  it('keeps file names that contain spaces, commas-separated lists and link targets', () => {
+    const answer = [
+      '## References',
+      '- Chapter 1 - Testing Fundamentals.md',
+      '- `software-tesing-ISYS2092-SYS3397/Chapter 4 - Testing Techniques/03 - White-Box.md`',
+      '- A.md, B c.md',
+      '- [Black-box notes](Chapter 4/02 - Black-Box.md)',
+    ].join('\n');
+    expect(parseCitedSources(answer)).toEqual([
+      'chapter 1 - testing fundamentals.md',
+      'software-tesing-isys2092-sys3397/chapter 4 - testing techniques/03 - white-box.md',
+      'a.md',
+      'b c.md',
+      'chapter 4/02 - black-box.md',
+    ]);
+    expect(sourceMatches('Chapter 1 - Testing Fundamentals.md',
+      'software-tesing-ISYS2092-SYS3397/Chapter 1 - Testing Fundamentals/Chapter 1 - Testing Fundamentals.md')).toBe(true);
+  });
+
   it('matches full paths, suffixes and bare file names case-insensitively', () => {
     expect(sourceMatches('Barriers.md', 'mon-qnx-current/lab-4/Barriers.md')).toBe(true);
     expect(sourceMatches('lab-4/barriers.md', 'mon-qnx-current/lab-4/Barriers.md')).toBe(true);

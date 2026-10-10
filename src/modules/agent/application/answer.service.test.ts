@@ -25,7 +25,7 @@ function agentModel(behaviour: 'answer' | 'fail'): ToolCallingModel {
 function service(ai = singleShot(), behaviour: 'answer' | 'fail' = 'answer', supported = true) {
   const createModel = vi.fn((provider: string) => (supported && provider === 'openai' ? agentModel(behaviour) : null));
   const svc = new AnswerService(ai as unknown as AIInvocationService, {
-    runner: new AgentRunner([], { maxToolCalls: 3, maxDurationMs: 10_000, maxToolResultChars: 100 }),
+    runner: new AgentRunner([], { maxToolCalls: 3, minToolCalls: 0, maxDurationMs: 10_000, maxToolResultChars: 100 }),
     createModel,
     systemPrompt: 'agent system',
   });

@@ -31,5 +31,14 @@ export enum ModelTurnKind {
   FINAL = 'final',
 }
 
+/** Provider-side tool policy for one model turn (OpenAI `tool_choice` values). */
+export enum ToolChoice {
+  AUTO = 'auto',
+  /** The model must call at least one tool this turn. */
+  REQUIRED = 'required',
+  /** The model must answer in text. */
+  NONE = 'none',
+}
+
 /** File name marker: `START_<name>_<provider>[_<model>]_agent.<ext>`. */
 export const AGENT_FILE_SUFFIX = '_agent';

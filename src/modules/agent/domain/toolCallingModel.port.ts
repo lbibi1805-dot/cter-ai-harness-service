@@ -23,9 +23,15 @@ export type ModelTurn =
 export interface ToolCallingSession {
   /**
    * Sends the outputs of the previous tool calls (empty on the first turn).
-   * With `allowTools: false` the model must answer in text.
+   * With `allowTools: false` the model must answer in text; with
+   * `requireTool: true` (and tools allowed) it must call a tool.
    */
-  next(toolOutputs: ToolOutput[], options: { allowTools: boolean }): Promise<ModelTurn>;
+  next(toolOutputs: ToolOutput[], options: TurnOptions): Promise<ModelTurn>;
+}
+
+export interface TurnOptions {
+  allowTools: boolean;
+  requireTool?: boolean;
 }
 
 /** Port implemented per provider (OpenAI Responses API in the MVP). */

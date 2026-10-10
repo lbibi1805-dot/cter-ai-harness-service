@@ -1,11 +1,11 @@
 import { CitationPromptBuilder } from '../../../rag/citationPromptBuilder';
-import type { RAGRetriever } from '../../../rag/ragRetriever';
+import type { ChunkRetriever } from '../../rerank/domain/reranker.port';
 import type { FileContent } from '../../../types';
 import { injectKnowledge } from '../../../utils/injectKnowledge';
 import { logger } from '../../../utils/logger';
 
 export interface RagRefs {
-  retriever?: RAGRetriever;
+  retriever?: ChunkRetriever;
   builder?: CitationPromptBuilder;
 }
 

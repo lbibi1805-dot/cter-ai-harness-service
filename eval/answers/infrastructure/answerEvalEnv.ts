@@ -2,6 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'dotenv';
 import { getModelApiMode } from '../../../src/config/allowedModels';
+import { DEFAULT_RERANK_CONFIG, parseRerankProvider, type RerankConfig } from '../../../src/modules/rerank/domain';
+import { DEFAULT_AGENT_BUDGET } from '../../../src/modules/agent/domain/agentBudget';
 import { EvalEnvKey } from '../../rag/domain';
 import { DEFAULT_EVAL_ENV_FILE, loadEvalSettings, type EvalSettings } from '../../rag/infrastructure/evalEnv';
 
@@ -17,6 +19,10 @@ export interface AnswerEvalSettings extends EvalSettings {
   judgeModel: string;
   ragTopK: number;
   systemPrompt: string;
+  /** Reranking as the service would run it (RERANK_* keys; off when absent). */
+  rerank: RerankConfig;
+  /** AGENT_MIN_TOOL_CALLS (service default when absent). */
+  agentMinToolCalls: number;
 }
 
 /** Extends the retrieval-eval settings with what the answer eval needs (same gitignored file). */
@@ -36,6 +42,10 @@ export function loadAnswerEvalSettings(envFile: string = DEFAULT_EVAL_ENV_FILE):
   }
   const promptFile = value(EvalEnvKey.SYSTEM_PROMPT_FILE) ?? DEFAULT_SYSTEM_PROMPT_FILE;
   const ragTopK = Number(value(EvalEnvKey.RAG_TOP_K) ?? DEFAULT_RAG_TOP_K);
+  const int = (key: EvalEnvKey, fallback: number) => {
+    const parsed = Number(value(key) ?? fallback);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+  };
 
   return {
     ...base,
@@ -45,5 +55,13 @@ export function loadAnswerEvalSettings(envFile: string = DEFAULT_EVAL_ENV_FILE):
     judgeModel: value(EvalEnvKey.JUDGE_MODEL) ?? DEFAULT_JUDGE_MODEL,
     ragTopK: Number.isInteger(ragTopK) && ragTopK > 0 ? ragTopK : DEFAULT_RAG_TOP_K,
     systemPrompt: fs.readFileSync(path.resolve(promptFile), 'utf-8').trim(),
+    rerank: {
+      ...DEFAULT_RERANK_CONFIG,
+      provider: parseRerankProvider(value(EvalEnvKey.RERANK_PROVIDER)),
+      model: value(EvalEnvKey.RERANK_MODEL) ?? DEFAULT_RERANK_CONFIG.model,
+      candidates: int(EvalEnvKey.RERANK_CANDIDATES, DEFAULT_RERANK_CONFIG.candidates),
+      topN: int(EvalEnvKey.RERANK_TOP_N, DEFAULT_RERANK_CONFIG.topN),
+    },
+    agentMinToolCalls: int(EvalEnvKey.AGENT_MIN_TOOL_CALLS, DEFAULT_AGENT_BUDGET.minToolCalls),
   };
 }

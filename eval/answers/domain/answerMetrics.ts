@@ -6,7 +6,10 @@ const RELEVANCE_MAX = 5;
 /** "## References", "References:", "**References**", "**References:**". */
 const REFERENCES_HEADING = /^#{1,6}\s*references\b|^\*{0,2}references:?\*{0,2}:?\s*$/i;
 const ANY_HEADING = /^#{1,6}\s+/;
-const MARKDOWN_PATH = /[^\s`'"()<>[\]|]+\.md\b/gi;
+const LIST_MARKER = /^\s*(?:[-*+]|\d+[.)])\s+/;
+const MARKDOWN_LINK_TARGET = /\[[^\]]*\]\(([^)]+)\)/g;
+/** Vault file names contain spaces ("Chapter 1 - Testing Fundamentals.md"), so a path runs up to ".md". */
+const MARKDOWN_PATH = /[^,;`'"()<>[\]|*]+?\.md\b/gi;
 
 /** Nearest-rank percentile (p in 0..100). */
 export function percentile(values: number[], p: number): number {
@@ -39,7 +42,8 @@ export function parseCitedSources(answer: string): string[] {
   const cited: string[] = [];
   for (const line of lines.slice(start + 1)) {
     if (ANY_HEADING.test(line.trim())) break;
-    for (const match of line.match(MARKDOWN_PATH) ?? []) {
+    const item = line.replace(LIST_MARKER, '').replace(MARKDOWN_LINK_TARGET, ' $1 ');
+    for (const match of item.match(MARKDOWN_PATH) ?? []) {
       const path = normalizeSourcePath(match);
       if (!cited.includes(path)) cited.push(path);
     }

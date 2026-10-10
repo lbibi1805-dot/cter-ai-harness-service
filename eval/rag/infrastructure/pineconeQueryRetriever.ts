@@ -1,5 +1,6 @@
 import { Pinecone } from '@pinecone-database/pinecone';
 import { createEmbeddingService, RAGRetriever } from '../../../src/rag';
+import type { CitedChunk } from '../../../src/types';
 import type { QueryRetriever } from '../application/retrievalEvaluation';
 import type { RankedChunk } from '../domain';
 import type { EvalSettings } from './evalEnv';
@@ -14,7 +15,7 @@ export interface IndexInfo {
  * embeddings and `query` are called. It never uses VectorStore.ensureIndex,
  * which deletes and recreates an index whose dimension does not match.
  */
-export async function createPineconeQueryRetriever(settings: EvalSettings, topK: number): Promise<{ retriever: QueryRetriever; index: IndexInfo }> {
+export async function createPineconeQueryRetriever(settings: EvalSettings, topK: number): Promise<{ retriever: QueryRetriever; chunks: (question: string) => Promise<CitedChunk[]>; index: IndexInfo }> {
   const embedder = createEmbeddingService(settings.embeddingProvider, {
     openai: settings.openaiApiKey,
     gemini: settings.geminiApiKey,
@@ -49,5 +50,9 @@ export async function createPineconeQueryRetriever(settings: EvalSettings, topK:
       return chunks.map((c) => ({ source: c.source, heading: c.heading, score: c.score ?? 0 }));
     },
   };
-  return { retriever, index: { dimension: description.dimension ?? 0, recordCount: stats?.totalRecordCount ?? null } };
+  return {
+    retriever,
+    chunks: (question) => rag.retrieve(question),
+    index: { dimension: description.dimension ?? 0, recordCount: stats?.totalRecordCount ?? null },
+  };
 }

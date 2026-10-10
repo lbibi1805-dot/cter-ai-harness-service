@@ -7,12 +7,14 @@ import type { FileContent } from '../../../types';
 import { withTimeout } from '../../../utils/withTimeout';
 import {
   ModelTurnKind,
+  ToolChoice,
   type AgentToolDefinition,
   type ModelTurn,
   type ToolCallingModel,
   type ToolCallingModelFactory,
   type ToolCallingSession,
   type ToolOutput,
+  type TurnOptions,
 } from '../domain';
 
 const OPENAI_PROVIDER = 'openai';
@@ -77,14 +79,15 @@ class OpenAIResponsesSession implements ToolCallingSession {
     this.tools = tools.map((t) => ({ type: 'function', name: t.name, description: t.description, parameters: t.parameters, strict: false }));
   }
 
-  async next(toolOutputs: ToolOutput[], { allowTools }: { allowTools: boolean }): Promise<ModelTurn> {
+  async next(toolOutputs: ToolOutput[], { allowTools, requireTool = false }: TurnOptions): Promise<ModelTurn> {
     for (const { callId, output } of toolOutputs) {
       this.input.push({ type: 'function_call_output', call_id: callId, output });
     }
+    const toolChoice = !allowTools ? ToolChoice.NONE : requireTool ? ToolChoice.REQUIRED : ToolChoice.AUTO;
 
     const response = await retryTransient(
       () => withTimeout(
-        this.client.responses.create({ model: this.model, input: this.input, tools: this.tools, tool_choice: allowTools ? 'auto' : 'none' }),
+        this.client.responses.create({ model: this.model, input: this.input, tools: this.tools, tool_choice: toolChoice }),
         this.options.timeoutMs,
         `openai/${this.model} (agent)`,
       ),

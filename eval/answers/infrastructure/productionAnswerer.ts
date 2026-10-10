@@ -2,6 +2,7 @@ import { Pinecone } from '@pinecone-database/pinecone';
 import { createAgentModule } from '../../../src/modules/agent';
 import type { Answerer } from '../../../src/modules/agent/domain';
 import { AIInvocationService, PromptPreparer, type RagRefs } from '../../../src/modules/ai';
+import { createRerankModule } from '../../../src/modules/rerank';
 import type { VaultRepository } from '../../../src/modules/vault/domain';
 import { CitationPromptBuilder, RAGRetriever, createEmbeddingService } from '../../../src/rag';
 import { StorageProvider } from '../../../src/shared/database/database.enums';
@@ -43,7 +44,8 @@ export function buildEvalAppConfig(settings: AnswerEvalSettings): AppConfig {
     },
     database: { provider: StorageProvider.NEON, databaseUrl: settings.databaseUrl },
     pollAutostart: false,
-    agent: { maxToolCalls: 6, maxDurationMs: 180_000 },
+    agent: { maxToolCalls: 6, minToolCalls: settings.agentMinToolCalls, maxDurationMs: 180_000 },
+    rerank: settings.rerank,
     canvasFolder: { materials: '', input: '', output: '' },
   };
 }
@@ -52,9 +54,15 @@ export function buildEvalAppConfig(settings: AnswerEvalSettings): AppConfig {
 export function createProductionAnswerer(config: AppConfig, vaultRepository: VaultRepository): Answerer {
   const vault = config.vaultConfig!;
   const embedder = createEmbeddingService(vault.embeddingProvider, { openai: config.aiKeys.openai, gemini: config.aiKeys.gemini });
-  const ragRefs: RagRefs = { retriever: new RAGRetriever(vault, embedder), builder: new CitationPromptBuilder() };
+  const ranking = createRerankModule(config.rerank, { pineconeApiKey: vault.pineconeApiKey });
+  const vaultTopK = vault.topK ?? 6;
+  const vectorRetriever = new RAGRetriever({ ...vault, topK: ranking.candidateCount(vaultTopK) }, embedder);
+  const ragRefs: RagRefs = {
+    retriever: ranking.wrap(vectorRetriever, { topN: config.rerank.topN, fallbackTopK: vaultTopK, label: 'single-shot' }),
+    builder: new CitationPromptBuilder(),
+  };
   const ai = new AIInvocationService(config, new PromptPreparer(config.systemPrompt, config.knowledgeContent, () => ragRefs));
-  return createAgentModule(config, { ai, vaultRepository }).answers;
+  return createAgentModule(config, { ai, vaultRepository, ranking }).answers;
 }
 
 export function createTextEmbedder(settings: AnswerEvalSettings): TextEmbedder {

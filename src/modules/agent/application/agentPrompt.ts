@@ -6,7 +6,7 @@ export function buildAgentSystemPrompt(basePrompt: string, budget: AgentBudget):
 
 ## RESEARCH MODE (tools available)
 
-You can research the course document vault before answering. You have at most ${budget.maxToolCalls} tool calls.
+Research the course document vault before answering: always start with \`${AgentToolName.SEARCH_VAULT}\`, even when you think you already know the answer, because the answer must follow the course material. You have at most ${budget.maxToolCalls} tool calls.
 
 - \`${AgentToolName.SEARCH_VAULT}\`: semantic search over the vault. Much of the vault is written in Vietnamese while questions are often in English: when a search returns nothing relevant, search again in the other language or with different keywords.
 - \`${AgentToolName.READ_DOCUMENT}\`: read a whole file, or one section by heading, when a search snippet is not enough.

@@ -56,6 +56,17 @@ describe('OpenAIResponsesToolModel (real SDK against a fake Responses server)', 
     expect(server.requests[0].tool_choice).toBe('none');
   });
 
+  it('sends tool_choice=required when a tool call is required, and none still wins when tools are not allowed', async () => {
+    server.responder = () => ({ functionCall: { name: 'search_vault', arguments: { query: 'mutex' } } });
+    const session = factory('openai', 'gpt-6-astra')!.startSession('s', CONTENT, TOOLS);
+    await expect(session.next([], { allowTools: true, requireTool: true })).resolves.toMatchObject({ kind: ModelTurnKind.TOOL_CALLS });
+    expect(server.requests[0].tool_choice).toBe('required');
+
+    server.responder = () => ({ text: 'final' });
+    await session.next([{ callId: 'call_1', output: 'x' }], { allowTools: false, requireTool: true });
+    expect(server.requests[1].tool_choice).toBe('none');
+  });
+
   it('retries transient HTTP errors (SDK retries are disabled)', async () => {
     server.responder = (_b, i) => (i === 0 ? { status: 503, error: 'overloaded' } : { text: 'after retry' });
     const session = factory('openai', 'gpt-6-astra')!.startSession('s', CONTENT, TOOLS);

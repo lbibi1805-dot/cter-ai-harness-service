@@ -52,9 +52,10 @@ export class FakeCanvasServer {
     this.input.push({ id: this.nextId++, name, updatedAt, body: Buffer.from(text) });
   }
 
-  addConversationRequest(question: string, provider = 'gemini'): number {
+  addConversationRequest(question: string, provider = 'gemini', headers: Record<string, string> = {}): number {
     const id = this.nextId++;
-    this.conversation.push({ id, body: `[CFH:REQUEST]\nprovider: ${provider}\n\n${question}`, created_at: new Date().toISOString() });
+    const extra = Object.entries(headers).map(([key, value]) => `\n${key}: ${value}`).join('');
+    this.conversation.push({ id, body: `[CFH:REQUEST]\nprovider: ${provider}${extra}\n\n${question}`, created_at: new Date().toISOString() });
     return id;
   }
 

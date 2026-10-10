@@ -2,6 +2,11 @@
 export interface AgentBudget {
   /** Maximum tool calls per question. */
   maxToolCalls: number;
+  /**
+   * Tool calls the model must make before it may answer. Without it the model
+   * often answers general questions from memory and never reads the vault.
+   */
+  minToolCalls: number;
   /** Wall-clock limit for the whole run (it executes inside a poll tick). */
   maxDurationMs: number;
   /** Each tool result is cut to this many characters before reaching the model. */
@@ -10,6 +15,7 @@ export interface AgentBudget {
 
 export const DEFAULT_AGENT_BUDGET: AgentBudget = {
   maxToolCalls: 6,
+  minToolCalls: 1,
   maxDurationMs: 180_000,
   maxToolResultChars: 6_000,
 };

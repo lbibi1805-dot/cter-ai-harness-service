@@ -53,7 +53,10 @@ export class AgentRunner {
 
     for (;;) {
       const exhausted = this.exhaustedReason(steps.length, startedAt);
-      const turn = await session.next(pendingOutputs, { allowTools: exhausted === null });
+      const turn = await session.next(pendingOutputs, {
+        allowTools: exhausted === null,
+        requireTool: exhausted === null && steps.length < this.budget.minToolCalls,
+      });
       modelCalls++;
       usage = addUsage(usage, turn.usage);
 

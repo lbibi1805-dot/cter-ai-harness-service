@@ -88,7 +88,7 @@ describe.skipIf(process.env.SKIP_BROWSER_TESTS === '1')('polling end-to-end', ()
       canvasFolder: { materials: 'Materials2', input: 'Q', output: 'A' },
       database: { provider: StorageProvider.FILE },
       pollAutostart: false,
-      agent: { maxToolCalls: 4, maxDurationMs: 30_000 },
+      agent: { maxToolCalls: 4, minToolCalls: 1, maxDurationMs: 30_000 },
     };
     polling = bootApp();
     const vaultStub = { router: new Router([], undefined), service: { stats: async () => ({ total: 0, indexed: 0 }) } } as unknown as VaultModule;

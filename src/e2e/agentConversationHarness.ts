@@ -47,7 +47,7 @@ export async function startAgentConversationHarness(): Promise<AgentConversation
     modelFallback: { claude: [], gemini: [], grok: [], openai: [] },
     pollIntervalMs: 1000, maxRetryCount: 0, systemPrompt: 'sys', knowledgeContent: '', grokBaseUrl: '',
     aiTimeoutMs: 5000, gmail: {}, canvasFolder: { materials: 'Materials2', input: 'Q', output: 'A' },
-    database: { provider: StorageProvider.FILE }, pollAutostart: false, agent: { maxToolCalls: 4, maxDurationMs: 30_000 },
+    database: { provider: StorageProvider.FILE }, pollAutostart: false, agent: { maxToolCalls: 4, minToolCalls: 1, maxDurationMs: 30_000 },
   } as AppConfig;
 
   const singleShot = vi.fn(async () => SINGLE_SHOT_ANSWER);

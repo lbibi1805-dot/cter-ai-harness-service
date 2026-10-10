@@ -110,7 +110,12 @@ export interface AnswerEvalReport {
   label: string;
   startedAt: string;
   durationMs: number;
-  settings: { answerModel: string; judgeModel: string; modes: AnswerMode[]; repeats: number; questionCount: number };
+  settings: {
+    answerModel: string; judgeModel: string; modes: AnswerMode[]; repeats: number; questionCount: number;
+    /** Retrieval/agent configuration under test (absent in runs made before these existed). */
+    rerank?: string;
+    agentMinToolCalls?: number;
+  };
   environment: EnvironmentSnapshot;
   summaries: ModeSummary[];
   samples: ScoredSample[];

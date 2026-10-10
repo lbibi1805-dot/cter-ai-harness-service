@@ -22,6 +22,8 @@ export type Responder = (body: ResponsesRequestBody, requestIndex: number) => Sc
 export class FakeOpenAIResponsesServer {
   readonly requests: ResponsesRequestBody[] = [];
   responder: Responder = () => ({ text: 'default answer' });
+  /** Artificial per-request latency (load tests). */
+  latencyMs = 0;
   private server = http.createServer((req, res) => void this.handle(req, res));
   private callSeq = 0;
   baseURL = '';
@@ -47,6 +49,7 @@ export class FakeOpenAIResponsesServer {
     const body = JSON.parse(Buffer.concat(chunks).toString() || '{}') as ResponsesRequestBody;
     this.requests.push(body);
     const scripted = this.responder(body, this.requests.length - 1);
+    if (this.latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, this.latencyMs));
 
     if ('status' in scripted) {
       res.writeHead(scripted.status, { 'Content-Type': 'application/json' });

@@ -34,7 +34,16 @@ not match the index dimension.
 npm run eval:rag
 npm run eval:rag -- --k 1,3,5,8,10,20 --label topk-baseline
 npm run eval:rag -- --golden path/to/set.jsonl --env path/to/other.env.eval
+npm run eval:rag -- --rerank --candidates 40 --label rerank   # vector vs rerank vs RRF fusion
 ```
+
+With `--rerank` each question is searched once (top `--candidates`), then the
+same candidates are scored three ways — cosine order, reranked (Pinecone
+Inference, `--rerank-model`, default `bge-reranker-v2-m3`) and an RRF fusion of
+the two — and a `*-comparison.md` lists the metric deltas and every question
+whose first relevant rank changed. It costs one rerank call per question.
+Unlike the service, a rerank failure is recorded as an error, not hidden by the
+cosine fallback.
 
 Reports are written to `eval/rag/runs/<timestamp>-<label>.{md,json}` (gitignored).
 
@@ -89,7 +98,9 @@ npm run eval:answers -- --yes --modes agent --repeats 3 --limit 10
 
 Extra `.env.eval` keys: `DATABASE_URL` (SELECT only), `ANSWER_MODEL`
 (Responses-API model, default `gpt-6-astra`), `JUDGE_MODEL` (default
-`gpt-4o`), `RAG_TOP_K`, `SYSTEM_PROMPT_FILE`. Runs are saved to
+`gpt-4o`), `RAG_TOP_K`, `SYSTEM_PROMPT_FILE`, and the settings under test:
+`RERANK_PROVIDER` / `RERANK_MODEL` / `RERANK_CANDIDATES` / `RERANK_TOP_N`
+and `AGENT_MIN_TOOL_CALLS` (recorded in each run's `settings`). Runs are saved to
 `eval/answers/runs/` (gitignored).
 
 Caveats: the judge is an LLM — spot-check a few graded answers per run, and

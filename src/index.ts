@@ -10,6 +10,7 @@ import { ConversationPoller } from './orchestrator/conversationPoller';
 import { AIInvocationService, PromptPreparer, type RagRefs } from './modules/ai';
 import { createPollingModule } from './modules/polling';
 import { createAgentModule } from './modules/agent';
+import { createRerankModule } from './modules/rerank';
 import { validateAllKeys } from './ai/aiRouter';
 
 async function main(): Promise<void> {
@@ -31,8 +32,9 @@ async function main(): Promise<void> {
   const prompts = new PromptPreparer(config.systemPrompt, config.knowledgeContent, () => ragRefs);
   const ai = new AIInvocationService(config, prompts);
   const vault = createVaultModule(config);
+  const ranking = createRerankModule(config.rerank, { pineconeApiKey: config.vaultConfig?.pineconeApiKey });
   // Single-shot by default; `_agent` files / `mode: agent` chats use the agent with fallback.
-  const { answers } = createAgentModule(config, { ai, vaultRepository: vault.repository });
+  const { answers } = createAgentModule(config, { ai, vaultRepository: vault.repository, ranking });
 
   const fileQAJob = new FileQAJob(config, state, emailNotifier, answers);
   const conversationPoller = new ConversationPoller(config, state, () => ragRefs, undefined, answers);
@@ -75,7 +77,9 @@ async function main(): Promise<void> {
         } catch {
           logger.info('Document vault indexed — RAG ready');
         }
-        ragRefs.retriever = new RAGRetriever(config.vaultConfig!, embedder);
+        const vaultTopK = config.vaultConfig!.topK ?? 6;
+        const vectorRetriever = new RAGRetriever({ ...config.vaultConfig!, topK: ranking.candidateCount(vaultTopK) }, embedder);
+        ragRefs.retriever = ranking.wrap(vectorRetriever, { topN: config.rerank.topN, fallbackTopK: vaultTopK, label: 'single-shot' });
         ragRefs.builder = new CitationPromptBuilder();
       } catch (err) {
         logger.info(`Vault indexing skipped or failed — falling back to knowledge.md: ${(err as Error).message}`);

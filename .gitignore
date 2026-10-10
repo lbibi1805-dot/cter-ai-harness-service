@@ -28,3 +28,4 @@ data/processed.json
 eval/.env.eval
 eval/rag/runs/
 eval/answers/runs/
+load/runs/
