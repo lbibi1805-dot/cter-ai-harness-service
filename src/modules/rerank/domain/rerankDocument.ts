@@ -30,7 +30,6 @@ export function buildRerankPassages(chunk: CitedChunk, maxChars: number, maxPass
   const body = chunk.text.trim();
   const room = Math.max(1, maxChars - header.length);
   if (body.length <= room || maxPassages <= 1) return [truncate(header + body, maxChars)];
-
   const stride = Math.max(1, Math.floor(room * (1 - PASSAGE_OVERLAP_RATIO)));
   const passages: string[] = [];
   for (let start = 0; start < body.length && passages.length < maxPassages; start += stride) {
