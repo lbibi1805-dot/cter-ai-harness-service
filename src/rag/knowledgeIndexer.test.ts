@@ -5,6 +5,7 @@ import { KnowledgeIndexer } from './knowledgeIndexer';
 import type { IEmbeddingService } from './embeddingService';
 import { VectorStore } from './vectorStore';
 import type { VaultConfig } from '../types';
+import type { VaultRepository } from '../modules/vault';
 
 const TMP_DIR = path.resolve(process.cwd(), 'tmp-test-vault');
 const MANIFEST_PATH = path.resolve(process.cwd(), '.vault-manifest.json');
@@ -20,6 +21,11 @@ function makeConfig(vaultPath: string): VaultConfig {
     embeddingDelayMs: 0,
   };
 }
+
+const emptyRepository = {
+  findAll: async () => [],
+  save: async () => undefined,
+} as unknown as VaultRepository;
 
 const mockEmbedder: IEmbeddingService = {
   dimension: 3072,
@@ -56,7 +62,7 @@ describe('KnowledgeIndexer', () => {
   // ── parseMarkdown ───────────────────────────────────────────────────
   describe('parseMarkdown', () => {
     function parse(content: string) {
-      const idx = new KnowledgeIndexer(makeConfig(TMP_DIR), mockEmbedder);
+      const idx = new KnowledgeIndexer(makeConfig(TMP_DIR), mockEmbedder, emptyRepository);
       return (idx as any).parseMarkdown(content);
     }
 
@@ -117,7 +123,7 @@ describe('KnowledgeIndexer', () => {
   // ── makeChunk ────────────────────────────────────────────────────────
   describe('makeChunk', () => {
     function make(source: string, heading: string, index: number) {
-      const idx = new KnowledgeIndexer(makeConfig(TMP_DIR), mockEmbedder);
+      const idx = new KnowledgeIndexer(makeConfig(TMP_DIR), mockEmbedder, emptyRepository);
       return (idx as any).makeChunk('sample text', source, heading, '', index);
     }
 
@@ -157,7 +163,7 @@ describe('KnowledgeIndexer', () => {
   // ── chunkSection ────────────────────────────────────────────────────
   describe('chunkSection', () => {
     function chunk(text: string, src = 'test.md', heading = 'Section', parent = '') {
-      const idx = new KnowledgeIndexer(makeConfig(TMP_DIR), mockEmbedder);
+      const idx = new KnowledgeIndexer(makeConfig(TMP_DIR), mockEmbedder, emptyRepository);
       let counter = 0;
       return (idx as any).chunkSection(text, src, heading, parent, () => counter++);
     }
@@ -191,6 +197,7 @@ describe('KnowledgeIndexer', () => {
       const idx = new KnowledgeIndexer(
         makeConfig(vaultPath),
         mockEmbedder,
+        emptyRepository,
         mockVectorStore(),
       );
       await idx.indexAll();

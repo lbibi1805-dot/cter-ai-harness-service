@@ -8,7 +8,10 @@
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:load": "vitest run --config vitest.load.config.ts",
+    "eval:rag": "tsx eval/rag/cli/evalRag.ts",
+    "eval:answers": "tsx eval/answers/cli/evalAnswers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",
@@ -38,14 +41,5 @@
     "typescript": "^5.5.3",
     "vitest": "^4.1.10"
   },
-  "private": true,
-  "vitest": {
-    "include": [
-      "src/**/*.test.ts"
-    ],
-    "exclude": [
-      "**/dist/**",
-      "**/node_modules/**"
-    ]
-  }
+  "private": true
 }

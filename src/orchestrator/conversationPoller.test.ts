@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ConversationPoller, findPendingRequests, buildConvStateKey, MAX_CONV_PER_ROUND } from './conversationPoller';
+import { ConversationPoller, findPendingRequests, buildConvStateKey, MAX_CONV_PER_ROUND, SETTINGS_CACHE_TTL_MS } from './conversationPoller';
 import { StateManager } from '../state/stateManager';
 import type { AppConfig, CanvasAccountConfig, ConversationMessage } from '../types';
+import { StorageProvider } from '../shared/database/database.enums';
 
 const mockProcess = vi.hoisted(() => vi.fn());
 
@@ -37,6 +38,8 @@ function makeConfig(): AppConfig {
     aiTimeoutMs: 5000,
     gmail: {},
     canvasFolder: { materials: 'M', input: 'Q', output: 'A' },
+    database: { provider: StorageProvider.FILE },
+    pollAutostart: false,
   };
 }
 
@@ -187,6 +190,41 @@ describe('conversationPoller', () => {
     fake.settingsRead = { activeConversationId: null, sawSystemPrompt: false };
     await poller.pollAccountConversations(ACCOUNT);
     expect(fake.replies).toHaveLength(0);
+  });
+
+  it('caches settings discovery between rounds and refreshes after the TTL', async () => {
+    const fake = new FakeClient();
+    const discover = vi.spyOn(fake, 'listSettingsConversations');
+    let now = 1_000_000;
+    const poller = new ConversationPoller(makeConfig(), makeState(), undefined, () => fake as never, undefined, () => now);
+
+    await poller.pollAccountConversations(ACCOUNT);
+    await poller.pollAccountConversations(ACCOUNT);
+    expect(discover).toHaveBeenCalledTimes(1);
+
+    now += SETTINGS_CACHE_TTL_MS + 1;
+    await poller.pollAccountConversations(ACCOUNT);
+    expect(discover).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops the cached settings conversation when reading it fails', async () => {
+    const fake = new FakeClient();
+    const discover = vi.spyOn(fake, 'listSettingsConversations');
+    const poller = new ConversationPoller(makeConfig(), makeState(), undefined, () => fake as never);
+    await poller.pollAccountConversations(ACCOUNT);
+    vi.spyOn(fake, 'readSettings').mockRejectedValueOnce(new Error('404 Not Found'));
+    await poller.pollAccountConversations(ACCOUNT);
+    await poller.pollAccountConversations(ACCOUNT);
+    expect(discover).toHaveBeenCalledTimes(2);
+  });
+
+  it('posts a reply without re-calling the AI when only the reply post failed before', async () => {
+    const fake = new FakeClient();
+    fake.messages = [req(1, reqBody())];
+    fake.failAddReply = true;
+    const poller = new ConversationPoller(makeConfig(), makeState(), undefined, () => fake as never);
+    await poller.pollAccountConversations(ACCOUNT);
+    expect(mockProcess).toHaveBeenCalledTimes(1);
   });
 
   it('findPendingRequests matches legacy replies without request_id FIFO', () => {

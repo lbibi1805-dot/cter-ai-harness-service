@@ -3,10 +3,8 @@ import * as crypto from 'crypto';
 import { normalizeText } from './textNormalizer';
 import type { VaultConfig } from '../types';
 import type { IEmbeddingService } from './embeddingService';
-
-vi.mock('../vault', () => ({
-  createVaultStorageWithFallback: vi.fn(),
-}));
+import { KnowledgeIndexer } from './knowledgeIndexer';
+import type { VaultRepository } from '../modules/vault';
 
 function makeConfig(): VaultConfig {
   return {
@@ -39,14 +37,16 @@ function mockVectorStore() {
 
 function makeStorage(entries: any[]) {
   return {
-    list: vi.fn().mockResolvedValue({ entries, total: entries.length }),
-    get: vi.fn().mockImplementation(async (fp: string) => entries.find((e: any) => e.filePath === fp) ?? null),
-    upsert: vi.fn().mockResolvedValue(undefined),
+    search: vi.fn().mockResolvedValue({ items: entries, total: entries.length }),
+    findAll: vi.fn().mockResolvedValue(entries),
+    findByFolder: vi.fn().mockResolvedValue([]),
+    findByPath: vi.fn().mockImplementation(async (fp: string) => entries.find((e: any) => e.filePath === fp) ?? null),
+    save: vi.fn().mockResolvedValue(undefined),
     remove: vi.fn().mockResolvedValue(undefined),
+    removeAll: vi.fn().mockResolvedValue(undefined),
     stats: vi.fn().mockResolvedValue({ total: entries.length, indexed: entries.filter((e: any) => e.indexed).length }),
-    init: vi.fn().mockResolvedValue(undefined),
     listFolders: vi.fn().mockResolvedValue([]),
-  };
+  } satisfies VaultRepository;
 }
 
 function md5(s: string) { return crypto.createHash('md5').update(normalizeText(s)).digest('hex'); }
@@ -56,13 +56,10 @@ describe('KnowledgeIndexer Neon-only', () => {
 
   it('empty vault does not call embed', async () => {
     const storage = makeStorage([]);
-    const { createVaultStorageWithFallback } = await import('../vault');
-    vi.mocked(createVaultStorageWithFallback).mockResolvedValue(storage as any);
-    const { KnowledgeIndexer } = await import('./knowledgeIndexer');
-    const indexer = new KnowledgeIndexer(makeConfig(), makeEmbedder(), mockVectorStore());
+    const indexer = new KnowledgeIndexer(makeConfig(), makeEmbedder(), storage, mockVectorStore());
     await indexer.indexAll();
-    expect(storage.list).toHaveBeenCalled();
-    expect(storage.upsert).not.toHaveBeenCalled();
+    expect(storage.findAll).toHaveBeenCalled();
+    expect(storage.save).not.toHaveBeenCalled();
   });
 
   it('skips files with empty content', async () => {
@@ -70,10 +67,7 @@ describe('KnowledgeIndexer Neon-only', () => {
     const storage = makeStorage(entries);
     const vs = mockVectorStore();
     const embedder = makeEmbedder();
-    const { createVaultStorageWithFallback } = await import('../vault');
-    vi.mocked(createVaultStorageWithFallback).mockResolvedValue(storage as any);
-    const { KnowledgeIndexer } = await import('./knowledgeIndexer');
-    const indexer = new KnowledgeIndexer(makeConfig(), embedder, vs);
+    const indexer = new KnowledgeIndexer(makeConfig(), embedder, storage, vs);
     await indexer.indexAll();
     expect(embedder.embedBatch).not.toHaveBeenCalled();
     expect(vs.upsertChunks).not.toHaveBeenCalled();
@@ -85,10 +79,7 @@ describe('KnowledgeIndexer Neon-only', () => {
     const storage = makeStorage(entries);
     const vs = mockVectorStore();
     const embedder = makeEmbedder();
-    const { createVaultStorageWithFallback } = await import('../vault');
-    vi.mocked(createVaultStorageWithFallback).mockResolvedValue(storage as any);
-    const { KnowledgeIndexer } = await import('./knowledgeIndexer');
-    const indexer = new KnowledgeIndexer(makeConfig(), embedder, vs);
+    const indexer = new KnowledgeIndexer(makeConfig(), embedder, storage, vs);
     await indexer.indexAll();
     expect(embedder.embedBatch).not.toHaveBeenCalled();
   });
@@ -99,14 +90,11 @@ describe('KnowledgeIndexer Neon-only', () => {
     const storage = makeStorage(entries);
     const vs = mockVectorStore();
     const embedder = makeEmbedder();
-    const { createVaultStorageWithFallback } = await import('../vault');
-    vi.mocked(createVaultStorageWithFallback).mockResolvedValue(storage as any);
-    const { KnowledgeIndexer } = await import('./knowledgeIndexer');
-    const indexer = new KnowledgeIndexer(makeConfig(), embedder, vs);
+    const indexer = new KnowledgeIndexer(makeConfig(), embedder, storage, vs);
     await indexer.indexAll();
     expect(embedder.embedBatch).toHaveBeenCalled();
     expect(vs.upsertChunks).toHaveBeenCalled();
-    const lastCall = storage.upsert.mock.calls.at(-1)![0];
+    const lastCall = storage.save.mock.calls.at(-1)![0];
     expect(lastCall.indexed).toBe(true);
     expect(lastCall.content).toBe(content);
   });
@@ -118,10 +106,7 @@ describe('KnowledgeIndexer Neon-only', () => {
     const storage = makeStorage(entries);
     const vs = mockVectorStore();
     const embedder = makeEmbedder();
-    const { createVaultStorageWithFallback } = await import('../vault');
-    vi.mocked(createVaultStorageWithFallback).mockResolvedValue(storage as any);
-    const { KnowledgeIndexer } = await import('./knowledgeIndexer');
-    const indexer = new KnowledgeIndexer(makeConfig(), embedder, vs);
+    const indexer = new KnowledgeIndexer(makeConfig(), embedder, storage, vs);
     await indexer.indexAll();
     expect(vs.deleteByIds).toHaveBeenCalledWith(['old_chunk']);
     expect(embedder.embedBatch).toHaveBeenCalled();
@@ -134,12 +119,9 @@ describe('KnowledgeIndexer Neon-only', () => {
     const vs = mockVectorStore();
     const embedder = makeEmbedder();
     embedder.embedBatch = vi.fn().mockRejectedValue(new Error('invalid api key'));
-    const { createVaultStorageWithFallback } = await import('../vault');
-    vi.mocked(createVaultStorageWithFallback).mockResolvedValue(storage as any);
-    const { KnowledgeIndexer } = await import('./knowledgeIndexer');
-    const indexer = new KnowledgeIndexer(makeConfig(), embedder, vs);
+    const indexer = new KnowledgeIndexer(makeConfig(), embedder, storage, vs);
     await indexer.indexAll();
-    const lastCall = storage.upsert.mock.calls.at(-1)![0];
+    const lastCall = storage.save.mock.calls.at(-1)![0];
     expect(lastCall.indexed).toBe(false);
     expect(vs.upsertChunks).not.toHaveBeenCalled();
   });
@@ -151,12 +133,9 @@ describe('KnowledgeIndexer Neon-only', () => {
     const storage = makeStorage(entries);
     const vs = mockVectorStore();
     const embedder = makeEmbedder();
-    const { createVaultStorageWithFallback } = await import('../vault');
-    vi.mocked(createVaultStorageWithFallback).mockResolvedValue(storage as any);
-    const { KnowledgeIndexer } = await import('./knowledgeIndexer');
-    const indexer = new KnowledgeIndexer(makeConfig(), embedder, vs);
+    const indexer = new KnowledgeIndexer(makeConfig(), embedder, storage, vs);
     await indexer.indexAll();
-    const firstUpsert = storage.upsert.mock.calls[0]![0];
+    const firstUpsert = storage.save.mock.calls[0]![0];
     expect(firstUpsert.hash).toBe(md5(normalized));
   });
 });

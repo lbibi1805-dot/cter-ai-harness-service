@@ -7,12 +7,14 @@ export async function buildSuccessPdf(
   provider: string,
   model: string,
   aiResponse: string,
+  details: Record<string, string> = {},
 ): Promise<Buffer> {
   const { buffer, renderLog } = await markdownToPdf(
     'AI Response',
     {
       Provider:  provider,
       Model:     model,
+      ...details,
       Original:  originalName,
       Generated: new Date().toISOString(),
     },

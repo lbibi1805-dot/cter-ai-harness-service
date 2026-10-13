@@ -26,14 +26,31 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 
 let browserPromise: Promise<Browser> | undefined;
 
+/**
+ * Shared Chromium instance. If it crashes or is OOM-killed, the next call
+ * launches a fresh one — previously a dead browser broke every render until
+ * the process restarted.
+ */
 export async function getBrowser(): Promise<Browser> {
-  if (!browserPromise) {
-    browserPromise = puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--allow-file-access-from-files'],
-    });
+  if (browserPromise) {
+    const existing = await browserPromise.catch(() => undefined);
+    if (existing?.connected) return existing;
+    browserPromise = undefined;
   }
-  return browserPromise;
+  const launching = puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--allow-file-access-from-files'],
+  });
+  browserPromise = launching;
+  launching.then(
+    (browser) => browser.on('disconnected', () => {
+      if (browserPromise === launching) browserPromise = undefined;
+    }),
+    () => {
+      if (browserPromise === launching) browserPromise = undefined;
+    },
+  );
+  return launching;
 }
 
 export async function closeBrowser(): Promise<void> {

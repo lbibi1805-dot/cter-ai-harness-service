@@ -5,9 +5,17 @@ services:
     dockerfilePath: ./Dockerfile
     plan: free
     healthCheckPath: /health
+    # Full reference: docs/DEPLOYMENT-GUIDE.md §4. `sync: false` = secret, set in the dashboard.
     envVars:
+      # ── Required ──
       - key: API_PORT
         value: 3000
+      - key: CANVAS_URL_1
+        sync: false
+      - key: CANVAS_KEY_1
+        sync: false
+      - key: CANVAS_EMAIL_1
+        sync: false
       - key: VAULT_STORAGE_PROVIDER
         value: postgres-r2
       - key: DATABASE_URL
@@ -24,5 +32,44 @@ services:
         sync: false
       - key: CLAUDE_API_KEY
         sync: false
+      - key: GROK_API_KEY
+        sync: false
       - key: ADMIN_TOKEN
         sync: false
+      # ── Operations ──
+      - key: POLL_INTERVAL_MS
+        value: 30000
+      - key: POLL_AUTOSTART
+        value: "true"
+      - key: RAG_TOP_K
+        value: 20
+      - key: AI_TIMEOUT_MS
+        value: 120000
+      - key: CRON_ENABLED
+        value: "true"
+      - key: CRON_INTERVAL_MS
+        value: 720000
+      - key: FRONTEND_URL
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      # ── Agent mode ──
+      - key: AGENT_MAX_TOOL_CALLS
+        value: 6
+      - key: AGENT_MIN_TOOL_CALLS
+        value: 1
+      - key: AGENT_MAX_DURATION_MS
+        value: 180000
+      # ── Reranking: none = cosine order only. Set pinecone once the Pinecone plan has rerank quota. ──
+      - key: RERANK_PROVIDER
+        value: none
+      - key: RERANK_MODEL
+        value: bge-reranker-v2-m3
+      - key: RERANK_CANDIDATES
+        value: 40
+      - key: RERANK_TOP_N
+        value: 8
+      - key: RERANK_TIMEOUT_MS
+        value: 5000

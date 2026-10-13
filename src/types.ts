@@ -1,3 +1,7 @@
+import type { DatabaseSettings } from './shared/database/database';
+import type { AnswerMode } from './modules/agent/domain/agent.enums';
+import type { RerankConfig } from './modules/rerank/domain/rerankConfig';
+
 export type AIProviderName = 'claude' | 'gemini' | 'grok' | 'openai';
 
 export interface CanvasAccountConfig {
@@ -20,6 +24,16 @@ export interface AppConfig {
   aiTimeoutMs: number;
   gmail: { user?: string; appPassword?: string };
   vaultConfig?: VaultConfig;
+  /** Neon (prod) or local JSON files — shared by vault manifest and poll cursors. */
+  database: DatabaseSettings;
+  /** Start polling on boot instead of waiting for GET /start. */
+  pollAutostart: boolean;
+  /** Limits for agent-mode answers (opt-in per request). */
+  agent: { maxToolCalls: number; minToolCalls: number; maxDurationMs: number };
+  /** Cross-encoder reranking of vector-search candidates (off unless RERANK_PROVIDER=pinecone). */
+  rerank: RerankConfig;
+  /** Bearer token for write endpoints; unset means open (legacy behaviour). */
+  adminToken?: string;
   canvasFolder: {
     materials: string;
     input: string;
@@ -35,6 +49,7 @@ export interface ParsedFileName {
   model?: string;
   extension: string;
   doneFileName: string;
+  mode: AnswerMode;
 }
 
 export interface FileContent {
@@ -96,6 +111,7 @@ export interface ParsedConversationRequest {
   question: string;
   valid: boolean;
   error?: string;
+  mode: AnswerMode;
 }
 
 export interface ConversationReply {
@@ -104,6 +120,8 @@ export interface ConversationReply {
   provider: string;
   model: string;
   content: string;
+  /** Only written for agent answers, so legacy clients see unchanged replies. */
+  mode?: AnswerMode;
 }
 
 // ── RAG / Document Vault ─────────────────────────────────────────
@@ -115,7 +133,10 @@ export interface CitedChunk {
   heading: string;
   parentHeading: string;
   tokenCount: number;
+  /** Vector (cosine) similarity from Pinecone. */
   score?: number;
+  /** Cross-encoder relevance in [0, 1], set when the chunk went through the reranker. */
+  rerankScore?: number;
 }
 
 export type EmbeddingProviderName = 'gemini' | 'openai';

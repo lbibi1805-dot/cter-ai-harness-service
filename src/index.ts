@@ -1,11 +1,17 @@
 import { loadConfig } from './config';
 import { StateManager } from './state/stateManager';
-import { PollOrchestrator } from './orchestrator/pollOrchestrator';
+import { FileQAJob } from './orchestrator/fileQAJob';
 import { EmailNotifier } from './utils/emailNotifier';
 import { logger } from './utils/logger';
 import { ApiServer } from './api/server';
-import { KnowledgeIndexer, RAGRetriever, CitationPromptBuilder, createEmbeddingService } from './rag';
+import { RAGRetriever, CitationPromptBuilder, createEmbeddingService } from './rag';
+import { createVaultModule } from './modules/vault';
 import { ConversationPoller } from './orchestrator/conversationPoller';
+import { AIInvocationService, PromptPreparer, type RagRefs } from './modules/ai';
+import { createPollingModule } from './modules/polling';
+import { createAgentModule } from './modules/agent';
+import { createRerankModule } from './modules/rerank';
+import { validateAllKeys } from './ai/aiRouter';
 
 async function main(): Promise<void> {
   // 1. LOAD THE CONFIGURATIONS
@@ -20,20 +26,35 @@ async function main(): Promise<void> {
 
   // Start API truoc de Render detect port ngay, tranh "No open ports detected"
   const apiPort = parseInt(process.env.API_PORT ?? '3000', 10);
-  // Tam khoi tao orchestrator chua RAG, se cap nhat sau khi index xong
-  let ragRetriever: RAGRetriever | undefined;
-  let citationBuilder: CitationPromptBuilder | undefined;
-  // Shared RAG refs for the conversation poller — read via getter each message
-  // (a constructor snapshot would stay undefined forever, see conversationPoller.ts).
-  const convRagRefs: { retriever?: RAGRetriever; builder?: CitationPromptBuilder } = {};
-  const conversationPoller = new ConversationPoller(config, state, () => ({
-    retriever: convRagRefs.retriever,
-    builder: convRagRefs.builder,
-  }));
-  let orchestrator = new PollOrchestrator(config, state, emailNotifier, ragRetriever, citationBuilder, conversationPoller);
-  const apiServer = new ApiServer(() => orchestrator.pollAllAccounts(), config, emailNotifier, apiPort);
+  // RAG is filled in after the vault finishes indexing; every flow reads it
+  // through this getter, so the update reaches them without re-wiring.
+  const ragRefs: RagRefs = {};
+  const prompts = new PromptPreparer(config.systemPrompt, config.knowledgeContent, () => ragRefs);
+  const ai = new AIInvocationService(config, prompts);
+  const vault = createVaultModule(config);
+  const ranking = createRerankModule(config.rerank, { pineconeApiKey: config.vaultConfig?.pineconeApiKey });
+  // Single-shot by default; `_agent` files / `mode: agent` chats use the agent with fallback.
+  const { answers } = createAgentModule(config, { ai, vaultRepository: vault.repository, ranking });
+
+  const fileQAJob = new FileQAJob(config, state, emailNotifier, answers);
+  const conversationPoller = new ConversationPoller(config, state, () => ragRefs, undefined, answers);
+  const staleThresholdMs = config.aiTimeoutMs * (config.maxRetryCount + 2);
+  const polling = createPollingModule(config, {
+    jobs: [fileQAJob, conversationPoller],
+    validateKeys: () => validateAllKeys(config.aiKeys, config.grokBaseUrl),
+    beforeTick: () => {
+      for (const record of state.resetStaleProcessing(staleThresholdMs)) logger.staleReset(record.fileName, record.updatedAt);
+    },
+  });
+
+  const apiServer = new ApiServer(config, emailNotifier, apiPort, vault, polling);
   logger.startup(config.accounts.length, config.pollIntervalMs);
   apiServer.start();
+
+  // Polling is mandatory: start it on boot so a restart/redeploy never leaves
+  // it silently stopped. Set POLL_AUTOSTART=false to require GET /start.
+  if (config.pollAutostart) polling.scheduler.start();
+  else logger.info('POLL_AUTOSTART=false — waiting for GET /start');
 
   // Cron 12m heartbeat anti-sleep Render (handshake env only) — controllable via /api/cron
   const { startCron } = await import('./utils/cronManager');
@@ -47,31 +68,19 @@ async function main(): Promise<void> {
     // Chay index background khong block port — Neon-only, không phụ thuộc disk
     (async () => {
       try {
-        const indexer = new KnowledgeIndexer(config.vaultConfig!, embedder);
-        await indexer.indexAll();
+        await vault.indexing.runNow();
         try {
-          const { createVaultStorageWithFallback } = await import('./vault');
-          const st = await createVaultStorageWithFallback();
-          const { total, indexed } = await st.stats();
+          const { total, indexed } = await vault.service.stats();
           logger.info(`Neon vault stats: ${indexed}/${total} indexed — RAG ready`);
           // Reconcile orphan Pinecone vectors if Neon was cleared via SQL Editor
-          if (total === 0) {
-            try {
-              const { reconcileOrphans } = await import('./vault/vaultPineconeSync');
-              await reconcileOrphans(st, config.vaultConfig!);
-            } catch {}
-          }
+          if (total === 0) await vault.service.reconcileVectors();
         } catch {
           logger.info('Document vault indexed — RAG ready');
         }
-        ragRetriever = new RAGRetriever(config.vaultConfig!, embedder);
-        citationBuilder = new CitationPromptBuilder();
-        // Cap nhat orchestrator de cac poll tiep theo dung RAG
-        (orchestrator as any).ragRetriever = ragRetriever;
-        (orchestrator as any).citationBuilder = citationBuilder;
-        // Same update for the conversation poller (shared getter refs)
-        convRagRefs.retriever = ragRetriever;
-        convRagRefs.builder = citationBuilder;
+        const vaultTopK = config.vaultConfig!.topK ?? 6;
+        const vectorRetriever = new RAGRetriever({ ...config.vaultConfig!, topK: ranking.candidateCount(vaultTopK) }, embedder);
+        ragRefs.retriever = ranking.wrap(vectorRetriever, { topN: config.rerank.topN, fallbackTopK: vaultTopK, label: 'single-shot' });
+        ragRefs.builder = new CitationPromptBuilder();
       } catch (err) {
         logger.info(`Vault indexing skipped or failed — falling back to knowledge.md: ${(err as Error).message}`);
       }

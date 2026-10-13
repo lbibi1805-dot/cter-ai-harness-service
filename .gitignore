@@ -23,3 +23,9 @@ data/processed.json
 *.pdf
 *.docx
 *.zip
+
+# RAG eval: production credentials and run outputs stay local
+eval/.env.eval
+eval/rag/runs/
+eval/answers/runs/
+load/runs/
