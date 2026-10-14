@@ -21,6 +21,8 @@ export interface AgentModuleDeps {
   /** Test hooks; production builds the OpenAI factory and Pinecone searcher from config. */
   createModel?: ToolCallingModelFactory;
   searcher?: VaultSearcher;
+  /** Eval-only ablation: tool names to exclude (e.g. ['read_document']). */
+  disabledTools?: string[];
 }
 
 export interface AgentModule {
@@ -46,7 +48,8 @@ function buildCapability(config: AppConfig, deps: AgentModuleDeps): AgentCapabil
 
   const budget: AgentBudget = { ...DEFAULT_AGENT_BUDGET, ...config.agent };
   budget.minToolCalls = Math.max(0, Math.min(budget.minToolCalls, budget.maxToolCalls));
-  const tools = [new VaultSearchTool(searcher), new ReadDocumentTool(deps.vaultRepository), new ListFolderTool(deps.vaultRepository)];
+  const tools = [new VaultSearchTool(searcher), new ReadDocumentTool(deps.vaultRepository), new ListFolderTool(deps.vaultRepository)]
+    .filter((t) => !deps.disabledTools?.includes(t.name));
   return {
     runner: new AgentRunner(tools, budget),
     createModel,

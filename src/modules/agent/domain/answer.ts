@@ -1,6 +1,6 @@
 import type { AIAnswer, AIRequest } from '../../ai';
 import type { AgentFallbackReason, AgentStopReason, AnswerMode } from './agent.enums';
-import type { TokenUsage } from './agentRun';
+import type { AgentStep, TokenUsage } from './agentRun';
 
 export interface AnswerRequest extends AIRequest {
   /** Defaults to single-shot when absent. */
@@ -12,6 +12,10 @@ export interface AgentAnswerDetails {
   toolCalls: number;
   sourcesRead: string[];
   usage: TokenUsage;
+  /** Per-turn tool trajectory (persisted by eval; production callers may ignore). */
+  steps: AgentStep[];
+  modelCalls: number;
+  durationMs: number;
 }
 
 export interface AnswerResult extends AIAnswer {

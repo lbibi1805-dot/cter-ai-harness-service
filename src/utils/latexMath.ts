@@ -69,11 +69,14 @@ type MathSegment =
 
 // Math if: has \cmd / ^ / _ scripts, OR short enough to be a symbol/variable.
 // Prevents pairing $...$ across long plain-English sentences.
+// Content with explicit LaTeX commands is unambiguously math, so it gets a
+// much larger cap (roadmaps like $\text{A} \rightarrow \text{B} ...$ run long).
 // Excludes file-path citations (containing .md/.docx/§).
 function looksLikeMathContent(content: string): boolean {
-  if (content.length > 80) return false;
   if (/\.(?:md|docx?|pdf)\b|§/.test(content)) return false;
-  return /\\[a-zA-Z]|[_^]/.test(content) || content.length <= 10;
+  if (/\\[a-zA-Z]/.test(content)) return content.length <= 500;
+  if (/[_^]/.test(content)) return content.length <= 80;
+  return content.length <= 10;
 }
 
 function splitMathSegments(text: string): MathSegment[] {

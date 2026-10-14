@@ -48,6 +48,8 @@ export enum EvalCliFlag {
   /** eval:rag — vector candidates handed to the reranker (default RERANK_CANDIDATES default). */
   CANDIDATES = '--candidates',
   RERANK_MODEL = '--rerank-model',
+  /** eval:answers — exclude agent tools by name (comma-separated, e.g. read_document). */
+  DISABLE_TOOL = '--disable-tool',
 }
 
 /** Cut-offs reported for every metric; the retriever fetches max(K) once. */

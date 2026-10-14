@@ -46,7 +46,7 @@ export class AnswerService implements Answerer {
         model: run.model,
         attempts: run.modelCalls,
         mode: AnswerMode.AGENT,
-        agent: { stopReason: run.stopReason, toolCalls: run.steps.length, sourcesRead: run.sourcesRead, usage: run.usage },
+        agent: { stopReason: run.stopReason, toolCalls: run.steps.length, sourcesRead: run.sourcesRead, usage: run.usage, steps: run.steps, modelCalls: run.modelCalls, durationMs: run.durationMs },
       };
     } catch (err) {
       logger.info(`[agent] ${request.label} failed (${errorMessage(err)}) — falling back to single-shot`);

@@ -51,6 +51,7 @@ async function main(): Promise<void> {
   const items = golden.items.slice(0, positiveInt(EvalCliFlag.LIMIT, golden.items.length));
   const label = readFlag(EvalCliFlag.LABEL) ?? `${settings.answerModel}-${modes.join('+')}`;
   const baselineRef = readFlag(EvalCliFlag.BASELINE);
+  const disabledTools = readFlag(EvalCliFlag.DISABLE_TOOL)?.split(',').map((t) => t.trim()).filter(Boolean) ?? [];
 
   const answers = items.length * modes.length * repeats;
   const maxModelCalls = items.length * repeats * (modes.includes(AnswerMode.SINGLE_SHOT) ? 1 : 0)
@@ -59,7 +60,7 @@ async function main(): Promise<void> {
   console.log(`Modes × repeats: ${modes.join(', ')} × ${repeats}  →  ${answers} answers`);
   console.log(`Answer model   : openai/${settings.answerModel} · judge: ${settings.judgeModel} · RAG_TOP_K ${settings.ragTopK}`);
   console.log(`Production     : Pinecone ${settings.pineconeIndex} (key ${maskSecret(settings.pineconeApiKey)}), Neon (SELECT only)`);
-  console.log(`Retrieval      : rerank ${settings.rerank.provider === 'none' ? 'off' : `${settings.rerank.model} ${settings.rerank.candidates}→${settings.rerank.topN}`} · agent min tool calls ${settings.agentMinToolCalls}`);
+  console.log(`Retrieval      : rerank ${settings.rerank.provider === 'none' ? 'off' : `${settings.rerank.model} ${settings.rerank.candidates}→${settings.rerank.topN}`} · agent min tool calls ${settings.agentMinToolCalls}${disabledTools.length ? ` · disabled tools ${disabledTools.join(',')}` : ''}`);
   console.log(`API calls      : ≤ ${maxModelCalls} answer-model calls + ${answers} judge calls + embeddings`);
   console.log(`Baseline       : ${baselineRef ?? 'none (pass --baseline latest|<run.json> to measure drift)'}\n`);
   if (!hasFlag(EvalCliFlag.YES)) {
@@ -78,7 +79,7 @@ async function main(): Promise<void> {
   const startedAt = new Date();
 
   const result = await runAnswerEval(items, {
-    answerer: createProductionAnswerer(config, vaultRepository),
+    answerer: createProductionAnswerer(config, vaultRepository, { disabledTools }),
     judge: new OpenAIJudge(settings.openaiApiKey, settings.judgeModel),
     references: new VaultReferenceLoader(vaultRepository),
     embedder,
@@ -99,6 +100,7 @@ async function main(): Promise<void> {
       answerModel: settings.answerModel, judgeModel: settings.judgeModel, modes, repeats, questionCount: items.length,
       rerank: settings.rerank.provider === 'none' ? 'off' : `${settings.rerank.model} ${settings.rerank.candidates}→${settings.rerank.topN}`,
       agentMinToolCalls: settings.agentMinToolCalls,
+      disabledTools: disabledTools.length ? disabledTools : undefined,
     },
     environment,
     summaries: result.summaries,

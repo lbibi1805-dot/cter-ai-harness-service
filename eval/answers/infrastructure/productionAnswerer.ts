@@ -51,7 +51,7 @@ export function buildEvalAppConfig(settings: AnswerEvalSettings): AppConfig {
 }
 
 /** Wires the answer path exactly like src/index.ts (single-shot with RAG + agent with fallback). */
-export function createProductionAnswerer(config: AppConfig, vaultRepository: VaultRepository): Answerer {
+export function createProductionAnswerer(config: AppConfig, vaultRepository: VaultRepository, opts?: { disabledTools?: string[] }): Answerer {
   const vault = config.vaultConfig!;
   const embedder = createEmbeddingService(vault.embeddingProvider, { openai: config.aiKeys.openai, gemini: config.aiKeys.gemini });
   const ranking = createRerankModule(config.rerank, { pineconeApiKey: vault.pineconeApiKey });
@@ -62,7 +62,7 @@ export function createProductionAnswerer(config: AppConfig, vaultRepository: Vau
     builder: new CitationPromptBuilder(),
   };
   const ai = new AIInvocationService(config, new PromptPreparer(config.systemPrompt, config.knowledgeContent, () => ragRefs));
-  return createAgentModule(config, { ai, vaultRepository, ranking }).answers;
+  return createAgentModule(config, { ai, vaultRepository, ranking, disabledTools: opts?.disabledTools }).answers;
 }
 
 export function createTextEmbedder(settings: AnswerEvalSettings): TextEmbedder {

@@ -1,4 +1,4 @@
-import type { AnswerMode, AgentFallbackReason, AgentStopReason, TokenUsage } from '../../../src/modules/agent/domain';
+import type { AnswerMode, AgentFallbackReason, AgentStep, AgentStopReason, TokenUsage } from '../../../src/modules/agent/domain';
 import type { AnswerMetric, DriftStatus } from './answerEval.enums';
 
 /** One answer produced by the system under test. */
@@ -13,7 +13,7 @@ export interface AnswerSample {
   /** Mode that actually answered (an agent request may fall back to single-shot). */
   answeredBy?: AnswerMode;
   fallbackReason?: AgentFallbackReason;
-  agent?: { toolCalls: number; stopReason: AgentStopReason; sourcesRead: string[]; usage: TokenUsage };
+  agent?: { toolCalls: number; stopReason: AgentStopReason; sourcesRead: string[]; usage: TokenUsage; steps?: AgentStep[]; modelCalls?: number; durationMs?: number };
   citedSources: string[];
 }
 
@@ -115,6 +115,7 @@ export interface AnswerEvalReport {
     /** Retrieval/agent configuration under test (absent in runs made before these existed). */
     rerank?: string;
     agentMinToolCalls?: number;
+    disabledTools?: string[];
   };
   environment: EnvironmentSnapshot;
   summaries: ModeSummary[];
