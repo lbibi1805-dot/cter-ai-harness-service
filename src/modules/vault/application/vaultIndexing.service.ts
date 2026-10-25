@@ -1,7 +1,8 @@
-import { logger } from '../../../utils/logger';
+import { errorMessage } from '../../../shared/errors';
+import { logger } from '../../../shared/logging/logger';
+import { attempt } from '../../../shared/resilience/attempt';
 import { ReindexOutcome, type VaultIndexerFactory } from '../domain';
-
-export const AUTO_INDEX_DEBOUNCE_MS = 2000;
+import { AUTO_INDEX_DEBOUNCE_MS } from './constants/vaultIndexing.constants';
 
 /**
  * Serializes vault indexing runs: only one at a time, uploads are debounced,
@@ -43,24 +44,20 @@ export class VaultIndexingService {
 
   /** Runs one indexing pass and rethrows its error (used at startup). */
   async runNow(): Promise<void> {
-    if (!this.createIndexer) return;
+    const createIndexer = this.createIndexer;
+    if (!createIndexer) return;
     this.indexing = true;
-    try {
-      await this.createIndexer().indexAll();
-    } finally {
-      this.indexing = false;
-      if (this.rerunRequested) {
-        this.rerunRequested = false;
-        this.scheduleAfterUpload();
-      }
+    const run = await attempt(() => createIndexer().indexAll());
+    this.indexing = false;
+    if (this.rerunRequested) {
+      this.rerunRequested = false;
+      this.scheduleAfterUpload();
     }
+    if (!run.ok) throw run.error;
   }
 
   private async runInBackground(failureLabel: string): Promise<void> {
-    try {
-      await this.runNow();
-    } catch (err) {
-      logger.info(`${failureLabel}: ${(err as Error).message}`);
-    }
+    const run = await attempt(() => this.runNow());
+    if (!run.ok) logger.error(`${failureLabel}: ${errorMessage(run.error)}`);
   }
 }

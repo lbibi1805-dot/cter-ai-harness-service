@@ -1,5 +1,5 @@
 import type { ServerResponse } from 'http';
-import { ContentType, HttpHeader, type HttpStatus } from './http.enums';
+import { ContentType, HttpHeader, type HttpStatus } from './enums/http.enums';
 
 export function sendJson(res: ServerResponse, status: HttpStatus, body: unknown): void {
   res.writeHead(status, { [HttpHeader.CONTENT_TYPE]: ContentType.JSON });

@@ -1,7 +1,7 @@
-import { logger } from '../../utils/logger';
+import { logger } from '../../shared/logging/logger';
 import { RerankingRetriever } from './application/rerankingRetriever.service';
 import { RerankProvider, type ChunkRetriever, type RerankConfig, type Reranker } from './domain';
-import { PineconeReranker } from './infrastructure/pineconeReranker';
+import { PineconeReranker } from './infrastructure/pineconeReranker.adapter';
 
 export interface RerankModuleDeps {
   pineconeApiKey?: string;
@@ -52,6 +52,10 @@ function buildReranker(config: RerankConfig, deps: RerankModuleDeps): Reranker |
   return new PineconeReranker({ apiKey: deps.pineconeApiKey, model: config.model, controllerHostUrl: deps.controllerHostUrl });
 }
 
-export { RerankingRetriever, applyHits, buildRerankRequest, fuseWithVectorOrder, RRF_K } from './application/rerankingRetriever.service';
-export { PineconeReranker } from './infrastructure/pineconeReranker';
 export * from './domain';
+export { PineconeReranker } from './infrastructure/pineconeReranker.adapter';
+export { applyHits } from './application/helpers/rerankingRetriever.helper';
+export { buildRerankRequest } from './application/helpers/rerankingRetriever.helper';
+export { RerankingRetriever } from './application/rerankingRetriever.service';
+export { fuseWithVectorOrder } from './application/helpers/rerankingRetriever.helper';
+export { RRF_K } from './application/constants/rerankingRetriever.constants';

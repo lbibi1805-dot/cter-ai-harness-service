@@ -1,6 +1,6 @@
 // Chạy toàn bộ bộ câu hỏi test qua pipeline Mermaid → PDF.
 // Usage: npx tsx scripts/run-questions.ts
-import { markdownToPdf, closeBrowser } from '../src/utils/markdownToPdf';
+import { markdownToPdf, closeBrowser } from '../src/modules/document/infrastructure/puppeteerPdfRenderer.adapter';
 import * as fs from 'fs';
 import * as path from 'path';
 

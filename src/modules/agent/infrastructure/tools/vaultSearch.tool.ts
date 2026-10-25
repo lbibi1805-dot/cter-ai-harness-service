@@ -1,12 +1,13 @@
-import type { CitedChunk } from '../../../../types';
-import { AgentToolName, stringArg, type AgentTool, type ToolResult } from '../../domain';
-
-/** Port over RAGRetriever so the tool can be tested without Pinecone. */
-export interface VaultSearcher {
-  search(query: string): Promise<CitedChunk[]>;
-}
-
-export const SEARCH_RESULTS_SHOWN = 5;
+import {
+  AgentToolName,
+  InvalidToolArgumentsError,
+  SEARCH_RESULTS_SHOWN,
+  stringArg,
+  type AgentTool,
+  type ToolResult,
+} from '../../domain';
+import { VaultSearcher } from '../interfaces/vaultSearch.interface';
+import { PERCENT, RESULT_SEPARATOR } from '../constants/vaultSearch.constants';
 
 export class VaultSearchTool implements AgentTool {
   readonly name = AgentToolName.SEARCH_VAULT;
@@ -25,22 +26,22 @@ export class VaultSearchTool implements AgentTool {
 
   async execute(args: Record<string, unknown>): Promise<ToolResult> {
     const query = stringArg(args, 'query');
-    if (!query) throw new Error('"query" is required');
+    if (!query) throw new InvalidToolArgumentsError('"query" is required');
     const folder = stringArg(args, 'folder');
 
     const chunks = (await this.searcher.search(query))
-      .filter((c) => !folder || c.source === folder || c.source.startsWith(`${folder}/`))
+      .filter((chunk) => !folder || chunk.source === folder || chunk.source.startsWith(`${folder}/`))
       .slice(0, SEARCH_RESULTS_SHOWN);
     if (chunks.length === 0) {
       return { content: `No passages found for "${query}"${folder ? ` in ${folder}` : ''}. Try other keywords or the other language.`, sources: [] };
     }
 
     const content = chunks
-      .map((c, i) => [
-        `[${i + 1}] file: ${c.source} | heading: ${c.heading || '(none)'} | relevance: ${((c.score ?? 0) * 100).toFixed(0)}%`,
-        c.text.trim(),
+      .map((chunk, i) => [
+        `[${i + 1}] file: ${chunk.source} | heading: ${chunk.heading || '(none)'} | relevance: ${((chunk.score ?? 0) * PERCENT).toFixed(0)}%`,
+        chunk.text.trim(),
       ].join('\n'))
-      .join('\n\n---\n\n');
-    return { content, sources: [...new Set(chunks.map((c) => c.source))] };
+      .join(RESULT_SEPARATOR);
+    return { content, sources: [...new Set(chunks.map((chunk) => chunk.source))], contexts: chunks };
   }
 }

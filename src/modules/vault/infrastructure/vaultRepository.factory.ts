@@ -1,9 +1,10 @@
-import { getNeonSql, usesNeon, type DatabaseSettings } from '../../../shared/database/database';
-import { StorageProvider } from '../../../shared/database/database.enums';
-import { logger } from '../../../utils/logger';
+import { StorageProvider } from '../../../shared/database/enums/database.enums';
+import { logger } from '../../../shared/logging/logger';
 import type { VaultRepository } from '../domain';
 import { FileVaultRepository } from './fileVault.repository';
 import { NeonVaultRepository } from './neonVault.repository';
+import { getNeonSql, usesNeon } from '../../../shared/database/helpers/database.helper';
+import { DatabaseSettings } from '../../../shared/database/interfaces/database.interface';
 
 /** Neon when configured with a URL; otherwise the local JSON manifest. */
 export function createVaultRepository(settings: DatabaseSettings): VaultRepository {

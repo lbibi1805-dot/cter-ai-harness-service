@@ -1,16 +1,6 @@
 import type { IncomingMessage } from 'http';
-
-export class PayloadTooLargeError extends Error {
-  constructor(limitBytes: number) {
-    super(`Request body exceeds ${limitBytes} bytes`);
-  }
-}
-
-export class InvalidJsonError extends Error {
-  constructor() {
-    super('Request body is not valid JSON');
-  }
-}
+import { PayloadTooLargeError } from './errors/body.errors';
+import { parseJson } from './helpers/body.helper';
 
 /** Buffers the request body (rejecting past `limitBytes`) and parses it as JSON. */
 export async function readJsonBody(req: IncomingMessage, limitBytes: number): Promise<unknown> {
@@ -23,9 +13,5 @@ export async function readJsonBody(req: IncomingMessage, limitBytes: number): Pr
   }
   const text = Buffer.concat(chunks).toString('utf-8');
   if (!text.trim()) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new InvalidJsonError();
-  }
+  return parseJson(text);
 }

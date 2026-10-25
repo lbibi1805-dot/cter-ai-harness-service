@@ -1,3 +1,10 @@
-export * from './resilience.enums';
+export * from './attempt';
 export * from './failureClassifier';
+export * from './enums/resilience.enums';
 export * from './retry';
+export * from './constants/sdk.constants';
+export * from './withTimeout';
+export { Sleep } from './interfaces/retry.interface';
+export { DEFAULT_BACKOFF } from './constants/retry.constants';
+export { BackoffOptions } from './interfaces/retry.interface';
+export { FallbackFailure } from './interfaces/retry.interface';

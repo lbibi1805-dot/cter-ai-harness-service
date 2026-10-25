@@ -1,21 +1,16 @@
+import { errorMessage } from '../../../shared/errors';
+import { logger } from '../../../shared/logging/logger';
+import { attempt } from '../../../shared/resilience/attempt';
 import type { AIInvocationService } from '../../ai';
-import { errorMessage } from '../../../shared/resilience';
-import { logger } from '../../../utils/logger';
 import {
   AgentFallbackReason,
   AnswerMode,
   type Answerer,
   type AnswerRequest,
   type AnswerResult,
-  type ToolCallingModelFactory,
 } from '../domain';
-import type { AgentRunner } from './agentRunner.service';
-
-export interface AgentCapability {
-  runner: AgentRunner;
-  createModel: ToolCallingModelFactory;
-  systemPrompt: string;
-}
+import { AgentCapability } from './interfaces/answer.interface';
+import { toAgentAnswer } from './helpers/answer.helper';
 
 /**
  * Chooses how to answer. Agent mode is opt-in per request and always falls
@@ -31,27 +26,18 @@ export class AnswerService implements Answerer {
     if (request.mode !== AnswerMode.AGENT) {
       return { ...(await this.singleShot.answer(request)), mode: AnswerMode.SINGLE_SHOT };
     }
-
     if (!this.agent) return this.fallback(request, AgentFallbackReason.AGENT_DISABLED);
-    const model = this.agent.createModel(request.provider, request.model);
-    if (!model) {
-      const reason = request.provider === 'openai' ? AgentFallbackReason.UNSUPPORTED_MODEL : AgentFallbackReason.UNSUPPORTED_PROVIDER;
-      return this.fallback(request, reason);
-    }
 
-    try {
-      const run = await this.agent.runner.run({ model, systemPrompt: this.agent.systemPrompt, content: request.content, label: request.label });
-      return {
-        text: run.text,
-        model: run.model,
-        attempts: run.modelCalls,
-        mode: AnswerMode.AGENT,
-        agent: { stopReason: run.stopReason, toolCalls: run.steps.length, sourcesRead: run.sourcesRead, usage: run.usage, steps: run.steps, modelCalls: run.modelCalls, durationMs: run.durationMs },
-      };
-    } catch (err) {
-      logger.info(`[agent] ${request.label} failed (${errorMessage(err)}) — falling back to single-shot`);
+    const resolution = await this.agent.createModel(request.provider, request.model);
+    if (!resolution.supported) return this.fallback(request, resolution.reason);
+
+    const { runner, systemPrompt } = this.agent;
+    const run = await attempt(() => runner.run({ model: resolution.model, systemPrompt, content: request.content, label: request.label }));
+    if (!run.ok) {
+      logger.warn(`[agent] ${request.label} failed (${errorMessage(run.error)}) — falling back to single-shot`);
       return this.fallback(request, AgentFallbackReason.AGENT_FAILED);
     }
+    return toAgentAnswer(run.value);
   }
 
   private async fallback(request: AnswerRequest, reason: AgentFallbackReason): Promise<AnswerResult> {

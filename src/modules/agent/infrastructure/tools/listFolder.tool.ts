@@ -1,7 +1,6 @@
 import type { VaultRepository } from '../../../vault';
 import { AgentToolName, stringArg, type AgentTool, type ToolResult } from '../../domain';
-
-export const MAX_LISTED_ITEMS = 60;
+import { limited } from '../helpers/listFolder.helper';
 
 /** Discovery only: listings are not evidence, so they add no citable sources. */
 export class ListFolderTool implements AgentTool {
@@ -27,10 +26,4 @@ export class ListFolderTool implements AgentTool {
     if (files.length === 0) return { content: `Folder "${folder}" is empty or does not exist. Call list_folder without arguments to see all folders.`, sources: [] };
     return { content: limited(files.map((f) => f.filePath), 'files'), sources: [] };
   }
-}
-
-function limited(lines: string[], noun: string): string {
-  const shown = lines.slice(0, MAX_LISTED_ITEMS);
-  const more = lines.length > shown.length ? `\n…and ${lines.length - shown.length} more ${noun}` : '';
-  return shown.join('\n') + more;
 }

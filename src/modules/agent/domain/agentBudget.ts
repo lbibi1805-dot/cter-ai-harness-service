@@ -1,26 +1,13 @@
-/** Hard limits for one agent run; when reached the model must answer with what it has. */
-export interface AgentBudget {
-  /** Maximum tool calls per question. */
-  maxToolCalls: number;
-  /**
-   * Tool calls the model must make before it may answer. Without it the model
-   * often answers general questions from memory and never reads the vault.
-   */
-  minToolCalls: number;
-  /** Wall-clock limit for the whole run (it executes inside a poll tick). */
-  maxDurationMs: number;
-  /** Each tool result is cut to this many characters before reaching the model. */
-  maxToolResultChars: number;
+import { TRUNCATION_NOTE } from './constants/agent.constants';
+import { AgentLimits, AgentBudget } from './interfaces/agentBudget.interface';
+import { DEFAULT_AGENT_BUDGET } from './constants/agentBudget.constants';
+
+/** Applies operator limits; the minimum can never exceed the maximum or go negative. */
+export function buildAgentBudget(limits: AgentLimits): AgentBudget {
+  const budget = { ...DEFAULT_AGENT_BUDGET, ...limits };
+  budget.minToolCalls = Math.max(0, Math.min(budget.minToolCalls, budget.maxToolCalls));
+  return budget;
 }
-
-export const DEFAULT_AGENT_BUDGET: AgentBudget = {
-  maxToolCalls: 6,
-  minToolCalls: 1,
-  maxDurationMs: 180_000,
-  maxToolResultChars: 6_000,
-};
-
-export const TRUNCATION_NOTE = '\n…[truncated — ask for a specific heading to read the rest]';
 
 export function truncateToolOutput(content: string, maxChars: number): string {
   return content.length <= maxChars ? content : content.slice(0, maxChars) + TRUNCATION_NOTE;

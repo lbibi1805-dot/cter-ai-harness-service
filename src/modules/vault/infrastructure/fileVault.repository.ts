@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
-  depthOf,
   folderPathOf,
   summarizeFolders,
   type NewVaultEntry,
@@ -12,21 +11,9 @@ import {
   type VaultSearchCriteria,
   type VaultStats,
 } from '../domain';
-
-const MANIFEST_FILE_NAME = '.vault-manifest.json';
-const DATA_DIR_NAME = 'data';
-
-interface StoredEntry {
-  hash: string;
-  chunkIds: string[];
-  indexed: boolean;
-  updatedAt?: string;
-  content?: string;
-}
-
-interface ManifestFile {
-  files?: Record<string, StoredEntry>;
-}
+import { StoredEntry, ManifestFile } from './interfaces/fileVault.interface';
+import { MANIFEST_FILE_NAME } from './constants/fileVault.constants';
+import { isInFolder, resolveManifestPath, storedEntryToVaultEntry } from './helpers/fileVault.helper';
 
 /**
  * Vault manifest kept in a local JSON file — the dev fallback when Neon is not
@@ -67,7 +54,7 @@ export class FileVaultRepository implements VaultRepository {
 
   async findByPath(filePath: string): Promise<VaultEntry | null> {
     const stored = this.load()[filePath];
-    return stored ? toEntry(filePath, stored) : null;
+    return stored ? storedEntryToVaultEntry(filePath, stored) : null;
   }
 
   async save(entry: NewVaultEntry): Promise<void> {
@@ -107,7 +94,7 @@ export class FileVaultRepository implements VaultRepository {
 
   private allEntries(): VaultEntry[] {
     return Object.entries(this.load())
-      .map(([filePath, stored]) => toEntry(filePath, stored))
+      .map(([filePath, stored]) => storedEntryToVaultEntry(filePath, stored))
       .sort((a, b) => a.filePath.localeCompare(b.filePath));
   }
 
@@ -132,35 +119,4 @@ export class FileVaultRepository implements VaultRepository {
       }
     }
   }
-}
-
-function resolveManifestPath(rootDir: string, rootManifest: string): string {
-  const dataDir = path.resolve(rootDir, DATA_DIR_NAME);
-  if (!fs.existsSync(dataDir)) return rootManifest;
-  const dataManifest = path.join(dataDir, MANIFEST_FILE_NAME);
-  if (!fs.existsSync(dataManifest) && fs.existsSync(rootManifest)) {
-    try {
-      fs.copyFileSync(rootManifest, dataManifest);
-    } catch {
-      // Falls back to an empty manifest under data/.
-    }
-  }
-  return dataManifest;
-}
-
-function isInFolder(filePath: string, folder: string): boolean {
-  return filePath === folder || filePath.startsWith(`${folder}/`);
-}
-
-function toEntry(filePath: string, stored: StoredEntry): VaultEntry {
-  return {
-    filePath,
-    hash: stored.hash,
-    chunkIds: stored.chunkIds ?? [],
-    indexed: !!stored.indexed,
-    updatedAt: stored.updatedAt ?? new Date().toISOString(),
-    content: stored.content ?? '',
-    folderPath: folderPathOf(filePath),
-    depth: depthOf(filePath),
-  };
 }

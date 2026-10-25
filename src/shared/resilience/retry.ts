@@ -1,28 +1,14 @@
+import { attempt } from './attempt';
 import { classifyFailure, isRetryable } from './failureClassifier';
-import type { FailureKind } from './resilience.enums';
-
-export type Sleep = (ms: number) => Promise<void>;
+import { FailureKind } from './enums/resilience.enums';
+import { Sleep, BackoffOptions, FallbackPolicy, FallbackSuccess, RetryOptions, FallbackFailure } from './interfaces/retry.interface';
+import { DEFAULT_BACKOFF } from './constants/retry.constants';
 
 export const sleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-export interface BackoffOptions {
-  baseDelayMs: number;
-  maxDelayMs: number;
-  factor: number;
-}
-
-export const DEFAULT_BACKOFF: BackoffOptions = { baseDelayMs: 1000, maxDelayMs: 30_000, factor: 2 };
 
 /** Delay before retry number `retryIndex` (0-based): base·factor^n, capped. */
 export function backoffDelayMs(retryIndex: number, options: BackoffOptions = DEFAULT_BACKOFF): number {
   return Math.min(options.maxDelayMs, options.baseDelayMs * options.factor ** retryIndex);
-}
-
-export interface RetryOptions {
-  maxAttempts: number;
-  sleep?: Sleep;
-  backoff?: BackoffOptions;
-  onRetry?: (attempt: number, err: unknown, kind: FailureKind, delayMs: number) => void;
 }
 
 /**
@@ -31,15 +17,54 @@ export interface RetryOptions {
  */
 export async function retryTransient<T>(operation: () => Promise<T>, options: RetryOptions): Promise<T> {
   const wait = options.sleep ?? sleep;
-  for (let attempt = 1; ; attempt++) {
-    try {
-      return await operation();
-    } catch (err) {
-      const kind = classifyFailure(err);
-      if (!isRetryable(kind) || attempt >= options.maxAttempts) throw err;
-      const delayMs = backoffDelayMs(attempt - 1, options.backoff);
-      options.onRetry?.(attempt, err, kind, delayMs);
+  for (let attemptNumber = 1; ; attemptNumber++) {
+    const result = await attempt(operation);
+    if (result.ok) return result.value;
+
+    const kind = classifyFailure(result.error);
+    if (!isRetryable(kind) || attemptNumber >= options.maxAttempts) throw result.error;
+    const delayMs = backoffDelayMs(attemptNumber - 1, options.backoff);
+    options.onRetry?.(attemptNumber, result.error, kind, delayMs);
+    await wait(delayMs);
+  }
+}
+
+/**
+ * Tries each target in order: TRANSIENT/RATE_LIMITED failures are retried on
+ * the same target with backoff, PERMANENT ones move to the next target, and a
+ * FATAL failure stops everything. `toError` builds what is finally thrown.
+ */
+export async function runWithFallback<T>(
+  targets: readonly string[],
+  call: (target: string) => Promise<T>,
+  policy: FallbackPolicy,
+  toError: (failure: FallbackFailure) => Error,
+): Promise<FallbackSuccess<T>> {
+  const wait = policy.sleep ?? sleep;
+  let attempts = 0;
+  let last: FallbackFailure = { error: undefined, kind: FailureKind.TRANSIENT, attempts: 0, target: targets[0] };
+
+  for (const [index, target] of targets.entries()) {
+    for (let attemptOnTarget = 1; ; attemptOnTarget++) {
+      attempts++;
+      policy.onAttempt?.(target);
+      const result = await attempt(() => call(target));
+      if (result.ok) return { value: result.value, target, attempts };
+
+      const kind = classifyFailure(result.error);
+      last = { error: result.error, kind, attempts, target };
+      if (kind === FailureKind.FATAL) throw toError(last);
+
+      const limit = policy.attemptsPerTarget(kind);
+      if (kind === FailureKind.PERMANENT || attemptOnTarget >= limit) {
+        const next = targets[index + 1];
+        if (next) policy.onFallback?.(target, next, result.error, kind);
+        break;
+      }
+      const delayMs = backoffDelayMs(attemptOnTarget - 1, policy.backoff);
+      policy.onRetry?.(target, attemptOnTarget, result.error, kind, delayMs);
       await wait(delayMs);
     }
   }
+  throw toError(last);
 }

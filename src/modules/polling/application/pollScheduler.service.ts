@@ -1,44 +1,14 @@
-import { errorMessage } from '../../../shared/resilience';
-import type { CanvasAccountConfig } from '../../../types';
-import { logger } from '../../../utils/logger';
+import type { CanvasAccountConfig } from '../../../shared/canvas/interfaces/canvasAccount.interface';
+import { errorMessage } from '../../../shared/errors';
+import { logger } from '../../../shared/logging/logger';
+import { attempt, attemptSync } from '../../../shared/resilience/attempt';
 import {
   SchedulerState,
   StartOutcome,
   StopOutcome,
-  type PollCursorRepository,
   type PollJob,
-  type PollJobName,
 } from '../domain';
-
-export interface JobFailure {
-  job: PollJobName;
-  accountIndex: number;
-  error: string;
-}
-
-export interface TickReport {
-  tick: number;
-  startedAt: string;
-  durationMs: number;
-  failures: JobFailure[];
-}
-
-export interface SchedulerStatus {
-  state: SchedulerState;
-  intervalMs: number;
-  ticks: number;
-  skippedTicks: number;
-  lastTick: TickReport | null;
-}
-
-export interface PollSchedulerOptions {
-  intervalMs: number;
-  accounts: CanvasAccountConfig[];
-  jobs: PollJob[];
-  cursors: PollCursorRepository;
-  /** Runs once at the start of every tick (e.g. reset stale processing records). */
-  beforeTick?: () => void;
-}
+import { TickReport, PollSchedulerOptions, SchedulerStatus, JobFailure } from './interfaces/pollScheduler.interface';
 
 /**
  * Owns the polling lifecycle. Ticks never overlap; every (account, job) pair
@@ -87,7 +57,8 @@ export class PollSchedulerService {
 
   /** Resolves once the tick in progress (if any) has finished — e.g. for a graceful stop. */
   async whenIdle(): Promise<void> {
-    await this.inFlight?.catch(() => undefined);
+    const inFlight = this.inFlight;
+    if (inFlight) await attempt(() => inFlight);
   }
 
   /** Returns null when the previous tick is still running (the tick is skipped). */
@@ -97,34 +68,28 @@ export class PollSchedulerService {
       return null;
     }
     this.ticking = true;
-    this.inFlight = this.executeTick();
-    try {
-      return await this.inFlight;
-    } finally {
-      this.inFlight = null;
-    }
+    const inFlight = this.executeTick();
+    this.inFlight = inFlight;
+    const tick = await attempt(() => inFlight);
+    this.inFlight = null;
+    if (!tick.ok) throw tick.error;
+    return tick.value;
   }
 
   private async executeTick(): Promise<TickReport> {
     const startedAt = new Date();
     const failures: JobFailure[] = [];
-    try {
-      this.tickCount++;
-      logger.interval(this.tickCount);
-      try {
-        this.options.beforeTick?.();
-      } catch (err) {
-        logger.info(`[poll] beforeTick failed: ${errorMessage(err)}`);
+    this.tickCount++;
+    logger.interval(this.tickCount);
+    const beforeTick = attemptSync(() => this.options.beforeTick?.());
+    if (!beforeTick.ok) logger.warn(`[poll] beforeTick failed: ${errorMessage(beforeTick.error)}`);
+    for (const account of this.options.accounts) {
+      for (const job of this.options.jobs) {
+        const failure = await this.runJob(job, account);
+        if (failure) failures.push(failure);
       }
-      for (const account of this.options.accounts) {
-        for (const job of this.options.jobs) {
-          const failure = await this.runJob(job, account);
-          if (failure) failures.push(failure);
-        }
-      }
-    } finally {
-      this.ticking = false;
     }
+    this.ticking = false;
     const report = { tick: this.tickCount, startedAt: startedAt.toISOString(), durationMs: Date.now() - startedAt.getTime(), failures };
     this.lastTick = report;
     if (report.durationMs > this.options.intervalMs) {
@@ -133,27 +98,26 @@ export class PollSchedulerService {
     return report;
   }
 
+  /** The job error boundary: one (job, account) failing never stops the others; its cursor stays put. */
   private async runJob(job: PollJob, account: CanvasAccountConfig): Promise<JobFailure | null> {
-    try {
-      const cursor = await this.readCursor(job, account);
-      const { nextCursor } = await job.run(account, { cursor });
-      if (nextCursor && (!cursor || nextCursor > cursor)) {
-        await this.options.cursors.save(job.name, account.index, nextCursor);
-      }
-      return null;
-    } catch (err) {
-      logger.info(`[poll] ${job.name} failed for account #${account.index}: ${errorMessage(err)} — cursor kept, will retry next tick`);
-      return { job: job.name, accountIndex: account.index, error: errorMessage(err) };
-    }
+    const run = await attempt(() => this.runAndAdvanceCursor(job, account));
+    if (run.ok) return null;
+    const error = errorMessage(run.error);
+    logger.warn(`[poll] ${job.name} failed for account #${account.index}: ${error} — cursor kept, will retry next tick`);
+    return { job: job.name, accountIndex: account.index, error };
+  }
+
+  private async runAndAdvanceCursor(job: PollJob, account: CanvasAccountConfig): Promise<void> {
+    const cursor = await this.readCursor(job, account);
+    const { nextCursor } = await job.run(account, { cursor });
+    if (nextCursor && (!cursor || nextCursor > cursor)) await this.options.cursors.save(job.name, account.index, nextCursor);
   }
 
   /** A cursor store outage degrades to a full listing (deduplicated downstream), not a skipped job. */
   private async readCursor(job: PollJob, account: CanvasAccountConfig): Promise<Date | null> {
-    try {
-      return await this.options.cursors.get(job.name, account.index);
-    } catch (err) {
-      logger.info(`[poll] cursor read failed for ${job.name}#${account.index}: ${errorMessage(err)} — full listing`);
-      return null;
-    }
+    const read = await attempt(() => this.options.cursors.get(job.name, account.index));
+    if (read.ok) return read.value;
+    logger.warn(`[poll] cursor read failed for ${job.name}#${account.index}: ${errorMessage(read.error)} — full listing`);
+    return null;
   }
 }

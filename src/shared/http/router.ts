@@ -1,40 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { errorMessage } from '../errors';
 import { isAuthorized } from './auth';
-import { HttpStatus, type HttpMethod } from './http.enums';
+import { HttpStatus } from './enums/http.enums';
+import { httpStatusFor } from './httpErrorStatus';
 import { sendError } from './response';
-
-export type RouteParams = Record<string, string>;
-export type QueryParams = Record<string, string>;
-
-export interface RouteContext {
-  req: IncomingMessage;
-  res: ServerResponse;
-  params: RouteParams;
-  query: QueryParams;
-}
-
-export type RouteHandler = (ctx: RouteContext) => Promise<void>;
-export type PathMatcher = (pathname: string) => RouteParams | null;
-
-export interface Route {
-  method: HttpMethod;
-  match: PathMatcher;
-  requiresAuth?: boolean;
-  handler: RouteHandler;
-}
-
-export function exactPath(path: string): PathMatcher {
-  return (pathname) => (pathname === path ? {} : null);
-}
-
-/** Matches `<prefix><anything><suffix>` and exposes the decoded middle as `params.path`. */
-export function wildcardPath(prefix: string, suffix = ''): PathMatcher {
-  return (pathname) => {
-    if (!pathname.startsWith(prefix) || !pathname.endsWith(suffix)) return null;
-    if (pathname.length <= prefix.length + suffix.length) return null;
-    return { path: decodeURIComponent(pathname.slice(prefix.length, pathname.length - suffix.length)) };
-  };
-}
+import { Route, QueryParams, RouteHandler, RouteContext } from './interfaces/router.interface';
 
 /** First matching route wins; a path match with the wrong method yields 405. */
 export class Router {
@@ -62,15 +32,23 @@ export class Router {
         sendError(res, HttpStatus.UNAUTHORIZED, 'Unauthorized');
         return;
       }
-      try {
-        await route.handler({ req, res, params, query });
-      } catch (err) {
-        sendError(res, HttpStatus.INTERNAL_SERVER_ERROR, (err as Error).message);
-      }
+      await this.runHandler(route.handler, { req, res, params, query });
       return;
     }
 
     if (pathMatched) sendError(res, HttpStatus.METHOD_NOT_ALLOWED, 'Method not allowed');
     else sendError(res, HttpStatus.NOT_FOUND, 'Not found');
+  }
+
+  /**
+   * The HTTP error boundary: handlers throw DomainError subclasses from guards
+   * and this is the one place they become a status code.
+   */
+  private async runHandler(handler: RouteHandler, ctx: RouteContext): Promise<void> {
+    try {
+      await handler(ctx);
+    } catch (err) {
+      sendError(ctx.res, httpStatusFor(err), errorMessage(err));
+    }
   }
 }
