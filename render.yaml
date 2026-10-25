@@ -36,6 +36,9 @@ services:
         sync: false
       - key: ADMIN_TOKEN
         sync: false
+      # Bearer for POST /api/chat (desktop client "API server" chat). Unset = chat API disabled (503).
+      - key: CHAT_API_TOKEN
+        sync: false
       # ── Operations ──
       - key: POLL_INTERVAL_MS
         value: 30000

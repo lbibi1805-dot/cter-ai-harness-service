@@ -34,6 +34,8 @@ export interface AppConfig {
   rerank: RerankConfig;
   /** Bearer token for write endpoints; unset means open (legacy behaviour). */
   adminToken?: string;
+  /** Bearer token for the direct chat API (`/api/chat`); unset disables it (fails closed). */
+  chatApiToken?: string;
   canvasFolder: {
     materials: string;
     input: string;

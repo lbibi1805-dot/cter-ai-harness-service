@@ -1,3 +1,43 @@
+# Thay đổi: Chat API trực tiếp cho client desktop (`/api/chat`)
+
+> Ngày: 24/10/2026 · Trạng thái: **chưa commit** · Client đi kèm: `cter-interview-cloak-client` (kênh chatbot "API server")
+
+## TL;DR — cần làm gì khi deploy
+
+| Việc | Bắt buộc? | Chi tiết |
+|---|---|---|
+| Thêm `CHAT_API_TOKEN` trên Render (chuỗi ngẫu nhiên, **khác** `ADMIN_TOKEN`) | **Có, nếu client dùng kênh "API server"** | Không đặt → `/api/chat` trả **503** (fail closed — endpoint tiêu tiền AI). Kênh Canvas không bị ảnh hưởng |
+| Đưa URL Render + `CHAT_API_TOKEN` cho người dùng client | Có | Client lưu thành profile trong Cài đặt › Chatbot, đổi nhanh ở tab Chat |
+
+## 1. Tóm tắt
+
+| # | Thay đổi | Vì sao |
+|---|---|---|
+| 1 | Module mới `src/modules/chat`: `POST /api/chat` trả lời đồng bộ, `GET /api/chat/status` kiểm tra kết nối | Client desktop muốn chat thẳng với server (Render) thay vì đăng `[CFH:REQUEST]` vào Canvas rồi chờ poll (15–60 s) |
+| 2 | Dùng chung `Answerer` với conversation poller | Cùng RAG, fallback model, agent mode opt-in (`mode: "agent"`), cùng luật kiểm tra provider/model như `[CFH:REQUEST]` |
+| 3 | Biến mới `CHAT_API_TOKEN` (Bearer riêng) | Không phải đưa `ADMIN_TOKEN` (xoá được vault) cho client |
+| 4 | `src/shared/http/body.ts` (`readJsonBody`, giới hạn 20 MB), thêm HTTP 413/502/503 | Ảnh chụp màn hình gửi base64 trong JSON |
+
+## 2. API
+
+`POST /api/chat` — header `Authorization: Bearer <CHAT_API_TOKEN>`
+
+```json
+{ "provider": "openai", "model": "gpt-6-astra", "mode": "agent", "question": "…",
+  "images": [{ "mimeType": "image/png", "data": "<base64 hoặc data URL>" }] }
+```
+
+Trả về `{ text, provider, model, requestedMode, mode, fallbackReason, attempts, durationMs }`.
+Lỗi: 400 body sai · 401 sai token · 413 quá 20 MB · 502 mọi model lỗi · 503 chưa đặt `CHAT_API_TOKEN`.
+Không ghi gì lên Canvas hay `data/processed.json`. Đặc tả đầy đủ: `docs/openapi.json` (`/docs`).
+
+## 3. Kiểm thử
+
+- `src/modules/chat/presentation/chat.routes.test.ts` (14 test): auth, 503 khi tắt, validate body, ảnh data URL/base64, agent fallback, 502.
+- `npm test`: 348 pass / 6 skip. Contract test chéo repo: CLI `tests/ProtocolTests` của client (`chat-status`, `chat-ask`) gọi router thật.
+
+---
+
 # Thay đổi: Reranker + Agent bắt buộc tra vault + Load test
 
 > Ngày: 09–10/10/2026 · Nhánh: `module-refactor` · Trạng thái: **chưa commit**

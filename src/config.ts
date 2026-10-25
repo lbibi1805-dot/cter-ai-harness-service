@@ -81,6 +81,7 @@ export function loadConfig(): AppConfig {
       databaseUrl: process.env.DATABASE_URL || undefined,
     },
     adminToken: process.env.ADMIN_TOKEN || undefined,
+    chatApiToken: process.env.CHAT_API_TOKEN || undefined,
     pollAutostart: process.env.POLL_AUTOSTART !== 'false',
     agent: {
       maxToolCalls: parseInt(process.env.AGENT_MAX_TOOL_CALLS ?? '6', 10),

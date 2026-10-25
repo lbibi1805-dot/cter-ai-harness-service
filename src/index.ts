@@ -10,6 +10,7 @@ import { ConversationPoller } from './orchestrator/conversationPoller';
 import { AIInvocationService, PromptPreparer, type RagRefs } from './modules/ai';
 import { createPollingModule } from './modules/polling';
 import { createAgentModule } from './modules/agent';
+import { createChatModule } from './modules/chat';
 import { createRerankModule } from './modules/rerank';
 import { validateAllKeys } from './ai/aiRouter';
 
@@ -34,7 +35,9 @@ async function main(): Promise<void> {
   const vault = createVaultModule(config);
   const ranking = createRerankModule(config.rerank, { pineconeApiKey: config.vaultConfig?.pineconeApiKey });
   // Single-shot by default; `_agent` files / `mode: agent` chats use the agent with fallback.
-  const { answers } = createAgentModule(config, { ai, vaultRepository: vault.repository, ranking });
+  const { answers, enabled: agentEnabled } = createAgentModule(config, { ai, vaultRepository: vault.repository, ranking });
+  // Direct HTTP chat (desktop client "API server" backend) — same answer pipeline as the Canvas chat.
+  const chat = createChatModule(config, { answers, agentEnabled });
 
   const fileQAJob = new FileQAJob(config, state, emailNotifier, answers);
   const conversationPoller = new ConversationPoller(config, state, () => ragRefs, undefined, answers);
@@ -47,7 +50,7 @@ async function main(): Promise<void> {
     },
   });
 
-  const apiServer = new ApiServer(config, emailNotifier, apiPort, vault, polling);
+  const apiServer = new ApiServer(config, emailNotifier, apiPort, vault, polling, chat);
   logger.startup(config.accounts.length, config.pollIntervalMs);
   apiServer.start();
 

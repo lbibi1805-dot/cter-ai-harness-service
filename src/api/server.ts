@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 import { isAuthorized } from '../shared/http/auth';
 import { VAULT_API_PREFIX, type VaultModule } from '../modules/vault';
 import type { PollingModule } from '../modules/polling';
+import type { ChatModule } from '../modules/chat';
 
 function maskEmail(email: string): string {
   const atIndex = email.indexOf('@');
@@ -57,6 +58,7 @@ export class ApiServer {
     private port: number,
     private vault: VaultModule,
     private polling: PollingModule,
+    private chat?: ChatModule,
   ) {
     this.server = http.createServer((req, res) => { void this.handle(req, res); });
   }
@@ -151,6 +153,10 @@ export class ApiServer {
     }
     if (this.polling.router.matches(pathname)) {
       await this.polling.router.dispatch(req, res, u);
+      return;
+    }
+    if (this.chat?.router.matches(pathname)) {
+      await this.chat.router.dispatch(req, res, u);
       return;
     }
 
