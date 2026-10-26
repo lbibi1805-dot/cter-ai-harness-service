@@ -136,7 +136,7 @@ Client vẫn chỉ gửi provider + model theo danh sách direct (vd. `gpt-6-ast
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | Chỉ đổi khi dùng proxy |
 | `OPENROUTER_APP_URL`, `OPENROUTER_APP_TITLE` | — | Header `HTTP-Referer` / `X-Title` để thống kê usage trên openrouter.ai |
 | `OPENROUTER_MODEL_{CLAUDE,GEMINI,GROK,OPENAI}` | `anthropic/claude-sonnet-4.5`, `google/gemini-2.5-flash`, `x-ai/grok-4.7`, `openai/gpt-5` | Model OpenRouter dùng khi direct của provider đó thất bại |
-| `OPENROUTER_FALLBACK_{CLAUDE,GEMINI,GROK,OPENAI}` | — | Fallback phía server OpenRouter, phẩy ngăn cách; tính tiền theo model thực sự trả lời |
+| `OPENROUTER_FALLBACK_{CLAUDE,GEMINI,GROK,OPENAI}` | — | Fallback phía server OpenRouter, phẩy ngăn cách; tính tiền theo model thực sự trả lời. OpenRouter chỉ nhận **tối đa 3 model** (model chính + 2 fallback) — backend tự cắt phần thừa |
 | `OPENROUTER_PROVIDER_SORT` | — | `price` / `throughput` / `latency` — thứ tự host OpenRouter thử cho cùng model |
 | `OPENROUTER_ALLOW_FALLBACKS` | `true` | `false` = không cho OpenRouter đổi host của cùng model |
 | `OPENROUTER_MAX_TOKENS` | `8192` | `max_tokens` gửi kèm mọi request OpenRouter (cả agent). Không có giới hạn này OpenRouter giữ credit cho toàn bộ cửa sổ output (64k+) và trả `402` khi credit thấp |

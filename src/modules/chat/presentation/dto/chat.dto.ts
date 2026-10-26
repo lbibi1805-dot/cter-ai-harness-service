@@ -7,6 +7,11 @@ export interface RawImage {
   data?: unknown;
 }
 
+export interface RawHistoryTurn {
+  role?: unknown;
+  text?: unknown;
+}
+
 export interface ChatTraceDto {
   contexts: CitedChunk[];
   agent?: AnswerResult['agent'];

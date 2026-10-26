@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { SDK_MAX_RETRIES } from '../../../../shared/resilience/constants/sdk.constants';
+import { OPENROUTER_MAX_ROUTED_MODELS } from '../../domain/constants/ai.constants';
 import { EmptyProviderResponseError } from '../../domain/errors/ai.errors';
 import type { OpenRouterConfig } from '../../domain/interfaces/aiConfig.interface';
 import { OpenRouterHeader } from '../enums/openRouter.enums';
@@ -17,9 +18,12 @@ export function createOpenRouterClient(config: OpenRouterConfig, overrides: { ba
   });
 }
 
-/** Primary model plus its configured fallbacks, as OpenRouter's `models` array (deduplicated, primary first), and the output cap. */
+/**
+ * Primary model plus its configured fallbacks, as OpenRouter's `models` array
+ * (deduplicated, primary first, cut to OpenRouter's limit), and the output cap.
+ */
 export function buildRoutingFields(primary: string, fallbacks: readonly string[], config: OpenRouterConfig): OpenRouterRoutingFields {
-  const models = [...new Set([primary, ...fallbacks])];
+  const models = [...new Set([primary, ...fallbacks])].slice(0, OPENROUTER_MAX_ROUTED_MODELS);
   return {
     ...(models.length > 1 ? { models } : {}),
     provider: { ...(config.providerSort ? { sort: config.providerSort } : {}), allow_fallbacks: config.allowProviderFallbacks },

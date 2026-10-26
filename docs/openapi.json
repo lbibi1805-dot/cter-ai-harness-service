@@ -488,6 +488,30 @@
                       }
                     }
                   },
+                  "history": {
+                    "type": "array",
+                    "maxItems": 200,
+                    "description": "Các lượt trước của cuộc trò chuyện, cũ → mới, để model nhớ ngữ cảnh. Server bỏ lượt rỗng, gộp lượt cùng role, chỉ giữ phần bắt đầu bằng user và kết thúc bằng assistant, tối đa 20 lượt / 30k ký tự (mỗi lượt cắt ở 6k)",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "role",
+                        "text"
+                      ],
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "user",
+                            "assistant"
+                          ]
+                        },
+                        "text": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
                   "includeTrace": {
                     "type": "boolean",
                     "default": false,

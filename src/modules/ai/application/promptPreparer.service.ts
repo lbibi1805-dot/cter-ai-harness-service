@@ -2,6 +2,7 @@ import { errorMessage } from '../../../shared/errors';
 import { logger } from '../../../shared/logging/logger';
 import { attempt } from '../../../shared/resilience/attempt';
 import { injectKnowledge } from '../domain/knowledgeInjection';
+import { retrievalQuery } from '../domain/helpers/conversationHistory.helper';
 import { RagAvailability } from './ragAvailability.service';
 import { PromptContent } from '../domain/interfaces/promptContent.interface';
 import { PreparedPrompt } from './interfaces/promptPreparer.interface';
@@ -19,7 +20,7 @@ export class PromptPreparer {
     const question = content.textContent;
     if (!pipeline || !question.trim()) return this.withKnowledgeFile(content);
 
-    const retrieval = await attempt(() => pipeline.retriever.retrieve(question));
+    const retrieval = await attempt(() => pipeline.retriever.retrieve(retrievalQuery(content)));
     if (!retrieval.ok) {
       logger.warn(`RAG retrieval failed — falling back to knowledge.md: ${errorMessage(retrieval.error)}`);
       return this.withKnowledgeFile(content);
