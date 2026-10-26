@@ -17,12 +17,13 @@ export function createOpenRouterClient(config: OpenRouterConfig, overrides: { ba
   });
 }
 
-/** Primary model plus its configured fallbacks, as OpenRouter's `models` array (deduplicated, primary first). */
+/** Primary model plus its configured fallbacks, as OpenRouter's `models` array (deduplicated, primary first), and the output cap. */
 export function buildRoutingFields(primary: string, fallbacks: readonly string[], config: OpenRouterConfig): OpenRouterRoutingFields {
   const models = [...new Set([primary, ...fallbacks])];
   return {
     ...(models.length > 1 ? { models } : {}),
     provider: { ...(config.providerSort ? { sort: config.providerSort } : {}), allow_fallbacks: config.allowProviderFallbacks },
+    max_tokens: config.maxTokens,
   };
 }
 

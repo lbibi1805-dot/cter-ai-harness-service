@@ -16,6 +16,8 @@ export interface OpenRouterConfig {
   providerSort?: OpenRouterProviderSort;
   /** OpenRouter `provider.allow_fallbacks`: may it try other hosts of the same model. */
   allowProviderFallbacks: boolean;
+  /** Sent as `max_tokens` on every OpenRouter request (credit is reserved against it). */
+  maxTokens: number;
 }
 
 export interface AiConfig {

@@ -8,6 +8,7 @@ export interface ChatRequestBody {
   model: string;
   models?: string[];
   provider?: { sort?: string; allow_fallbacks: boolean };
+  max_tokens?: number;
   messages: Array<Record<string, unknown>>;
   tools?: Array<{ type: string; function: { name: string } }>;
   tool_choice?: string;

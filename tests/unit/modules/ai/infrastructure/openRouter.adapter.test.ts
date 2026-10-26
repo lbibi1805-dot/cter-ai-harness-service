@@ -31,6 +31,7 @@ describe('OpenRouter fallback adapter (real SDK against a fake OpenRouter)', () 
         fallbacks: perProvider((provider) => (provider === AIProvider.CLAUDE ? CLAUDE_FALLBACKS : [])),
         providerSort: OpenRouterProviderSort.THROUGHPUT,
         allowProviderFallbacks: true,
+        maxTokens: 2048,
       },
     }));
   });
@@ -50,7 +51,7 @@ describe('OpenRouter fallback adapter (real SDK against a fake OpenRouter)', () 
     expect(withoutKey.isConfigured(AIProvider.CLAUDE)).toBe(false);
   });
 
-  it('sends the fallback models, routing preferences and attribution headers', async () => {
+  it('sends the fallback models, routing preferences, output cap and attribution headers', async () => {
     server.responder = () => ({ text: '# Answer' });
     const reply = await factory.openRouter(AIProvider.CLAUDE)!.process(CONTENT, 'system rules', CLAUDE_PRIMARY);
 
@@ -59,6 +60,7 @@ describe('OpenRouter fallback adapter (real SDK against a fake OpenRouter)', () 
     expect(sent.model).toBe(CLAUDE_PRIMARY);
     expect(sent.models).toEqual([CLAUDE_PRIMARY, ...CLAUDE_FALLBACKS]);
     expect(sent.provider).toEqual({ sort: OpenRouterProviderSort.THROUGHPUT, allow_fallbacks: true });
+    expect(sent.max_tokens).toBe(2048);
     expect(sent.messages[0]).toEqual({ role: 'system', content: 'system rules' });
     expect(server.headers[0]['http-referer']).toBe('https://cter.example');
     expect(server.headers[0]['x-title']).toBe('CTER Harness');

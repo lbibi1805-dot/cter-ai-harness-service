@@ -5,6 +5,7 @@ import {
   DEFAULT_MAX_RETRY_COUNT,
   GROK_DEFAULT_BASE_URL,
   OPENROUTER_DEFAULT_BASE_URL,
+  OPENROUTER_DEFAULT_MAX_TOKENS,
   OPENROUTER_DEFAULT_MODELS,
   OpenRouterProviderSort,
   perProvider,
@@ -33,6 +34,7 @@ export function readAiConfig(): AiConfig {
         ? readEnum('OPENROUTER_PROVIDER_SORT', OpenRouterProviderSort, OpenRouterProviderSort.PRICE)
         : undefined,
       allowProviderFallbacks: readBoolean('OPENROUTER_ALLOW_FALLBACKS', true),
+      maxTokens: readInt('OPENROUTER_MAX_TOKENS', OPENROUTER_DEFAULT_MAX_TOKENS),
     },
   };
 }

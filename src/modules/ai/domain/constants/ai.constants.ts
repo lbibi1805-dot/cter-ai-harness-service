@@ -19,6 +19,9 @@ export const GEMINI_MODELS_URL = 'https://generativelanguage.googleapis.com/v1be
 
 export const OPENROUTER_DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
 
+/** Without a cap OpenRouter reserves the model's full output window (64k+) and answers 402 on low credit. */
+export const OPENROUTER_DEFAULT_MAX_TOKENS = 8192;
+
 export const DEFAULT_DIRECT_MODELS: Readonly<Record<AIProvider, string>> = {
   [AIProvider.CLAUDE]: 'claude-sonnet-4-6',
   [AIProvider.GEMINI]: 'gemini-3.5-flash',
@@ -36,6 +39,6 @@ export const DEFAULT_DIRECT_FALLBACKS: Readonly<Record<AIProvider, readonly stri
 export const OPENROUTER_DEFAULT_MODELS: Readonly<Record<AIProvider, string>> = {
   [AIProvider.CLAUDE]: 'anthropic/claude-sonnet-4.5',
   [AIProvider.GEMINI]: 'google/gemini-2.5-flash',
-  [AIProvider.GROK]: 'x-ai/grok-4-fast',
+  [AIProvider.GROK]: 'x-ai/grok-4.7',
   [AIProvider.OPENAI]: 'openai/gpt-5',
 };

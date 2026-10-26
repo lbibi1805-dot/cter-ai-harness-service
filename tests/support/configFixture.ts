@@ -31,6 +31,7 @@ export function buildTestAiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
       models: perProvider((provider) => `vendor/${provider}-test`),
       fallbacks: perProvider(() => []),
       allowProviderFallbacks: true,
+      maxTokens: 1024,
     },
     ...overrides,
   };

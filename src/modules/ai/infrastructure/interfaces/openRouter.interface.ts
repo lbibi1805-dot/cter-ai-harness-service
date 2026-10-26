@@ -5,6 +5,7 @@
 export interface OpenRouterRoutingFields {
   models?: string[];
   provider?: { sort?: string; allow_fallbacks: boolean };
+  max_tokens: number;
 }
 
 /** OpenRouter can answer HTTP 200 with an `error` object and no choices. */
