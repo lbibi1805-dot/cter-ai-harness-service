@@ -1,0 +1,748 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CanvasFileHelper Vault API",
+    "version": "1.0.0",
+    "description": "Vault hierarchies (Neon PG) + RAG + polling control"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "VaultEntry": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "example": "lab-2/LAB-2-REQUIREMENT.md"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "chunkIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "indexed": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "folderPath": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer"
+          }
+        }
+      },
+      "Chunk": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer"
+          },
+          "indexed": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "parentHeading": {
+            "type": "string"
+          },
+          "tokenCount": {
+            "type": "integer"
+          }
+        }
+      },
+      "CitedChunk": {
+        "type": "object",
+        "properties": {
+          "chunkId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "Đường dẫn file trong vault"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "parentHeading": {
+            "type": "string"
+          },
+          "tokenCount": {
+            "type": "integer"
+          },
+          "score": {
+            "type": "number",
+            "description": "Cosine similarity từ Pinecone"
+          },
+          "rerankScore": {
+            "type": "number",
+            "description": "Điểm cross-encoder [0,1] khi đã rerank"
+          }
+        }
+      },
+      "AgentStep": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer"
+          },
+          "tool": {
+            "type": "string",
+            "enum": [
+              "search_vault",
+              "read_document",
+              "list_folder"
+            ]
+          },
+          "args": {
+            "type": "object"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "resultChars": {
+            "type": "integer"
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Root",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health (vault indexed)",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/start": {
+      "get": {
+        "summary": "Start polling",
+        "responses": {
+          "200": {
+            "description": "started"
+          }
+        }
+      }
+    },
+    "/stop": {
+      "get": {
+        "summary": "Stop polling",
+        "responses": {
+          "200": {
+            "description": "stopped"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "OpenAPI spec",
+        "responses": {
+          "200": {
+            "description": "spec"
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "summary": "Swagger UI",
+        "responses": {
+          "200": {
+            "description": "html"
+          }
+        }
+      }
+    },
+    "/api/vault/files": {
+      "get": {
+        "summary": "List files",
+        "parameters": [
+          {
+            "name": "folder",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "indexed",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "files"
+          }
+        }
+      },
+      "post": {
+        "summary": "Upload files (hierarchies via filename)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "401": {
+            "description": "unauthorized"
+          }
+        }
+      }
+    },
+    "/api/vault/manifest": {
+      "get": {
+        "summary": "Legacy manifest",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/api/vault/folders": {
+      "get": {
+        "summary": "Folders tree",
+        "responses": {
+          "200": {
+            "description": "folders"
+          }
+        }
+      }
+    },
+    "/api/vault/chunks": {
+      "get": {
+        "summary": "List chunks aggregate or by file",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "chunks"
+          }
+        }
+      }
+    },
+    "/api/vault/files/{path}": {
+      "get": {
+        "summary": "File detail",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "entry"
+          },
+          "404": {
+            "description": "not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete file (chunks removed from Pinecone)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/api/vault/files/{path}/chunks": {
+      "get": {
+        "summary": "Chunks of a file",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "chunks"
+          }
+        }
+      }
+    },
+    "/api/chat": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Hỏi AI trực tiếp (không qua Canvas)",
+        "description": "Cùng pipeline với chat Canvas ([CFH:REQUEST]): RAG, fallback model, agent mode opt-in. Cần Bearer CHAT_API_TOKEN; không đặt token trên server → 503. Body tối đa 20 MB, tối đa 4 ảnh.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "provider"
+                ],
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "claude",
+                      "gemini",
+                      "grok",
+                      "openai"
+                    ]
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Bỏ trống = model mặc định của provider. Chỉ nhận model trong danh sách direct; route (direct/OpenRouter fallback) do backend quyết định"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "single-shot",
+                      "agent"
+                    ],
+                    "default": "single-shot"
+                  },
+                  "question": {
+                    "type": "string",
+                    "description": "Bắt buộc nếu không có ảnh"
+                  },
+                  "images": {
+                    "type": "array",
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "mimeType": {
+                          "type": "string",
+                          "example": "image/png",
+                          "description": "Bỏ qua được khi data là data URL"
+                        },
+                        "data": {
+                          "type": "string",
+                          "description": "Base64 hoặc data URL (data:image/png;base64,...)"
+                        }
+                      }
+                    }
+                  },
+                  "includeTrace": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Trả thêm `trace` (contexts đã đưa vào prompt + quỹ đạo agent) — dùng cho repo đánh giá cter-rag-eval"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Câu trả lời",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string",
+                      "description": "Model thực sự trả lời (có thể là fallback)"
+                    },
+                    "requestedMode": {
+                      "type": "string"
+                    },
+                    "mode": {
+                      "type": "string"
+                    },
+                    "fallbackReason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "attempts": {
+                      "type": "integer"
+                    },
+                    "durationMs": {
+                      "type": "integer"
+                    },
+                    "trace": {
+                      "type": "object",
+                      "description": "Chỉ có khi includeTrace=true",
+                      "properties": {
+                        "contexts": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CitedChunk"
+                          },
+                          "description": "Single-shot: chunk RAG trong prompt. Agent: đoạn mà tool đã cho model xem"
+                        },
+                        "agent": {
+                          "type": "object",
+                          "properties": {
+                            "stopReason": {
+                              "type": "string",
+                              "enum": [
+                                "final-answer",
+                                "step-limit",
+                                "time-limit"
+                              ]
+                            },
+                            "toolCalls": {
+                              "type": "integer"
+                            },
+                            "sourcesRead": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "usage": {
+                              "type": "object",
+                              "properties": {
+                                "inputTokens": {
+                                  "type": "integer"
+                                },
+                                "outputTokens": {
+                                  "type": "integer"
+                                }
+                              }
+                            },
+                            "modelCalls": {
+                              "type": "integer"
+                            },
+                            "durationMs": {
+                              "type": "integer"
+                            },
+                            "steps": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/AgentStep"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body sai (provider/model không hợp lệ, thiếu câu hỏi, ảnh sai định dạng)"
+          },
+          "401": {
+            "description": "Sai token"
+          },
+          "413": {
+            "description": "Body quá 20 MB"
+          },
+          "502": {
+            "description": "Mọi model đều lỗi"
+          },
+          "503": {
+            "description": "CHAT_API_TOKEN chưa đặt trên server"
+          }
+        }
+      }
+    },
+    "/api/chat/status": {
+      "get": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Kiểm tra URL + token của chat API",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "agentEnabled": {
+                      "type": "boolean"
+                    },
+                    "providers": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "boolean"
+                      },
+                      "description": "Provider nào có API key"
+                    },
+                    "defaultModels": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "models": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sai token"
+          },
+          "503": {
+            "description": "CHAT_API_TOKEN chưa đặt trên server"
+          }
+        }
+      }
+    },
+    "/api/retrieve": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Chỉ chạy retrieval (không gọi model) — đánh giá riêng tầng RAG",
+        "description": "Mặc định giống hệt retrieval của single-shot production. `topK`/`rerank` tạo biến thể một lần để so sánh. Cần CHAT_API_TOKEN; không đặt token → 503.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  },
+                  "topK": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50
+                  },
+                  "rerank": {
+                    "type": "boolean",
+                    "description": "Chỉ có tác dụng khi RERANK_PROVIDER=pinecone"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Các chunk, liên quan nhất trước",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CitedChunk"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body sai"
+          },
+          "401": {
+            "description": "Sai token"
+          },
+          "503": {
+            "description": "Chưa đặt CHAT_API_TOKEN, hoặc chưa cấu hình PINECONE_API_KEY"
+          }
+        }
+      }
+    }
+  }
+}

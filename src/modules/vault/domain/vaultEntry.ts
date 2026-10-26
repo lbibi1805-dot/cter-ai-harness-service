@@ -1,38 +1,7 @@
 import * as crypto from 'crypto';
-import { normalizeText } from '../../../rag/textNormalizer';
-
-export const MARKDOWN_EXTENSION = '.md';
-export const MAX_VAULT_PATH_LENGTH = 1024;
-
-/** A markdown document stored in the vault, with its indexing state. */
-export interface VaultEntry {
-  filePath: string;
-  hash: string;
-  chunkIds: string[];
-  indexed: boolean;
-  updatedAt: string;
-  content: string;
-  folderPath?: string;
-  depth?: number;
-}
-
-export type NewVaultEntry = Pick<VaultEntry, 'filePath' | 'hash' | 'chunkIds' | 'indexed' | 'content'>;
-
-export interface VaultFolder {
-  path: string;
-  depth: number;
-  fileCount: number;
-}
-
-export interface VaultFolderGroup {
-  folderPath: string;
-  fileCount: number;
-}
-
-export interface VaultStats {
-  total: number;
-  indexed: number;
-}
+import { normalizeText } from '../../retrieval/domain/textNormalizer';
+import { MARKDOWN_EXTENSION, MAX_VAULT_PATH_LENGTH } from './constants/vaultEntry.constants';
+import { VaultFolderGroup, VaultFolder } from './interfaces/vaultEntry.interface';
 
 /** md5 of the normalized content — the change-detection key for re-indexing. */
 export function computeContentHash(content: string): string {

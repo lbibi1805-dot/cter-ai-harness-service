@@ -231,15 +231,21 @@ Lưu ý:
 | `CLAUDE_API_KEY` | Cần khi xử lý file dùng provider `claude` |
 | `GEMINI_API_KEY` | Cần khi xử lý file dùng provider `gemini` |
 | `GROK_API_KEY` | Cần khi xử lý file dùng provider `grok` |
+| `OPENAI_API_KEY` | Cần khi xử lý file dùng provider `openai`; agent mode direct (OpenAI Responses) và embedding OpenAI |
 
 Bạn chỉ cần điền key cho provider thật sự sử dụng.
+
+### OpenRouter fallback (tuỳ chọn)
+
+Backend luôn gọi direct trước; khi direct lỗi hoặc provider không có key thì tự chuyển sang OpenRouter. Bật bằng `OPENROUTER_API_KEY`; model fallback từng provider: `OPENROUTER_MODEL_<PROVIDER>` / `OPENROUTER_FALLBACK_<PROVIDER>`. Client không chọn route. Chi tiết: `docs/DEPLOYMENT-GUIDE.md` §4.3b.
 
 ### Default models
 
 | Biến | Giá trị mặc định | Ý nghĩa |
 |---|---|---|
 | `DEFAULT_MODEL_CLAUDE` | `claude-sonnet-4-6` | Model Claude mặc định |
-| `DEFAULT_MODEL_GEMINI` | `gemini-2.0-flash` | Model Gemini mặc định |
+| `DEFAULT_MODEL_GEMINI` | `gemini-3.5-flash` | Model Gemini mặc định |
+| `DEFAULT_MODEL_OPENAI` | `gpt-6-astra` | Model OpenAI mặc định |
 | `DEFAULT_MODEL_GROK` | `grok-3` | Model Grok mặc định |
 
 Default model được dùng khi tên file chỉ có provider mà không có model.
@@ -488,25 +494,25 @@ Nếu model trong tên file không hợp lệ, app cũng tạo file `.docx` báo
 
 ## Cấu trúc source chính
 
+Mỗi module có cùng 4 lớp `domain/ application/ infrastructure/ presentation/` và một `index.ts` (`create<Name>Module`). Quy ước đầy đủ: [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md).
+
 ```text
-src/index.ts                      Entry point
-src/config.ts                     Đọc .env, system-prompt.md, knowledge.md
-src/types.ts                      Type dùng chung
-src/orchestrator/pollOrchestrator.ts  Luồng poll và xử lý file
-src/canvas/canvasClient.ts        Gọi Canvas API
-src/extractor/fileExtractor.ts    Trích xuất text/ảnh từ file
-src/ai/aiRouter.ts                Chọn AI adapter
-src/ai/claudeAdapter.ts           Adapter Claude
-src/ai/geminiAdapter.ts           Adapter Gemini
-src/ai/grokAdapter.ts             Adapter Grok
-src/state/stateManager.ts         Lưu trạng thái runtime
-src/utils/fileParser.ts           Parse tên file
-src/utils/resultBuilder.ts        Tạo file kết quả/lỗi
-src/utils/markdownToDocx.ts       Convert Markdown sang DOCX
-src/utils/injectKnowledge.ts      Chèn knowledge base
-src/utils/emailNotifier.ts        Gửi email Gmail
-src/utils/logger.ts               Log terminal
-src/utils/withTimeout.ts          Timeout promise gọi AI
+src/index.ts                 Entry point
+src/bootstrap/               main.ts (chỉ hàm main), config/ (đọc .env), startup/, httpServer.ts
+src/shared/                  errors, resilience (retry/fallback/attempt), http, logging, config, state, canvas
+src/modules/ai/              provider adapter (Claude/Gemini/Grok/OpenAI), OpenRouter fallback, model catalog, fallback
+src/modules/agent/           agentic RAG: tool loop, search_vault/read_document/list_folder
+src/modules/retrieval/       embedding, Pinecone, chunking markdown, POST /api/retrieve
+src/modules/rerank/          cross-encoder rerank (Pinecone Inference)
+src/modules/vault/           quản lý tài liệu vault (Neon/JSON) + /api/vault
+src/modules/fileqa/          Canvas Materials/Q → AI → Materials/A (PDF)
+src/modules/conversation/    chat extension qua Canvas Conversations
+src/modules/chat/            POST /api/chat (client desktop)
+src/modules/polling/         scheduler, cursor, /start /stop
+src/modules/document/        Markdown + Mermaid + KaTeX → PDF (Chromium)
+src/modules/notification/    email Gmail
+src/modules/ops/             /, /health, /api/logs, /api/ai-usage, /api/cron, /docs
+tests/{unit,e2e,load,support}  test tách riêng khỏi src
 ```
 
 ## Lưu ý vận hành

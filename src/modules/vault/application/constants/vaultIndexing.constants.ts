@@ -1,0 +1,1 @@
+export const AUTO_INDEX_DEBOUNCE_MS = 2000;

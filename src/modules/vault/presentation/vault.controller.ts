@@ -1,19 +1,18 @@
-import { HttpHeader, HttpStatus } from '../../../shared/http/http.enums';
+import { HttpStatus } from '../../../shared/http/enums/http.enums';
 import { parseMultipart } from '../../../shared/http/multipart';
 import { sendError, sendJson } from '../../../shared/http/response';
-import type { RouteContext } from '../../../shared/http/router';
 import type { VaultService } from '../application/vault.service';
-import { AUTO_INDEX_DEBOUNCE_MS, type VaultIndexingService } from '../application/vaultIndexing.service';
-import { ReindexOutcome, VaultDeleteConfirmation } from '../domain';
+import { type VaultIndexingService } from '../application/vaultIndexing.service';
+import { ReindexOutcome } from '../domain';
 import {
-  CHUNK_PAGE_LIMITS,
   parsePage,
   toManifestDto,
   toSearchCriteria,
   toVaultUploads,
-} from './vault.dto';
-
-const RETRY_AFTER_SECONDS = AUTO_INDEX_DEBOUNCE_MS / 1000;
+  requireDeleteAllConfirmation,
+} from './mappers/vault.mapper';
+import { RouteContext } from '../../../shared/http/interfaces/router.interface';
+import { CHUNK_PAGE_LIMITS, RETRY_AFTER_SECONDS } from './constants/vault.constants';
 
 /** HTTP adapter for the vault: parses requests, calls use cases, shapes JSON. */
 export class VaultController {
@@ -34,9 +33,7 @@ export class VaultController {
   };
 
   getFile = async ({ res, params }: RouteContext): Promise<void> => {
-    const entry = await this.vault.getFile(params.path);
-    if (!entry) return sendError(res, HttpStatus.NOT_FOUND, 'Not found');
-    sendJson(res, HttpStatus.OK, entry);
+    sendJson(res, HttpStatus.OK, await this.vault.getFile(params.path));
   };
 
   listFolders = async ({ res }: RouteContext): Promise<void> => {
@@ -57,28 +54,17 @@ export class VaultController {
 
   uploadFiles = async ({ req, res }: RouteContext): Promise<void> => {
     const uploads = toVaultUploads(await parseMultipart(req));
-    if (uploads.length === 0) return sendError(res, HttpStatus.BAD_REQUEST, 'No files');
-    const files = await this.vault.uploadFiles(uploads);
-    sendJson(res, HttpStatus.OK, { ok: true, files });
-    this.indexing.scheduleAfterUpload();
+    sendJson(res, HttpStatus.OK, { ok: true, files: await this.vault.uploadFiles(uploads) });
   };
 
   deleteFile = async ({ res, params }: RouteContext): Promise<void> => {
-    const vectorSync = await this.vault.deleteFile(params.path);
-    if (vectorSync === null) return sendError(res, HttpStatus.NOT_FOUND, 'Not found');
-    sendJson(res, HttpStatus.OK, { ok: true, pinecone: vectorSync });
+    sendJson(res, HttpStatus.OK, { ok: true, pinecone: await this.vault.deleteFile(params.path) });
   };
 
   /** `DELETE /api/vault/files` — a folder with `?folder=`, otherwise everything (needs confirmation). */
   deleteFiles = async ({ req, res, query }: RouteContext): Promise<void> => {
-    if (query.folder) {
-      const deleted = await this.vault.deleteFolder(query.folder);
-      if (deleted === 0) return sendError(res, HttpStatus.NOT_FOUND, 'Folder not found or empty');
-      return sendJson(res, HttpStatus.OK, { ok: true, deleted });
-    }
-    if (req.headers[HttpHeader.CONFIRM] !== VaultDeleteConfirmation.DELETE_ALL) {
-      return sendError(res, HttpStatus.BAD_REQUEST, `Missing X-Confirm: ${VaultDeleteConfirmation.DELETE_ALL} header for clear all`);
-    }
+    if (query.folder) return sendJson(res, HttpStatus.OK, { ok: true, deleted: await this.vault.deleteFolder(query.folder) });
+    requireDeleteAllConfirmation(req.headers);
     sendJson(res, HttpStatus.OK, { ok: true, deleted: await this.vault.deleteAll() });
   };
 
@@ -94,14 +80,12 @@ export class VaultController {
   };
 
   syncVectorIndex = async ({ res }: RouteContext): Promise<void> => {
-    if (!this.vault.isVectorIndexEnabled()) return sendError(res, HttpStatus.BAD_REQUEST, 'vault not configured');
-    sendJson(res, HttpStatus.OK, { ok: true, result: await this.vault.reconcileVectors() });
+    sendJson(res, HttpStatus.OK, { ok: true, result: await this.vault.syncVectorIndex() });
   };
 
   private async respondFileChunks({ res, query }: RouteContext, filePath: string): Promise<void> {
     const page = parsePage(query, CHUNK_PAGE_LIMITS);
     const result = await this.vault.getFileChunks(filePath, page);
-    if (!result) return sendError(res, HttpStatus.NOT_FOUND, 'File not found');
     sendJson(res, HttpStatus.OK, { file: filePath, total: result.total, limit: page.limit, offset: page.offset, chunks: result.chunks });
   }
 }

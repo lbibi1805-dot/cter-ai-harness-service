@@ -34,6 +34,27 @@ services:
         sync: false
       - key: GROK_API_KEY
         sync: false
+      # ── OpenRouter: backend fallback after the direct route; enabled when OPENROUTER_API_KEY is set ──
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_APP_TITLE
+        value: CTER AI Harness
+      - key: OPENROUTER_MODEL_CLAUDE
+        sync: false
+      - key: OPENROUTER_FALLBACK_CLAUDE
+        sync: false
+      - key: OPENROUTER_MODEL_GEMINI
+        sync: false
+      - key: OPENROUTER_FALLBACK_GEMINI
+        sync: false
+      - key: OPENROUTER_MODEL_GROK
+        sync: false
+      - key: OPENROUTER_FALLBACK_GROK
+        sync: false
+      - key: OPENROUTER_MODEL_OPENAI
+        sync: false
+      - key: OPENROUTER_FALLBACK_OPENAI
+        sync: false
       - key: ADMIN_TOKEN
         sync: false
       # Bearer for POST /api/chat (desktop client "API server" chat). Unset = chat API disabled (503).

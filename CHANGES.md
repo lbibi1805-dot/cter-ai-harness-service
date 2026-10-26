@@ -1,3 +1,68 @@
+# Thay đổi: Refactor clean architecture + OpenRouter fallback + trace cho đánh giá
+
+> Ngày: 25/10/2026 · Nhánh: `refactor/clean-architecture` · Trạng thái: **chưa commit**
+> Quy ước code mới: [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) · Repo đánh giá tách riêng: `../cter-rag-eval`
+
+## TL;DR: cần làm gì khi deploy
+
+| Việc | Bắt buộc? | Chi tiết |
+|---|---|---|
+| Không làm gì | — | Không đặt `OPENROUTER_API_KEY` thì hành vi gọi AI giữ như cũ (chỉ gọi provider trực tiếp) |
+| Bật OpenRouter làm fallback | Tuỳ chọn | Đặt `OPENROUTER_API_KEY`, có thể chỉnh thêm `OPENROUTER_MODEL_<P>` / `OPENROUTER_FALLBACK_<P>`. Xem `docs/DEPLOYMENT-GUIDE.md` §4.3b |
+| Xoá `AI_GATEWAY` nếu đã đặt | Nên | Biến này không còn được đọc |
+| Kiểm tra env có giá trị lạ | **Có** | Giá trị sai kiểu giờ **dừng service lúc khởi động** (vd. `POLL_AUTOSTART=yes`, `EMBEDDING_PROVIDER=Gemini2`). Giá trị hợp lệ: boolean `true`/`false`, số nguyên, enum đúng chính tả |
+| Commit thư mục `docs/` | Nên | `/docs/` không còn bị ignore, nên `GET /openapi.json` và `/docs` hoạt động sau deploy |
+| Build | Có | `npm run build` dùng `tsconfig.build.json` (Dockerfile đã copy cả hai tsconfig) |
+
+## 1. Tóm tắt
+
+| # | Thay đổi | Vì sao |
+|---|---|---|
+| 1 | Toàn bộ `src/{ai,rag,canvas,orchestrator,extractor,state,utils,api}` + `types.ts` + `config.ts` chuyển vào `src/modules/*` (4 lớp đồng nhất) + `src/shared/*` + `src/bootstrap/*` | Cấu trúc đồng nhất giữa các module; mỗi module nhận config slice riêng nên sẵn sàng tách microservice |
+| 1b | Mỗi layer có thư mục con `interfaces/ enums/ constants/ errors/ helpers/` (presentation thêm `dto/` + `mappers/`). File chính chỉ chứa class/hàm chính; interface chỉ nằm trong `interfaces/` hoặc `dto/` | Dễ tìm, cấu trúc giống nhau ở mọi module |
+| 1c | `bootstrap/main.ts` chỉ còn hàm `main()`; đọc config tách ra `bootstrap/config/` (`loadConfig` + `readers/<slice>.reader.ts`), các bước khởi động nằm ở `bootstrap/startup/` | `main` đọc như một quy trình |
+| 2 | Không còn `try/catch` trong domain/application: guard `if → throw` lỗi có kiểu (`DomainError`), fallback qua `attempt()`; router map lỗi sang HTTP status | Theo `rules/` (if-throw, lỗi có kiểu) |
+| 2b | Controller chỉ parse request → gọi 1 method service → trả response. Logic chuyển xuống các service mới: `ChatService`, `PollingControlService`, `OpsService`, `RetrievalQueryService`. `VaultService` tự throw `NotFoundError` và tự lên lịch re-index sau upload | Controller không chứa business logic |
+| 3 | Enum/hằng số thay chuỗi/số cứng: `AIProvider`, `ModelRoute`, `ProcessingStatus`, `ConversationReplyStatus`, `LogTag`, `HttpStatus`, … | Hết magic string/number |
+| 4 | **OpenRouter là fallback của backend**: trước hết chạy chuỗi model trực tiếp (`DEFAULT_MODEL_<P>` → `MODEL_FALLBACK_<P>`). Khi cả chuỗi lỗi (kể cả lỗi FATAL như hết credit), hoặc provider không có key trực tiếp, mới gọi `OPENROUTER_MODEL_<P>` (OpenRouter tự fallback server-side qua `OPENROUTER_FALLBACK_<P>`). Client không thấy và không chọn được route; model client gửi phải nằm trong danh sách direct. `attempts` cộng dồn cả hai route; log ghi route đã trả lời. 402 = FATAL, lỗi trong body HTTP 200 / `choices` rỗng được retry | Tăng độ sẵn sàng mà không đổi hành vi khi provider trực tiếp còn chạy |
+| 5 | **Agent có fallback OpenRouter**: thử OpenAI Responses (direct) trước, sau đó tool calling qua Chat Completions của OpenRouter với `OPENROUTER_MODEL_<P>` (chỉ model có `tools`, kiểm tra qua `GET /models`) | Agent chạy được cho claude/gemini/grok khi có OpenRouter |
+| 6 | `POST /api/chat` nhận `includeTrace: true`, trả về `trace.contexts` + `trace.agent` (steps, sources, tokens); thêm endpoint `POST /api/retrieve` | Repo `cter-rag-eval` (Python + Ragas) đánh giá qua HTTP |
+| 7 | `tsconfig.json` (typecheck cả `tests/`, ES2022) + `tsconfig.build.json` (chỉ `src`); sửa 20 lỗi type trong test/e2e (`AppConfig` thiếu `rerank`, `.at()`, mock) | Trước đây IDE báo đỏ nhưng `tsc` bỏ qua test |
+| 8 | Test tách ra `tests/{unit,e2e,load,support}` | Theo yêu cầu |
+| 9 | Dọn: xoá `eval/` (chuyển sang `cter-rag-eval`), `AGENTS.md` (trùng `CLAUDE.md`), DOCX renderer + `latexMath` + dependency `docx` (code chết từ khi chuyển sang PDF), email `notifyPolling*` không ai gọi, `scripts/test-render-docx.ts` hỏng, vài biến chết; `ARCHITECTURE.md`/`AGENTIC-QNA.md` chuyển vào `docs/` | Bỏ file rác |
+
+## 2. Biến môi trường mới / thay đổi
+
+| Biến | Mặc định | Ghi chú |
+|---|---|---|
+| `AI_GATEWAY` | **bỏ** | Không còn đọc. OpenRouter tự bật khi có key |
+| `OPENROUTER_API_KEY` | — | Có giá trị thì bật route fallback OpenRouter (nằm cuối `.env`) |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | |
+| `OPENROUTER_APP_URL`, `OPENROUTER_APP_TITLE` | — | Header attribution |
+| `OPENROUTER_MODEL_{CLAUDE,GEMINI,GROK,OPENAI}` | `anthropic/claude-sonnet-4.5`, `google/gemini-2.5-flash`, `x-ai/grok-4.7`, `openai/gpt-5` | Model OpenRouter dùng khi chuỗi direct của provider đó lỗi |
+| `OPENROUTER_FALLBACK_{CLAUDE,GEMINI,GROK,OPENAI}` | — | Fallback server-side của OpenRouter, phẩy ngăn cách |
+| `OPENROUTER_PROVIDER_SORT` | — | `price` \| `throughput` \| `latency` |
+| `OPENROUTER_ALLOW_FALLBACKS` | `true` | |
+| `OPENROUTER_MAX_TOKENS` | `8192` | **Thêm 26/10:** `max_tokens` cho mọi request OpenRouter (single-shot + agent). Trước đó không gửi → OpenRouter giữ credit cho 64k token và trả 402 dù câu hỏi ngắn |
+| `DEFAULT_MODEL_GEMINI` | **đổi** `gemini-2.0-flash` → `gemini-3.5-flash` | Chỉ ảnh hưởng khi không đặt biến (2.0 đã bị tắt) |
+| Mọi biến số/boolean/enum | — | **Đổi hành vi:** giá trị sai kiểu gây lỗi khởi động thay vì âm thầm dùng mặc định |
+
+## 3. API
+
+- `POST /api/chat` body thêm `includeTrace` (boolean); response thêm `trace` khi bật. `GET /api/chat/status` không đổi shape (`models` = danh sách model direct client được chọn).
+- `POST /api/retrieve` `{ query, topK?, rerank? }` → `{ chunks }` (Bearer `CHAT_API_TOKEN`; trả 503 khi chưa có token/Pinecone).
+- `GET /api/ai-usage`: `providers` = chuỗi model thực tế sẽ thử, phần tử cuối `openrouter:<model>` khi bật fallback.
+- Mọi route khác giữ nguyên shape. Đặc tả: `docs/openapi.json`.
+
+## 4. Kiểm thử
+
+- `npm run typecheck`: 0 lỗi (src + tests + scripts).
+- `npm test`: 38 file / 316 test pass (thêm test fallback direct → OpenRouter, OpenRouter adapter, Chat Completions tool model, model catalog, `includeTrace`). `npm run test:load`: 3/3. `npm run build` OK.
+- Smoke test bản build (chỉ có `OPENROUTER_API_KEY` giả, không có key direct): `/health`, `/api/chat/status`, 401 khi thiếu token, 400 khi provider sai, `/api/retrieve` trả 503, 404. `POST /api/chat` claude **đã đi tới OpenRouter thật** và nhận 401 (key giả) → 502, xác nhận đúng route fallback.
+- 26/10: smoke với key OpenRouter thật trên local: fallback direct → OpenRouter đúng route (claude direct 401 → OpenRouter); gemini `mode: "agent"` chạy qua OpenRouter OK. Claude/grok qua OpenRouter trả 402 do tài khoản OpenRouter **0 credit** — cần nạp credit. Default `OPENROUTER_MODEL_GROK` đổi `x-ai/grok-4-fast` → `x-ai/grok-4.7` (id cũ không còn trên OpenRouter).
+
+---
+
 # Thay đổi: Chat API trực tiếp cho client desktop (`/api/chat`)
 
 > Ngày: 24/10/2026 · Trạng thái: **chưa commit** · Client đi kèm: `cter-interview-cloak-client` (kênh chatbot "API server")

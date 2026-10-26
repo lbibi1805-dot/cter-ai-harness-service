@@ -1,5 +1,7 @@
-import { normalizeText } from '../../../rag/textNormalizer';
-import { logger } from '../../../utils/logger';
+import { NotFoundError, ValidationError, errorMessage } from '../../../shared/errors';
+import { logger } from '../../../shared/logging/logger';
+import { attempt } from '../../../shared/resilience/attempt';
+import { normalizeText } from '../../retrieval/domain/textNormalizer';
 import {
   VectorSyncResult,
   computeContentHash,
@@ -9,45 +11,15 @@ import {
   type VaultDocumentStore,
   type VaultEntry,
   type VaultFolder,
+  type VaultIndexScheduler,
   type VaultRepository,
   type VaultSearchCriteria,
   type VaultStats,
   type VectorChunkMetadata,
   type VectorIndex,
 } from '../domain';
-
-/** Returned by `reconcileVectors` when the whole vector index was wiped. */
-export const RECONCILE_ALL_VECTORS_DELETED = -1;
-
-export interface Page {
-  limit: number;
-  offset: number;
-}
-
-export interface VaultUpload {
-  rawName: string;
-  content: string;
-}
-
-export type VaultUploadResult =
-  | { file: string; hash: string; indexed: false }
-  | { file: string; error: string };
-
-export interface VaultChunkView extends Partial<VectorChunkMetadata> {
-  id: string;
-  index: number;
-  indexed: boolean;
-}
-
-export interface FileChunksResult {
-  total: number;
-  chunks: VaultChunkView[];
-}
-
-export interface ChunkIdsResult {
-  total: number;
-  chunkIds: string[];
-}
+import { Page, ChunkIdsResult, VaultUpload, VaultUploadResult, FileChunksResult } from './interfaces/vault.interface';
+import { RECONCILE_ALL_VECTORS_DELETED } from './constants/vault.constants';
 
 /** Vault use cases: browsing, uploading and deleting files, keeping the vector index in sync. */
 export class VaultService {
@@ -55,6 +27,7 @@ export class VaultService {
     private readonly repository: VaultRepository,
     private readonly vectors: VectorIndex | null,
     private readonly documents: VaultDocumentStore,
+    private readonly indexScheduler: VaultIndexScheduler = { scheduleAfterUpload: () => undefined },
   ) {}
 
   isVectorIndexEnabled(): boolean {
@@ -65,8 +38,8 @@ export class VaultService {
     return this.repository.search(criteria);
   }
 
-  getFile(filePath: string): Promise<VaultEntry | null> {
-    return this.repository.findByPath(filePath);
+  async getFile(filePath: string): Promise<VaultEntry> {
+    return this.requireEntry(filePath, 'Not found');
   }
 
   listFolders(): Promise<VaultFolder[]> {
@@ -84,9 +57,8 @@ export class VaultService {
   }
 
   /** Chunk ids of one file, enriched with vector metadata when the file is indexed. */
-  async getFileChunks(filePath: string, page: Page): Promise<FileChunksResult | null> {
-    const entry = await this.repository.findByPath(filePath);
-    if (!entry) return null;
+  async getFileChunks(filePath: string, page: Page): Promise<FileChunksResult> {
+    const entry = await this.requireEntry(filePath, 'File not found');
 
     const pagedIds = entry.chunkIds.slice(page.offset, page.offset + page.limit);
     const metadata = entry.indexed ? await this.fetchMetadataSafely(pagedIds) : {};
@@ -118,13 +90,12 @@ export class VaultService {
       });
       results.push({ file: filePath, hash, indexed: false });
     }
+    if (uploads.length > 0) this.indexScheduler.scheduleAfterUpload();
     return results;
   }
 
-  /** Returns null when the file does not exist. */
-  async deleteFile(filePath: string): Promise<VectorSyncResult | null> {
-    const entry = await this.repository.findByPath(filePath);
-    if (!entry) return null;
+  async deleteFile(filePath: string): Promise<VectorSyncResult> {
+    const entry = await this.requireEntry(filePath, 'Not found');
 
     const syncResult = await this.deleteEntryVectors(entry);
     await this.repository.remove(filePath);
@@ -132,10 +103,10 @@ export class VaultService {
     return syncResult;
   }
 
-  /** Returns the number of deleted files (0 when the folder is empty or missing). */
+  /** Returns the number of deleted files. */
   async deleteFolder(folder: string): Promise<number> {
     const entries = await this.repository.findByFolder(folder);
-    if (entries.length === 0) return 0;
+    if (entries.length === 0) throw new NotFoundError('Folder not found or empty');
 
     await this.deleteVectorsSafely(entries.flatMap((entry) => entry.chunkIds));
     for (const entry of entries) await this.repository.remove(entry.filePath);
@@ -145,17 +116,16 @@ export class VaultService {
 
   async deleteAll(): Promise<number> {
     const entries = await this.repository.findAll();
-    if (this.vectors) {
-      try {
-        await this.vectors.deleteAll();
-        logger.info('[vault] vector index cleared');
-      } catch (err) {
-        logger.info(`[vault] vector index clear failed: ${(err as Error).message}`);
-      }
-    }
+    await this.clearVectorIndex();
     await this.repository.removeAll();
     await this.documents.remove(entries.map((entry) => entry.filePath));
     return entries.length;
+  }
+
+  /** Manual reconcile (admin API): only meaningful when a vector index is configured. */
+  async syncVectorIndex(): Promise<number> {
+    if (!this.isVectorIndexEnabled()) throw new ValidationError('vault not configured');
+    return this.reconcileVectors();
   }
 
   /**
@@ -166,43 +136,54 @@ export class VaultService {
     if (!this.vectors) return 0;
     const { total } = await this.repository.stats();
     if (total > 0) return 0;
-    try {
-      await this.vectors.deleteAll();
-      logger.info('[vault] reconcile: manifest empty → vector index cleared');
-      return RECONCILE_ALL_VECTORS_DELETED;
-    } catch (err) {
-      logger.info(`[vault] reconcile failed: ${(err as Error).message}`);
+    const vectors = this.vectors;
+    const cleared = await attempt(() => vectors.deleteAll());
+    if (!cleared.ok) {
+      logger.warn(`[vault] reconcile failed: ${errorMessage(cleared.error)}`);
       return 0;
     }
+    logger.info('[vault] reconcile: manifest empty → vector index cleared');
+    return RECONCILE_ALL_VECTORS_DELETED;
+  }
+
+  /** The manifest is the source of truth: a failed vector wipe is logged, not fatal. */
+  private async clearVectorIndex(): Promise<void> {
+    const vectors = this.vectors;
+    if (!vectors) return;
+    const cleared = await attempt(() => vectors.deleteAll());
+    if (cleared.ok) logger.info('[vault] vector index cleared');
+    else logger.warn(`[vault] vector index clear failed: ${errorMessage(cleared.error)}`);
+  }
+
+  private async requireEntry(filePath: string, notFoundMessage: string): Promise<VaultEntry> {
+    const entry = await this.repository.findByPath(filePath);
+    if (!entry) throw new NotFoundError(notFoundMessage);
+    return entry;
   }
 
   private async deleteEntryVectors(entry: VaultEntry): Promise<VectorSyncResult> {
-    if (!this.vectors || entry.chunkIds.length === 0) return VectorSyncResult.SKIP;
-    try {
-      await this.vectors.deleteByIds(entry.chunkIds);
-      logger.info(`[vault] deleted ${entry.chunkIds.length} vectors for ${entry.filePath}`);
-      return VectorSyncResult.OK;
-    } catch (err) {
-      logger.info(`[vault] vector delete failed for ${entry.filePath}: ${(err as Error).message} — orphaned, reconcile later`);
+    const vectors = this.vectors;
+    if (!vectors || entry.chunkIds.length === 0) return VectorSyncResult.SKIP;
+    const deleted = await attempt(() => vectors.deleteByIds(entry.chunkIds));
+    if (!deleted.ok) {
+      logger.warn(`[vault] vector delete failed for ${entry.filePath}: ${errorMessage(deleted.error)} — orphaned, reconcile later`);
       return VectorSyncResult.PARTIAL;
     }
+    logger.info(`[vault] deleted ${entry.chunkIds.length} vectors for ${entry.filePath}`);
+    return VectorSyncResult.OK;
   }
 
   private async deleteVectorsSafely(ids: string[]): Promise<void> {
-    if (!this.vectors || ids.length === 0) return;
-    try {
-      await this.vectors.deleteByIds(ids);
-    } catch (err) {
-      logger.info(`[vault] vector delete failed for ${ids.length} chunks: ${(err as Error).message}`);
-    }
+    const vectors = this.vectors;
+    if (!vectors || ids.length === 0) return;
+    const deleted = await attempt(() => vectors.deleteByIds(ids));
+    if (!deleted.ok) logger.warn(`[vault] vector delete failed for ${ids.length} chunks: ${errorMessage(deleted.error)}`);
   }
 
   private async fetchMetadataSafely(ids: string[]): Promise<Record<string, VectorChunkMetadata>> {
-    if (!this.vectors || ids.length === 0) return {};
-    try {
-      return await this.vectors.fetchMetadata(ids);
-    } catch {
-      return {};
-    }
+    const vectors = this.vectors;
+    if (!vectors || ids.length === 0) return {};
+    const fetched = await attempt(() => vectors.fetchMetadata(ids));
+    return fetched.ok ? fetched.value : {};
   }
 }

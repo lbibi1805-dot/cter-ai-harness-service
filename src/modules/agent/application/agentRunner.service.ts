@@ -1,28 +1,26 @@
-import { errorMessage } from '../../../shared/resilience';
-import type { FileContent } from '../../../types';
-import { logger } from '../../../utils/logger';
+import { errorMessage } from '../../../shared/errors';
+import { logger } from '../../../shared/logging/logger';
+import { attempt, attemptSync } from '../../../shared/resilience/attempt';
 import {
   AgentStopReason,
+  BUDGET_EXHAUSTED_NOTE,
+  InvalidToolArgumentsError,
   ModelTurnKind,
+  ToolRequestAfterBudgetError,
+  UnknownToolError,
   ZERO_USAGE,
   addUsage,
   truncateToolOutput,
   type AgentBudget,
   type AgentRunResult,
-  type AgentStep,
   type AgentTool,
   type ToolCall,
-  type ToolCallingModel,
   type ToolOutput,
+  type ToolResult,
 } from '../domain';
-import { BUDGET_EXHAUSTED_NOTE } from './agentPrompt';
-
-export interface AgentRunRequest {
-  model: ToolCallingModel;
-  systemPrompt: string;
-  content: FileContent;
-  label: string;
-}
+import { Attempt } from '../../../shared/resilience/interfaces/attempt.interface';
+import { AgentRunRequest, RunProgress, ExecutedTool } from './interfaces/agentRunner.interface';
+import { parseArguments } from './helpers/agentRunner.helper';
 
 /**
  * The agent loop: model → tool calls → tool outputs → model … until the model
@@ -45,17 +43,16 @@ export class AgentRunner {
     const startedAt = this.now();
     const definitions = [...this.tools.values()].map(({ name, description, parameters }) => ({ name, description, parameters }));
     const session = request.model.startSession(request.systemPrompt, request.content, definitions);
-    const steps: AgentStep[] = [];
-    const sourcesRead: string[] = [];
+    const progress: RunProgress = { steps: [], sourcesRead: [], contexts: [] };
     let usage = ZERO_USAGE;
     let modelCalls = 0;
     let pendingOutputs: ToolOutput[] = [];
 
     for (;;) {
-      const exhausted = this.exhaustedReason(steps.length, startedAt);
+      const exhausted = this.exhaustedReason(progress.steps.length, startedAt);
       const turn = await session.next(pendingOutputs, {
         allowTools: exhausted === null,
-        requireTool: exhausted === null && steps.length < this.budget.minToolCalls,
+        requireTool: exhausted === null && progress.steps.length < this.budget.minToolCalls,
       });
       modelCalls++;
       usage = addUsage(usage, turn.usage);
@@ -63,33 +60,38 @@ export class AgentRunner {
       if (turn.kind === ModelTurnKind.FINAL) {
         const result: AgentRunResult = {
           text: turn.text,
-          model: request.model.model,
+          model: turn.model ?? request.model.model,
           stopReason: exhausted ?? AgentStopReason.FINAL_ANSWER,
-          steps,
-          sourcesRead,
+          ...progress,
           usage,
           modelCalls,
           durationMs: this.now() - startedAt,
         };
-        logger.info(`[agent] ${request.label} — ${result.stopReason}, ${steps.length} tool call(s), ${modelCalls} model call(s), sources: ${sourcesRead.join(', ') || 'none'}, tokens in/out ${usage.inputTokens}/${usage.outputTokens}`);
+        this.logRun(request.label, result);
         return result;
       }
-      if (exhausted !== null) {
-        throw new Error(`model requested tools after the budget was exhausted (${exhausted})`);
-      }
+      if (exhausted !== null) throw new ToolRequestAfterBudgetError(exhausted);
 
-      pendingOutputs = [];
-      for (const call of turn.calls) {
-        if (this.exhaustedReason(steps.length, startedAt) !== null) {
-          pendingOutputs.push({ callId: call.id, output: BUDGET_EXHAUSTED_NOTE });
-          continue;
-        }
-        const { output, step } = await this.execute(call, steps.length + 1);
-        steps.push(step);
-        for (const source of step.sources) if (!sourcesRead.includes(source)) sourcesRead.push(source);
-        pendingOutputs.push({ callId: call.id, output });
-      }
+      pendingOutputs = await this.runToolCalls(turn.calls, progress, startedAt);
     }
+  }
+
+  private async runToolCalls(calls: ToolCall[], progress: RunProgress, startedAt: number): Promise<ToolOutput[]> {
+    const outputs: ToolOutput[] = [];
+    for (const call of calls) {
+      if (this.exhaustedReason(progress.steps.length, startedAt) !== null) {
+        outputs.push({ callId: call.id, output: BUDGET_EXHAUSTED_NOTE });
+        continue;
+      }
+      const executed = await this.execute(call, progress.steps.length + 1);
+      progress.steps.push(executed.step);
+      progress.contexts.push(...executed.contexts);
+      for (const source of executed.step.sources) {
+        if (!progress.sourcesRead.includes(source)) progress.sourcesRead.push(source);
+      }
+      outputs.push({ callId: call.id, output: executed.output });
+    }
+    return outputs;
   }
 
   private exhaustedReason(toolCalls: number, startedAt: number): AgentStopReason | null {
@@ -98,32 +100,39 @@ export class AgentRunner {
     return null;
   }
 
-  private async execute(call: ToolCall, index: number): Promise<{ output: string; step: AgentStep }> {
+  /** A failing tool becomes a "Tool error: …" output so the model can correct itself. */
+  private async execute(call: ToolCall, index: number): Promise<ExecutedTool> {
     const started = this.now();
-    const tool = this.tools.get(call.name);
-    let args: Record<string, unknown> = {};
-    try {
-      if (!tool) throw new Error(`unknown tool "${call.name}". Available: ${[...this.tools.keys()].join(', ')}`);
-      args = parseArguments(call.arguments);
-      const result = await tool.execute(args);
-      const output = truncateToolOutput(result.content, this.budget.maxToolResultChars);
-      return {
-        output,
-        step: { index, tool: call.name, args, sources: result.sources, resultChars: output.length, durationMs: this.now() - started },
-      };
-    } catch (err) {
-      const message = errorMessage(err);
+    const parsedArgs = attemptSync(() => parseArguments(call.arguments));
+    const args = parsedArgs.ok ? parsedArgs.value : {};
+    const result = await attempt(() => this.invokeTool(call.name, parsedArgs));
+    const durationMs = this.now() - started;
+
+    if (!result.ok) {
+      const message = errorMessage(result.error);
       return {
         output: `Tool error: ${message}`,
-        step: { index, tool: call.name, args, sources: [], resultChars: 0, durationMs: this.now() - started, error: message },
+        step: { index, tool: call.name, args, sources: [], resultChars: 0, durationMs, error: message },
+        contexts: [],
       };
     }
+    const output = truncateToolOutput(result.value.content, this.budget.maxToolResultChars);
+    return {
+      output,
+      step: { index, tool: call.name, args, sources: result.value.sources, resultChars: output.length, durationMs },
+      contexts: result.value.contexts ?? [],
+    };
   }
-}
 
-function parseArguments(raw: string): Record<string, unknown> {
-  if (!raw.trim()) return {};
-  const parsed: unknown = JSON.parse(raw);
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('tool arguments must be a JSON object');
-  return parsed as Record<string, unknown>;
+  private invokeTool(name: string, parsedArgs: Attempt<Record<string, unknown>>): Promise<ToolResult> {
+    const tool = this.tools.get(name);
+    if (!tool) throw new UnknownToolError(name, [...this.tools.keys()]);
+    if (!parsedArgs.ok) throw new InvalidToolArgumentsError(`invalid tool arguments JSON: ${errorMessage(parsedArgs.error)}`);
+    return tool.execute(parsedArgs.value);
+  }
+
+  private logRun(label: string, result: AgentRunResult): void {
+    const sources = result.sourcesRead.join(', ') || 'none';
+    logger.info(`[agent] ${label} — ${result.stopReason}, ${result.steps.length} tool call(s), ${result.modelCalls} model call(s), sources: ${sources}, tokens in/out ${result.usage.inputTokens}/${result.usage.outputTokens}`);
+  }
 }

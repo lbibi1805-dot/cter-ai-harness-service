@@ -1,8 +1,6 @@
-import type { CitedChunk } from '../../../types';
-import { BREADCRUMB_SEPARATOR, MAX_PASSAGES_PER_CHUNK, MAX_RERANK_DOCUMENTS, PASSAGE_OVERLAP_RATIO } from './rerank.enums';
-
-const MARKDOWN_EXTENSION = /\.md$/i;
-const HEADING_MARKS = /^#+\s*/;
+import type { CitedChunk } from '../../retrieval/domain/interfaces/retrieval.interface';
+import { BREADCRUMB_SEPARATOR, MAX_PASSAGES_PER_CHUNK, MAX_RERANK_DOCUMENTS, PASSAGE_OVERLAP_RATIO } from './constants/rerank.constants';
+import { MARKDOWN_EXTENSION, HEADING_MARKS } from './constants/rerankDocument.constants';
 
 /** "course › chapter › file › heading" — most indexed chunks do not repeat their heading. */
 export function breadcrumbOf(chunk: CitedChunk): string {

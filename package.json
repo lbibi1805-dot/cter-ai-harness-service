@@ -4,14 +4,15 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:load": "vitest run --config vitest.load.config.ts",
-    "eval:rag": "tsx eval/rag/cli/evalRag.ts",
-    "eval:answers": "tsx eval/answers/cli/evalAnswers.ts"
+    "test:e2e": "vitest run tests/e2e",
+    "test:unit": "vitest run tests/unit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",
@@ -20,7 +21,6 @@
     "@neondatabase/serverless": "^1.1.0",
     "@pinecone-database/pinecone": "^8.0.0",
     "@types/nodemailer": "^8.0.0",
-    "docx": "^9.6.1",
     "dotenv": "^17.4.2",
     "formidable": "^3.5.4",
     "katex": "^0.16.22",

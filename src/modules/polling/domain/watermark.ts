@@ -1,8 +1,4 @@
-export interface PolledItem {
-  updatedAt: Date;
-  /** True once the item reached a terminal outcome (done, failed, skipped). */
-  settled: boolean;
-}
+import { PolledItem } from './interfaces/watermark.interface';
 
 /**
  * Advances the cursor through settled items in `updatedAt` order and stops at

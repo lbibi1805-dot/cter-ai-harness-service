@@ -1,10 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { PollCursorRepository, PollJobName } from '../domain';
-
-export const DEFAULT_CURSOR_FILE = 'data/poll-cursors.json';
-
-type CursorFile = Record<string, string>;
+import { DEFAULT_CURSOR_FILE } from './constants/filePollCursor.constants';
+import { cursorKey } from './helpers/filePollCursor.helper';
+import { CursorFile } from './interfaces/filePollCursor.interface';
 
 /** Local JSON fallback for development; production uses Neon. */
 export class FilePollCursorRepository implements PollCursorRepository {
@@ -35,8 +34,4 @@ export class FilePollCursorRepository implements PollCursorRepository {
       return {};
     }
   }
-}
-
-function cursorKey(job: PollJobName, accountIndex: number): string {
-  return `${job}:${accountIndex}`;
 }

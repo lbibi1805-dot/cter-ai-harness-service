@@ -1,19 +1,8 @@
-import { HttpMethod } from '../../../shared/http/http.enums';
-import { exactPath, wildcardPath, type Route } from '../../../shared/http/router';
+import { HttpMethod } from '../../../shared/http/enums/http.enums';
 import type { VaultController } from './vault.controller';
-
-export const VAULT_API_PREFIX = '/api/vault';
-
-export enum VaultApiPath {
-  FILES = '/api/vault/files',
-  FILE_PREFIX = '/api/vault/files/',
-  CHUNKS_SUFFIX = '/chunks',
-  CHUNKS = '/api/vault/chunks',
-  FOLDERS = '/api/vault/folders',
-  MANIFEST = '/api/vault/manifest',
-  REINDEX = '/api/vault/reindex',
-  SYNC_VECTORS = '/api/vault/sync-pinecone',
-}
+import { exactPath, wildcardPath } from '../../../shared/http/helpers/router.helper';
+import { Route } from '../../../shared/http/interfaces/router.interface';
+import { VaultApiPath } from './enums/vault.enums';
 
 /** Order matters: `/files/:path/chunks` must be tried before `/files/:path`. */
 export function createVaultRoutes(controller: VaultController): Route[] {

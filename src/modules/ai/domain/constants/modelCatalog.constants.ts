@@ -1,0 +1,59 @@
+import { AIProvider } from '../enums/ai.enums';
+import type { PerProvider } from '../interfaces/aiConfig.interface';
+
+/** Models callable with a direct provider key (strict whitelist). */
+export const DIRECT_ALLOWED_MODELS: Readonly<PerProvider<readonly string[]>> = {
+  [AIProvider.CLAUDE]: [
+    'claude-sonnet-4-6',
+    'claude-opus-4-6',
+    'claude-opus-4-5-20251101',
+    'claude-haiku-4-5-20251001',
+    'claude-sonnet-4-5-20250929',
+    'claude-opus-4-1-20250805',
+  ],
+  // Free Gemini tier (June 2026+). gemini-2.0-flash shut down 2026-06-01;
+  // gemini-2.5-flash is restricted for new users and shuts down 2026-10-16.
+  [AIProvider.GEMINI]: [
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-3.1-flash-lite-preview',
+    'gemini-3-flash-preview',
+    'gemini-3.1-pro-preview',
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash',
+  ],
+  [AIProvider.GROK]: [
+    'grok-4.3',
+    'grok-3',
+    'grok-4.20-0309-reasoning',
+    'grok-4.20-0309-non-reasoning',
+    'grok-4-1-fast-reasoning',
+    'grok-4-1-fast-non-reasoning',
+    'grok-4-fast-reasoning',
+    'grok-4-fast-non-reasoning',
+    'grok-code-fast-1',
+  ],
+  [AIProvider.OPENAI]: [
+    'gpt-5',
+    'gpt-5-mini',
+    'o3-mini',
+    'gpt-4o',
+    'gpt-4o-mini',
+    'gpt-6-astra',
+    'gpt-5.3-codex',
+    'gpt-5.2-codex',
+    'gpt-5.1-codex',
+    'gpt-5.1-codex-mini',
+    'codex-mini-latest',
+  ],
+};
+
+/** Direct OpenAI models only served by the Responses API. */
+export const OPENAI_RESPONSES_MODELS: ReadonlySet<string> = new Set([
+  'gpt-6-astra',
+  'gpt-5.3-codex',
+  'gpt-5.2-codex',
+  'gpt-5.1-codex',
+  'gpt-5.1-codex-mini',
+  'codex-mini-latest',
+]);

@@ -1,5 +1,5 @@
 import type { IncomingMessage } from 'http';
-import { HttpHeader } from './http.enums';
+import { HttpHeader } from './enums/http.enums';
 
 /**
  * Bearer check against `ADMIN_TOKEN`. Still fail-open when no token is

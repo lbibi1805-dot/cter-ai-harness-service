@@ -1,11 +1,8 @@
-import { HttpMethod } from '../../../shared/http/http.enums';
-import { exactPath, type Route } from '../../../shared/http/router';
+import { HttpMethod } from '../../../shared/http/enums/http.enums';
 import type { ChatController } from './chat.controller';
-
-export enum ChatApiPath {
-  ASK = '/api/chat',
-  STATUS = '/api/chat/status',
-}
+import { exactPath } from '../../../shared/http/helpers/router.helper';
+import { Route } from '../../../shared/http/interfaces/router.interface';
+import { ChatApiPath } from './enums/chat.enums';
 
 /** Both routes need `Authorization: Bearer <CHAT_API_TOKEN>`. */
 export function createChatRoutes(controller: ChatController): Route[] {

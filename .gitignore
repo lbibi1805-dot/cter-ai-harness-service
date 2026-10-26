@@ -16,7 +16,6 @@ data/processed.json
 /.claude/
 /dist/
 /documents-vault/
-/docs/
 .vault-manifest.json
 /test-artifacts/
 /test-questions-out/
@@ -24,8 +23,9 @@ data/processed.json
 *.docx
 *.zip
 
-# RAG eval: production credentials and run outputs stay local
-eval/.env.eval
-eval/rag/runs/
-eval/answers/runs/
-load/runs/
+# Load-test run outputs stay local (RAG evaluation lives in the cter-rag-eval repo)
+tests/load/runs/
+
+# Editor / notebook leftovers
+.ipynb_checkpoints/
+/.opencode/

@@ -1,4 +1,11 @@
-export * from './vault.enums';
+export * from './enums/vault.enums';
+export * from './errors/vault.errors';
+export * from './interfaces/vault.repository';
+export * from './interfaces/vaultDocumentStore.port';
 export * from './vaultEntry';
-export * from './vault.repository';
-export * from './vault.ports';
+export * from './interfaces/vaultIndexer.port';
+export * from './interfaces/vectorIndex.port';
+export { VaultEntry } from './interfaces/vaultEntry.interface';
+export { VaultFolder } from './interfaces/vaultEntry.interface';
+export { VaultStats } from './interfaces/vaultEntry.interface';
+export { NewVaultEntry } from './interfaces/vaultEntry.interface';

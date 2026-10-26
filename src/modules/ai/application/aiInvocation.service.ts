@@ -1,115 +1,104 @@
-import { createAIAdapter } from '../../../ai/aiRouter';
+import { errorMessage } from '../../../shared/errors';
+import { logger } from '../../../shared/logging/logger';
 import {
   DEFAULT_BACKOFF,
   FailureKind,
-  backoffDelayMs,
-  classifyFailure,
-  errorMessage,
+  attempt,
   sleep as realSleep,
+  runWithFallback,
+  withTimeout,
   type BackoffOptions,
+  type FallbackFailure,
   type Sleep,
 } from '../../../shared/resilience';
-import type { AIAdapter, AIProviderName, AppConfig, FileContent } from '../../../types';
-import { logger } from '../../../utils/logger';
-import { withTimeout } from '../../../utils/withTimeout';
-import { AIInvocationError } from '../domain/aiInvocationError';
-import { buildModelChain } from '../domain/modelChain';
-import type { PromptPreparer } from './promptPreparer';
-
-/** A rate-limited model gets this many tries before the chain moves on. */
-export const RATE_LIMIT_ATTEMPTS_PER_MODEL = 2;
-
-export type AIInvocationSettings = Pick<AppConfig, 'aiKeys' | 'grokBaseUrl' | 'modelFallback' | 'maxRetryCount' | 'aiTimeoutMs'>;
-
-export type AdapterFactory = (provider: AIProviderName, aiKeys: AppConfig['aiKeys'], grokBaseUrl: string) => AIAdapter;
-
-export interface AIInvocationDeps {
-  createAdapter?: AdapterFactory;
-  sleep?: Sleep;
-  backoff?: BackoffOptions;
-}
-
-export interface AIRequest {
-  provider: AIProviderName;
-  /** Already resolved (filename/request model or the provider default). */
-  model: string;
-  content: FileContent;
-  /** Shown in logs, e.g. the file name or conversation key. */
-  label: string;
-}
-
-export interface AIAnswer {
-  text: string;
-  model: string;
-  attempts: number;
-}
+import { RATE_LIMIT_ATTEMPTS_PER_MODEL } from '../domain/constants/ai.constants';
+import { ModelRoute } from '../domain/enums/ai.enums';
+import { AIInvocationError } from '../domain/errors/ai.errors';
+import type { AIAdapter, AIAdapterFactory } from '../domain/interfaces/aiProvider.port';
+import type { ModelCatalog } from '../domain/modelCatalog';
+import type { PromptPreparer } from './promptPreparer.service';
+import { PreparedPrompt } from './interfaces/promptPreparer.interface';
+import { AIInvocationDeps, AIInvocationSettings, AIRequest, AIAnswer, RouteResult } from './interfaces/aiInvocation.interface';
+import { OPENROUTER_LOG_PREFIX } from './constants/aiInvocation.constants';
 
 /**
- * Single entry point for AI calls from every flow. The prompt is prepared once;
- * each model is retried with exponential backoff; rate limits and permanent
- * errors move on to the next fallback model; fatal errors stop immediately.
+ * Single entry point for single-shot AI calls from every flow. The prompt is
+ * prepared once. The direct chain (vendor API, primary model then fallbacks)
+ * runs first with retries; when it is exhausted, or the provider has no direct
+ * key, the backend falls back to OpenRouter. Callers never pick the route.
  */
 export class AIInvocationService {
-  private readonly createAdapter: AdapterFactory;
   private readonly sleep: Sleep;
   private readonly backoff: BackoffOptions;
 
   constructor(
     private readonly settings: AIInvocationSettings,
+    private readonly catalog: ModelCatalog,
     private readonly prompts: PromptPreparer,
+    private readonly adapters: AIAdapterFactory,
     deps: AIInvocationDeps = {},
   ) {
-    this.createAdapter = deps.createAdapter ?? createAIAdapter;
     this.sleep = deps.sleep ?? realSleep;
     this.backoff = deps.backoff ?? DEFAULT_BACKOFF;
   }
 
   async answer(request: AIRequest): Promise<AIAnswer> {
-    const chain = buildModelChain(request.provider, request.model, this.settings.modelFallback[request.provider] ?? []);
-
-    let adapter: AIAdapter;
-    try {
-      adapter = this.createAdapter(request.provider, this.settings.aiKeys, this.settings.grokBaseUrl);
-    } catch (err) {
-      throw new AIInvocationError(errorMessage(err), FailureKind.FATAL, 0, chain[0]);
+    const direct = this.adapters.direct(request.provider);
+    const fallbackModel = this.catalog.openRouterFallback(request.provider);
+    const openRouter = fallbackModel ? this.adapters.openRouter(request.provider) : null;
+    if (!direct && !openRouter) {
+      throw new AIInvocationError(`${this.adapters.credentialName(request.provider)} not configured`, FailureKind.FATAL, 0, request.model);
     }
 
     const prompt = await this.prompts.prepare(request.content);
-    let attempts = 0;
-    let lastError: unknown;
-    let lastKind = FailureKind.TRANSIENT;
-
-    for (let mi = 0; mi < chain.length; mi++) {
-      const model = chain[mi];
-      for (let attemptOnModel = 1; ; attemptOnModel++) {
-        attempts++;
-        logger.ai(request.provider, model, request.label);
-        try {
-          const raw = await withTimeout(
-            adapter.process(prompt.content, prompt.systemPrompt, model),
-            this.settings.aiTimeoutMs,
-            `${request.provider}/${model}`,
-          );
-          return { text: this.prompts.cleanResponse(raw), model, attempts };
-        } catch (err) {
-          lastError = err;
-          lastKind = classifyFailure(err);
-          if (lastKind === FailureKind.FATAL) {
-            throw new AIInvocationError(errorMessage(err), lastKind, attempts, model);
-          }
-          if (lastKind === FailureKind.PERMANENT || attemptOnModel >= this.attemptLimit(lastKind)) {
-            const next = chain[mi + 1];
-            if (next) logger.fallback(request.provider, model, next, request.label, `${lastKind}: ${errorMessage(err)}`);
-            break;
-          }
-          const delayMs = backoffDelayMs(attemptOnModel - 1, this.backoff);
-          logger.retry(attemptOnModel, this.attemptLimit(lastKind), request.label, `${lastKind}, retry in ${delayMs}ms: ${errorMessage(err)}`);
-          await this.sleep(delayMs);
-        }
-      }
+    let attemptsBefore = 0;
+    if (direct) {
+      const directRun = await attempt(() => this.runRoute(direct, this.catalog.chainFor(request.provider, request.model), request, prompt));
+      if (directRun.ok) return this.toAnswer(directRun.value, 0, prompt, ModelRoute.DIRECT);
+      if (!openRouter || !fallbackModel) throw directRun.error;
+      attemptsBefore = directRun.error instanceof AIInvocationError ? directRun.error.attempts : 0;
+      const lastModel = directRun.error instanceof AIInvocationError ? directRun.error.lastModel : request.model;
+      logger.fallback(request.provider, lastModel, `${OPENROUTER_LOG_PREFIX}${fallbackModel}`, request.label, errorMessage(directRun.error));
     }
 
-    throw new AIInvocationError(errorMessage(lastError), lastKind, attempts, chain[chain.length - 1]);
+    const routed = await attempt(() => this.runRoute(openRouter!, [fallbackModel!], request, prompt));
+    if (routed.ok) return this.toAnswer(routed.value, attemptsBefore, prompt, ModelRoute.OPENROUTER);
+    throw this.withPriorAttempts(routed.error, attemptsBefore);
+  }
+
+  /** One route: each model is retried with backoff; rate limits and permanent errors move on; fatal stops the route. */
+  private async runRoute(adapter: AIAdapter, models: string[], request: AIRequest, prompt: PreparedPrompt): Promise<RouteResult> {
+    const success = await runWithFallback(
+      models,
+      (model) => withTimeout(adapter.process(prompt.content, prompt.systemPrompt, model), this.settings.timeoutMs, `${request.provider}/${model}`),
+      {
+        attemptsPerTarget: (kind) => this.attemptLimit(kind),
+        sleep: this.sleep,
+        backoff: this.backoff,
+        onAttempt: (model) => logger.ai(request.provider, model, request.label),
+        onRetry: (_model, attemptOnModel, err, kind, delayMs) =>
+          logger.retry(attemptOnModel, this.attemptLimit(kind), request.label, `${kind}, retry in ${delayMs}ms: ${errorMessage(err)}`),
+        onFallback: (from, to, err, kind) => logger.fallback(request.provider, from, to, request.label, `${kind}: ${errorMessage(err)}`),
+      },
+      (failure: FallbackFailure) => new AIInvocationError(errorMessage(failure.error), failure.kind, failure.attempts, failure.target),
+    );
+    return { reply: success.value, attempts: success.attempts };
+  }
+
+  private toAnswer(result: RouteResult, attemptsBefore: number, prompt: PreparedPrompt, route: ModelRoute): AIAnswer {
+    return {
+      text: this.prompts.cleanResponse(result.reply.text),
+      model: result.reply.model,
+      attempts: attemptsBefore + result.attempts,
+      contexts: prompt.contexts,
+      route,
+    };
+  }
+
+  /** The final error reports every attempt made, direct ones included. */
+  private withPriorAttempts(error: unknown, attemptsBefore: number): unknown {
+    if (!(error instanceof AIInvocationError) || attemptsBefore === 0) return error;
+    return new AIInvocationError(error.message, error.kind, attemptsBefore + error.attempts, error.lastModel);
   }
 
   private attemptLimit(kind: FailureKind): number {

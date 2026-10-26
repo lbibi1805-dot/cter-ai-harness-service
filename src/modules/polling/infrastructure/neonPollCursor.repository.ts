@@ -1,10 +1,8 @@
-import { SchemaGuard, type NeonSql } from '../../../shared/database/database';
+import { SchemaGuard } from '../../../shared/database/database';
 import type { PollCursorRepository, PollJobName } from '../domain';
-import { POLL_CURSOR_SCHEMA_STATEMENTS } from './pollCursorSchema';
-
-interface CursorRow {
-  cursor_at: Date | string;
-}
+import { NeonSql } from '../../../shared/database/interfaces/database.interface';
+import { CursorRow } from './interfaces/neonPollCursor.interface';
+import { POLL_CURSOR_SCHEMA_STATEMENTS } from './constants/pollCursorSchema.constants';
 
 export class NeonPollCursorRepository implements PollCursorRepository {
   private readonly schema: SchemaGuard;

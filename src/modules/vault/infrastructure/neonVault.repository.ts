@@ -1,7 +1,5 @@
-import { SchemaGuard, type NeonSql } from '../../../shared/database/database';
+import { SchemaGuard } from '../../../shared/database/database';
 import {
-  depthOf,
-  folderPathOf,
   summarizeFolders,
   type NewVaultEntry,
   type PagedResult,
@@ -11,23 +9,11 @@ import {
   type VaultSearchCriteria,
   type VaultStats,
 } from '../domain';
-import { VAULT_SCHEMA_STATEMENTS } from './vaultSchema';
-
-interface VaultManifestRow {
-  file_path: string;
-  hash: string;
-  chunk_ids: string[] | string | null;
-  indexed: boolean;
-  updated_at: Date | string;
-  content: string | null;
-  folder_path: string | null;
-  depth: number | null;
-}
-
-interface WhereClause {
-  sql: string;
-  params: unknown[];
-}
+import { NeonSql } from '../../../shared/database/interfaces/database.interface';
+import { manifestRowToVaultEntry } from './helpers/neonVault.helper';
+import { buildWhere } from './helpers/neonVault.helper';
+import { VaultManifestRow } from './interfaces/neonVault.interface';
+import { VAULT_SCHEMA_STATEMENTS } from './constants/vaultSchema.constants';
 
 /** Vault manifest in Neon Postgres. Every query is parameterized. */
 export class NeonVaultRepository implements VaultRepository {
@@ -48,12 +34,12 @@ export class NeonVaultRepository implements VaultRepository {
       `SELECT * FROM vault_manifest ${where.sql} ORDER BY file_path ASC LIMIT $${limitIndex} OFFSET $${limitIndex + 1}`,
       [...where.params, criteria.limit, criteria.offset],
     );
-    return { items: rows.map(toEntry), total: countRow.c };
+    return { items: rows.map(manifestRowToVaultEntry), total: countRow.c };
   }
 
   async findAll(): Promise<VaultEntry[]> {
     const rows = await this.rows<VaultManifestRow>('SELECT * FROM vault_manifest ORDER BY file_path ASC');
-    return rows.map(toEntry);
+    return rows.map(manifestRowToVaultEntry);
   }
 
   async findByFolder(folder: string): Promise<VaultEntry[]> {
@@ -62,12 +48,12 @@ export class NeonVaultRepository implements VaultRepository {
       `SELECT * FROM vault_manifest ${where.sql} ORDER BY file_path ASC`,
       where.params,
     );
-    return rows.map(toEntry);
+    return rows.map(manifestRowToVaultEntry);
   }
 
   async findByPath(filePath: string): Promise<VaultEntry | null> {
     const [row] = await this.rows<VaultManifestRow>('SELECT * FROM vault_manifest WHERE file_path = $1', [filePath]);
-    return row ? toEntry(row) : null;
+    return row ? manifestRowToVaultEntry(row) : null;
   }
 
   async save(entry: NewVaultEntry): Promise<void> {
@@ -108,35 +94,4 @@ export class NeonVaultRepository implements VaultRepository {
     await this.schema.ensure();
     return (await this.sql.query(text, params)) as T[];
   }
-}
-
-function buildWhere(criteria: Partial<VaultSearchCriteria>): WhereClause {
-  const conditions: string[] = [];
-  const params: unknown[] = [];
-  if (criteria.folder) {
-    params.push(criteria.folder, `${criteria.folder}/%`);
-    conditions.push(`(file_path = $${params.length - 1} OR file_path LIKE $${params.length})`);
-  }
-  if (criteria.text) {
-    params.push(`%${criteria.text}%`);
-    conditions.push(`file_path ILIKE $${params.length}`);
-  }
-  if (typeof criteria.indexed === 'boolean') {
-    params.push(criteria.indexed);
-    conditions.push(`indexed = $${params.length}`);
-  }
-  return { sql: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '', params };
-}
-
-function toEntry(row: VaultManifestRow): VaultEntry {
-  return {
-    filePath: row.file_path,
-    hash: row.hash,
-    chunkIds: Array.isArray(row.chunk_ids) ? row.chunk_ids : JSON.parse(row.chunk_ids ?? '[]'),
-    indexed: row.indexed,
-    updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
-    content: row.content ?? '',
-    folderPath: row.folder_path ?? folderPathOf(row.file_path),
-    depth: typeof row.depth === 'number' ? row.depth : depthOf(row.file_path),
-  };
 }
