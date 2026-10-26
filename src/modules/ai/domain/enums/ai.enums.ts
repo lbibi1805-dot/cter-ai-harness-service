@@ -28,3 +28,9 @@ export enum OpenRouterProviderSort {
   THROUGHPUT = 'throughput',
   LATENCY = 'latency',
 }
+
+/** Speaker of an earlier turn in a chat conversation. */
+export enum ConversationRole {
+  USER = 'user',
+  ASSISTANT = 'assistant',
+}

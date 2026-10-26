@@ -67,7 +67,7 @@ describe('chat routes', () => {
     expect(status).toBe(200);
     expect(answer).toHaveBeenCalledWith(expect.objectContaining({
       provider: 'gemini', model: 'gemini-2.0-flash', mode: AnswerMode.SINGLE_SHOT,
-      content: { textContent: 'What is TDD?', imageBuffers: [] },
+      content: { textContent: 'What is TDD?', imageBuffers: [], history: [] },
     }));
     expect(body).toMatchObject({ text: 'hi', provider: 'gemini', model: 'gemini-2.0-flash', mode: AnswerMode.SINGLE_SHOT, fallbackReason: null });
   });
@@ -85,6 +85,23 @@ describe('chat routes', () => {
 
     const traced = await call('POST', '/api/chat', { provider: 'gemini', question: 'q', includeTrace: true });
     expect(traced.body.trace).toEqual({ contexts: [CHUNK] });
+  });
+
+  it('passes the normalized conversation history with the question', async () => {
+    await call('POST', '/api/chat', {
+      provider: 'gemini',
+      question: 'and the one before?',
+      history: [
+        { role: 'assistant', text: 'orphan greeting' },
+        { role: 'user', text: 'What is TDD?' },
+        { role: 'assistant', text: 'Test-driven development.' },
+        { role: 'user', text: 'unanswered' },
+      ],
+    });
+    expect(answer.mock.calls[0][0].content.history).toEqual([
+      { role: 'user', text: 'What is TDD?' },
+      { role: 'assistant', text: 'Test-driven development.' },
+    ]);
   });
 
   it('decodes data-URL and raw base64 images; an image alone is a valid question', async () => {
@@ -105,6 +122,8 @@ describe('chat routes', () => {
     [{ provider: 'gemini', model: 'gpt-4o', question: 'q' }, 'not supported'],
     [{ provider: 'gemini' }, 'question or at least one image'],
     [{ provider: 'gemini', images: [{ mimeType: 'text/plain', data: PNG_BASE64 }] }, 'images[0]'],
+    [{ provider: 'gemini', question: 'q', history: 'nope' }, 'history must be an array'],
+    [{ provider: 'gemini', question: 'q', history: [{ role: 'system', text: 'x' }] }, 'history[0]'],
     [{ provider: 'gemini', images: Array(MAX_CHAT_IMAGES + 1).fill({ mimeType: 'image/png', data: PNG_BASE64 }) }, 'At most'],
   ])('400 for invalid body %j', async (payload, message) => {
     const { status, body } = await call('POST', '/api/chat', payload);

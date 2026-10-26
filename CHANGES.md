@@ -29,6 +29,7 @@
 | 6 | `POST /api/chat` nhận `includeTrace: true`, trả về `trace.contexts` + `trace.agent` (steps, sources, tokens); thêm endpoint `POST /api/retrieve` | Repo `cter-rag-eval` (Python + Ragas) đánh giá qua HTTP |
 | 7 | `tsconfig.json` (typecheck cả `tests/`, ES2022) + `tsconfig.build.json` (chỉ `src`); sửa 20 lỗi type trong test/e2e (`AppConfig` thiếu `rerank`, `.at()`, mock) | Trước đây IDE báo đỏ nhưng `tsc` bỏ qua test |
 | 8 | Test tách ra `tests/{unit,e2e,load,support}` | Theo yêu cầu |
+| 8b | **Thêm 27/10: chat nhớ ngữ cảnh hội thoại.** `POST /api/chat` nhận `history: [{ role: "user"\|"assistant", text }]` (cũ → mới). Server chuẩn hoá (`normalizeHistory`: bỏ lượt rỗng, gộp lượt cùng role, bắt đầu bằng `user`, kết thúc bằng `assistant`, giữ tối đa 20 lượt / 30k ký tự, mỗi lượt cắt ở 6k), rồi đưa thành message thật trước câu hỏi hiện tại cho mọi adapter (Claude, OpenAI Responses/Chat Completions, Gemini, Grok, OpenRouter) và cả phiên agent. RAG tìm theo câu hỏi trước + câu hỏi hiện tại để câu hỏi nối tiếp vẫn ra đúng tài liệu. Client InterviewCloak gửi các cặp hỏi/đáp đã trả lời thành công (bỏ lượt lỗi, không gửi lại ảnh) | Trước đây mỗi request độc lập nên model không biết câu hỏi trước |
 | 9 | Dọn: xoá `eval/` (chuyển sang `cter-rag-eval`), `AGENTS.md` (trùng `CLAUDE.md`), DOCX renderer + `latexMath` + dependency `docx` (code chết từ khi chuyển sang PDF), email `notifyPolling*` không ai gọi, `scripts/test-render-docx.ts` hỏng, vài biến chết; `ARCHITECTURE.md`/`AGENTIC-QNA.md` chuyển vào `docs/` | Bỏ file rác |
 
 ## 2. Biến môi trường mới / thay đổi
@@ -49,7 +50,7 @@
 
 ## 3. API
 
-- `POST /api/chat` body thêm `includeTrace` (boolean); response thêm `trace` khi bật. `GET /api/chat/status` không đổi shape (`models` = danh sách model direct client được chọn).
+- `POST /api/chat` body thêm `includeTrace` (boolean); response thêm `trace` khi bật. Thêm `history` (tuỳ chọn, tối đa 200 phần tử; sai shape → 400). Không có biến môi trường mới; giới hạn history là hằng số trong `src/modules/ai/domain/constants/conversation.constants.ts`. Client cũ không gửi `history` vẫn chạy như trước. `GET /api/chat/status` không đổi shape (`models` = danh sách model direct client được chọn).
 - `POST /api/retrieve` `{ query, topK?, rerank? }` → `{ chunks }` (Bearer `CHAT_API_TOKEN`; trả 503 khi chưa có token/Pinecone).
 - `GET /api/ai-usage`: `providers` = chuỗi model thực tế sẽ thử, phần tử cuối `openrouter:<model>` khi bật fallback.
 - Mọi route khác giữ nguyên shape. Đặc tả: `docs/openapi.json`.
@@ -57,9 +58,9 @@
 ## 4. Kiểm thử
 
 - `npm run typecheck`: 0 lỗi (src + tests + scripts).
-- `npm test`: 38 file / 316 test pass (thêm test fallback direct → OpenRouter, OpenRouter adapter, Chat Completions tool model, model catalog, `includeTrace`). `npm run test:load`: 3/3. `npm run build` OK.
+- `npm test`: 39 file / 327 test pass (thêm test chat history, fallback direct → OpenRouter, OpenRouter adapter, Chat Completions tool model, model catalog, `includeTrace`). `npm run test:load`: 3/3. `npm run build` OK.
 - Smoke test bản build (chỉ có `OPENROUTER_API_KEY` giả, không có key direct): `/health`, `/api/chat/status`, 401 khi thiếu token, 400 khi provider sai, `/api/retrieve` trả 503, 404. `POST /api/chat` claude **đã đi tới OpenRouter thật** và nhận 401 (key giả) → 502, xác nhận đúng route fallback.
-- 26/10: smoke với key OpenRouter thật trên local: fallback direct → OpenRouter đúng route (claude direct 401 → OpenRouter); gemini `mode: "agent"` chạy qua OpenRouter OK. Claude/grok qua OpenRouter trả 402 do tài khoản OpenRouter **0 credit** — cần nạp credit. Default `OPENROUTER_MODEL_GROK` đổi `x-ai/grok-4-fast` → `x-ai/grok-4.7` (id cũ không còn trên OpenRouter).
+- 26/10: smoke với key OpenRouter thật trên local: fallback direct → OpenRouter đúng route (claude direct 401 → OpenRouter); gemini `mode: "agent"` chạy qua OpenRouter OK. Claude/grok qua OpenRouter trả 402 do tài khoản OpenRouter **0 credit** — cần nạp credit. OpenRouter từ chối (`400`) mảng `models` > 3 phần tử → `buildRoutingFields` tự cắt còn model chính + 2 fallback đầu. Default `OPENROUTER_MODEL_GROK` đổi `x-ai/grok-4-fast` → `x-ai/grok-4.7` (id cũ không còn trên OpenRouter).
 
 ---
 

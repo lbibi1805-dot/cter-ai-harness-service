@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import OpenAI from 'openai';
 import { createOpenRouterToolModelFactory, type ToolCallingModel } from '../../../../../src/modules/agent';
 import { AgentFallbackReason, AgentToolName, ModelTurnKind } from '../../../../../src/modules/agent/domain';
-import { AIProvider } from '../../../../../src/modules/ai';
+import { AIProvider, ConversationRole } from '../../../../../src/modules/ai';
 import { FakeChatCompletionsServer } from '../../../../support/fakeChatCompletionsServer';
 import { buildTestAiConfig, perProvider } from '../../../../support/configFixture';
 
@@ -72,6 +72,18 @@ describe('ChatCompletionsToolModel via OpenRouter (real SDK against a fake OpenR
     const followUp = server.requests[1].messages;
     expect(followUp.find((m) => m.role === 'assistant')).toMatchObject({ tool_calls: [{ id: 'call_1' }] });
     expect(followUp.find((m) => m.role === 'tool')).toEqual({ role: 'tool', tool_call_id: 'call_1', content: 'found: mutex has an owner' });
+  });
+
+  it('replays earlier conversation turns before the current question', async () => {
+    server.responder = () => ({ text: 'ok' });
+    const history = [{ role: ConversationRole.USER, text: 'What is a mutex?' }, { role: ConversationRole.ASSISTANT, text: 'A lock.' }];
+    await (await model()).startSession('s', { ...CONTENT, textContent: 'What did I just ask?', history }, TOOLS).next([], { allowTools: true });
+    expect(server.requests[0].messages).toEqual([
+      { role: 'system', content: 's' },
+      { role: 'user', content: 'What is a mutex?' },
+      { role: 'assistant', content: 'A lock.' },
+      { role: 'user', content: [{ type: 'text', text: 'What did I just ask?' }] },
+    ]);
   });
 
   it('forces a text answer with tool_choice=none when tools are not allowed', async () => {

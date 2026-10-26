@@ -3,7 +3,7 @@ import { AnswerMode } from '../../../agent/domain';
 import { AI_PROVIDERS, parseAIProvider } from '../../../ai';
 import { ChatAnswer, ChatQuestion } from '../../application/interfaces/chat.interface';
 import { ChatAnswerDto } from '../dto/chat.dto';
-import { optionalString, parseImages } from '../helpers/chat.helper';
+import { optionalString, parseHistory, parseImages } from '../helpers/chat.helper';
 
 /** Shape validation of a `POST /api/chat` body; model rules are checked by ChatService. */
 export function toChatQuestion(body: unknown): ChatQuestion {
@@ -23,7 +23,7 @@ export function toChatQuestion(body: unknown): ChatQuestion {
     provider,
     requestedModel: optionalString(raw.model),
     mode: optionalString(raw.mode)?.toLowerCase() === AnswerMode.AGENT ? AnswerMode.AGENT : AnswerMode.SINGLE_SHOT,
-    content: { textContent: question, imageBuffers: images },
+    content: { textContent: question, imageBuffers: images, history: parseHistory(raw.history) },
     includeTrace: raw.includeTrace === true,
   };
 }

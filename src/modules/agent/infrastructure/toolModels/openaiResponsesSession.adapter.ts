@@ -2,6 +2,7 @@ import type OpenAI from 'openai';
 import type { ResponseInputItem, ResponseOutputItem } from 'openai/resources/responses/responses';
 import { retryTransient, withTimeout } from '../../../../shared/resilience';
 import { toDataUrl } from '../../../ai/domain/promptContent';
+import { toResponsesHistory } from '../../../ai';
 import { AGENT_TRANSPORT_ATTEMPTS, ModelTurnKind, type AgentToolDefinition, type ModelTurn, type ToolCallingSession, type ToolOutput, type TurnOptions } from '../../domain';
 import { PromptContent } from '../../../ai/domain/interfaces/promptContent.interface';
 import { ToolModelTimeouts } from '../interfaces/openaiResponsesToolModel.interface';
@@ -23,6 +24,7 @@ export class OpenAIResponsesSession implements ToolCallingSession {
   ) {
     this.input = [
       { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
+      ...toResponsesHistory(content.history),
       {
         role: 'user',
         content: [

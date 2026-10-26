@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { classifyFailure, FailureKind } from '../../../../../src/shared/resilience';
 import {
   AIProvider,
+  buildRoutingFields,
   ModelRoute,
   ConfiguredAIAdapterFactory,
   EmptyProviderResponseError,
@@ -71,6 +72,11 @@ describe('OpenRouter fallback adapter (real SDK against a fake OpenRouter)', () 
     server.responder = () => ({ text: 'ok', servedBy: CLAUDE_FALLBACKS[1] });
     await expect(factory.openRouter(AIProvider.CLAUDE)!.process(CONTENT, 'sys', CLAUDE_PRIMARY))
       .resolves.toEqual({ text: 'ok', model: CLAUDE_FALLBACKS[1] });
+  });
+
+  it('keeps `models` within the OpenRouter 3-model limit', () => {
+    const config = buildTestAiConfig().openRouter;
+    expect(buildRoutingFields('a/primary', ['a/one', 'a/two', 'a/three'], config).models).toEqual(['a/primary', 'a/one', 'a/two']);
   });
 
   it('omits `models` when the provider has no fallbacks', async () => {

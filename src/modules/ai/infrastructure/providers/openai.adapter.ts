@@ -6,7 +6,7 @@ import type { AIAdapter, ProviderReply } from '../../domain/interfaces/aiProvide
 import { toDataUrl } from '../../domain/promptContent';
 import { DIRECT_ALLOWED_MODELS } from '../../domain/constants/modelCatalog.constants';
 import { getOpenAIApiMode } from '../../domain/helpers/modelCatalog.helper';
-import { toChatMessages } from './openaiMessages';
+import { toChatMessages, toResponsesHistory } from './openaiMessages';
 import { PromptContent } from '../../domain/interfaces/promptContent.interface';
 import { IMAGE_DETAIL } from '../constants/openai.constants';
 
@@ -33,6 +33,7 @@ export class OpenAIAdapter implements AIAdapter {
   private async viaResponses(content: PromptContent, systemPrompt: string, model: string): Promise<string> {
     const input: OpenAI.Responses.ResponseInput = [
       { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
+      ...toResponsesHistory(content.history),
       {
         role: 'user',
         content: [

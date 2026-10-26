@@ -1,6 +1,7 @@
-import { GoogleGenerativeAI, type Part } from '@google/generative-ai';
+import { GoogleGenerativeAI, type Content, type Part } from '@google/generative-ai';
 import { UpstreamError } from '../../../../shared/errors';
 import { GEMINI_MODELS_URL } from '../../domain/constants/ai.constants';
+import { ConversationRole } from '../../domain/enums/ai.enums';
 import type { AIAdapter, ProviderReply } from '../../domain/interfaces/aiProvider.port';
 import { PromptContent } from '../../domain/interfaces/promptContent.interface';
 
@@ -26,7 +27,11 @@ export class GeminiAdapter implements AIAdapter {
     for (const image of content.imageBuffers) {
       parts.push({ inlineData: { mimeType: image.mimeType, data: image.data.toString('base64') } });
     }
-    const result = await generativeModel.generateContent(parts);
+    const history: Content[] = (content.history ?? []).map((turn) => ({
+      role: turn.role === ConversationRole.USER ? 'user' : 'model',
+      parts: [{ text: turn.text }],
+    }));
+    const result = await generativeModel.generateContent({ contents: [...history, { role: 'user', parts }] });
     return { text: result.response.text(), model };
   }
 }
