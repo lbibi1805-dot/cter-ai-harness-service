@@ -1,3 +1,45 @@
+# Thay đổi: C4 Sketcher `POST /api/c4` (27/10/2026)
+
+> Trạng thái: **chưa commit** · Client gọi: `cter-interview-cloak-client` (lệnh chat `/c4`)
+
+## TL;DR: cần làm gì khi deploy
+
+| Việc | Bắt buộc? | Chi tiết |
+|---|---|---|
+| Không làm gì | — | `/api/c4` dùng `CHAT_API_TOKEN` sẵn có; mọi biến `C4_*` đều có mặc định |
+| Tuỳ chỉnh renderer / giới hạn | Tuỳ chọn | `C4_PLANTUML_SERVER_URL`, `C4_INCLUDE_BASE`, `C4_DEADLINE_MS`, `C4_CALL_TIMEOUT_MS`, `C4_MAX_ELEMENTS`, `C4_SHOW_LEGEND` — xem `docs/DEPLOYMENT-GUIDE.md` §4.3a |
+| Upload rule thiết kế | Nên | File `.md` (luật vẽ C4, lưu ý chấm thi) vào vault → được RAG đưa cho mọi agent. Hiện index Pinecone đang trống (0 vector) |
+| Outbound HTTPS | Có | Server cần gọi được `www.plantuml.com` (và `raw.githubusercontent.com` nếu không dùng `C4_INCLUDE_BASE=stdlib`) |
+
+## Thay đổi
+
+| # | Thay đổi | Vì sao |
+|---|---|---|
+| 1 | Module mới `src/modules/c4` (domain/application/infrastructure/presentation): `POST /api/c4 { provider, model?, description, levels?, fast? }` → mỗi cấp một PNG base64 + `.puml` + requirement đã phủ/thiếu + ghi chú | Lệnh `/c4` của client desktop; logic trước đó chạy ở client, không kiểm soát được RAG / system prompt / thời gian |
+| 2 | Pipeline 2–3 lần gọi model bất kể số cấp: Architect (checklist + model chung + mọi diagram) → `validateDiagram` (coverage theo id requirement, tối giản: xoá element không phủ gì và không nối gì, luật skill c4-diagrams, đủ actor/hệ thống ngoài ở context+container, có mô tả) → render → Repair (một call cho mọi cấp lỗi, kể cả lỗi cú pháp PlantUML) → Critic (một call, xem tất cả ảnh) → render lại. Bản sửa chỉ được nhận nếu điểm validator không tệ hơn và render được | Mỗi call qua provider tốn vài chục giây + rate limit; gọi song song mỗi cấp một agent đã vượt 4.5 phút khi đo thật |
+| 3 | RAG: truy vấn vault **một lần** mỗi request (đề bài + truy vấn cố định "C4 design rules"), tối đa 8 chunk, đưa vào system prompt C4 riêng (không persona chat, không CITATION_RULES) | Rule người dùng upload áp dụng cho mọi agent; citation rules bắt trả prose + References, phá JSON |
+| 4 | `AIInvocationService.answerPrepared(request, prompt)` (tách từ `answer`, hành vi `answer` giữ nguyên) | C4 dùng chung route direct → OpenRouter, retry, fallback nhưng với system prompt riêng |
+| 5 | `.puml` port từ `c4-plantuml-mcp-server` (cùng include/macro → ảnh giống repo), sửa: escape `"`, boundary lồng nhau, `Rel_U/D/L/R`, giữ `HIDE_STEREOTYPE()`, bỏ note UUID. Renderer: `GET {server}/png/{encoded}`, retry 3 lần, lỗi cú pháp đọc từ header `X-PlantUML-Diagram-Error` | "Sinh ảnh chuẩn theo repo" |
+| 6 | Hạn cứng `C4_DEADLINE_MS` (mặc định 270 s), trần mỗi call `C4_CALL_TIMEOUT_MS`; Critic chỉ chạy trước 65% hạn | Client nhận kết quả < 5 phút; hết giờ vẫn trả ảnh tốt nhất |
+
+## Biến môi trường mới
+
+| Biến | Mặc định |
+|---|---|
+| `C4_PLANTUML_SERVER_URL` | `https://www.plantuml.com/plantuml` |
+| `C4_INCLUDE_BASE` | `https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master` (`stdlib` = bản trong PlantUML) |
+| `C4_DEADLINE_MS` | `270000` (kẹp 60000–290000) |
+| `C4_CALL_TIMEOUT_MS` | `150000` |
+| `C4_MAX_ELEMENTS` | `12` (kẹp 4–30) |
+| `C4_SHOW_LEGEND` | `false` |
+
+## Kiểm thử
+
+- `npm run typecheck`: 0 lỗi. `npx vitest run tests/unit`: 330 pass (30 test mới: `tests/unit/modules/c4/**`, `answerPrepared`).
+- Chạy thật (local, Gemini `gemini-3.1-flash-lite` direct, plantuml.com, qua HTTP từ client C#): 4 cấp trong 32–44 s, mọi requirement được phủ.
+
+---
+
 # Thay đổi: Refactor clean architecture + OpenRouter fallback + trace cho đánh giá
 
 > Ngày: 25/10/2026 · Nhánh: `refactor/clean-architecture` · Trạng thái: **chưa commit**

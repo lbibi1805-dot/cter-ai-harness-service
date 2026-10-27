@@ -1,4 +1,5 @@
 import type { AiConfig } from '../../modules/ai';
+import type { C4Config } from '../../modules/c4';
 import type { FileQaFolders } from '../../modules/fileqa/domain';
 import type { GmailCredentials } from '../../modules/notification';
 import type { HeartbeatSettings } from '../../modules/ops';
@@ -42,6 +43,8 @@ export interface AppConfig {
   retrieval: RetrievalConfig | null;
   rerank: RerankConfig;
   agent: AgentLimits;
+  /** /api/c4 (C4 Sketcher). */
+  c4: C4Config;
   /** Neon (prod) or local JSON files — shared by the vault manifest and poll cursors. */
   database: DatabaseSettings;
   gmail: GmailCredentials;
