@@ -120,6 +120,19 @@ Nguồn sự thật là `src/bootstrap/config/loadConfig.ts`; bảng dưới li�
 
 **Rollback không cần deploy:** `RERANK_PROVIDER=none`, `AGENT_MIN_TOOL_CALLS=0`.
 
+### 4.3a C4 Sketcher `/api/c4` (mới 27/10 — tuỳ chọn, đều có mặc định)
+
+| Biến | Mặc định | Ghi chú |
+|---|---|---|
+| `C4_PLANTUML_SERVER_URL` | `https://www.plantuml.com/plantuml` | Server render PNG. Server công khai đôi khi rate-limit; có thể self-host `plantuml/plantuml-server` (Docker) rồi trỏ vào |
+| `C4_INCLUDE_BASE` | `https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master` | Nguồn `C4_*.puml` (giống repo c4-plantuml-mcp-server). `stdlib` = bản đóng gói sẵn trong PlantUML, không fetch GitHub |
+| `C4_DEADLINE_MS` | `270000` | Hạn cứng một request (kẹp 60000–290000) để client nhận kết quả < 5 phút |
+| `C4_CALL_TIMEOUT_MS` | `150000` | Trần một lần gọi model (kể cả retry/fallback OpenRouter) |
+| `C4_MAX_ELEMENTS` | `12` | Element tối đa mỗi diagram (kẹp 4–30) |
+| `C4_SHOW_LEGEND` | `false` | Thêm `SHOW_LEGEND()` vào diagram |
+
+Dùng chung `CHAT_API_TOKEN` với `/api/chat` (không có token → 503). Rule thiết kế/lưu ý thi: upload file `.md` vào vault; mỗi lần vẽ server tìm trong RAG theo đề bài + truy vấn "C4 design rules" và đưa cho mọi agent.
+
 ### 4.3b OpenRouter fallback (mới — tuỳ chọn)
 
 OpenRouter là **fallback của backend**, client (extension, WPF, `/api/chat`) không thấy và không chọn được. Với mỗi câu hỏi:

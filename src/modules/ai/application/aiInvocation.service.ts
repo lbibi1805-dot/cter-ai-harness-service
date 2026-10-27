@@ -43,6 +43,14 @@ export class AIInvocationService {
   }
 
   async answer(request: AIRequest): Promise<AIAnswer> {
+    return this.answerPrepared(request, await this.prompts.prepare(request.content));
+  }
+
+  /**
+   * Same routes, retries and fallback as `answer`, for a caller that builds its own system prompt and
+   * context (e.g. the C4 sketcher, which must not get the chat persona or per-call retrieval).
+   */
+  async answerPrepared(request: AIRequest, prompt: PreparedPrompt): Promise<AIAnswer> {
     const direct = this.adapters.direct(request.provider);
     const fallbackModel = this.catalog.openRouterFallback(request.provider);
     const openRouter = fallbackModel ? this.adapters.openRouter(request.provider) : null;
@@ -50,7 +58,6 @@ export class AIInvocationService {
       throw new AIInvocationError(`${this.adapters.credentialName(request.provider)} not configured`, FailureKind.FATAL, 0, request.model);
     }
 
-    const prompt = await this.prompts.prepare(request.content);
     let attemptsBefore = 0;
     if (direct) {
       const directRun = await attempt(() => this.runRoute(direct, this.catalog.chainFor(request.provider, request.model), request, prompt));

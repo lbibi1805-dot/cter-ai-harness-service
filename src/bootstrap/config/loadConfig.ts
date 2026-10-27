@@ -12,6 +12,7 @@ import {
 import { readProjectFile } from '../helpers/config.helper';
 import type { AppConfig } from '../interfaces/appConfig.interface';
 import { readAiConfig } from './readers/aiConfig.reader';
+import { readC4Config } from './readers/c4Config.reader';
 import { readCanvasAccounts } from './readers/canvasAccounts.reader';
 import { readRerankConfig } from './readers/rerankConfig.reader';
 import { readRetrievalConfig } from './readers/retrievalConfig.reader';
@@ -49,6 +50,7 @@ export function loadConfig(): AppConfig {
       minToolCalls: readInt('AGENT_MIN_TOOL_CALLS', DEFAULT_AGENT_BUDGET.minToolCalls),
       maxDurationMs: readInt('AGENT_MAX_DURATION_MS', DEFAULT_AGENT_BUDGET.maxDurationMs),
     },
+    c4: readC4Config(),
     database: {
       provider: parseStorageProvider(readOptionalString('VAULT_STORAGE_PROVIDER')),
       databaseUrl: readOptionalString('DATABASE_URL'),

@@ -177,3 +177,22 @@ describe('AIInvocationService — OpenRouter fallback (backend-only)', () => {
     await expect(svc.answer(ask())).rejects.toMatchObject({ kind: FailureKind.FATAL, attempts: 2, lastModel: OPENROUTER_GEMINI });
   });
 });
+
+describe('AIInvocationService — answerPrepared', () => {
+  it('sends the caller-built system prompt and content without preparing a prompt', async () => {
+    const seen: Array<[string, string]> = [];
+    const adapter: AIAdapter = {
+      validate: async () => undefined,
+      process: async (content, system, model) => {
+        seen.push([content.textContent, system]);
+        return { text: '{"ok":true}', model };
+      },
+    };
+    const { svc, prepare } = service(factoryFor(adapter));
+    const content = { textContent: 'draw it', imageBuffers: [] };
+    const answer = await svc.answerPrepared({ ...ask(), content }, { systemPrompt: 'c4 architect', content, contexts: [] });
+    expect(answer).toMatchObject({ text: '{"ok":true}', model: 'g-1', route: ModelRoute.DIRECT });
+    expect(seen).toEqual([['draw it', 'c4 architect']]);
+    expect(prepare).not.toHaveBeenCalled();
+  });
+});

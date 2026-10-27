@@ -52,6 +52,7 @@ export function buildTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     retrieval: null,
     rerank: { ...DEFAULT_RERANK_CONFIG },
     agent: { maxToolCalls: 4, minToolCalls: 1, maxDurationMs: TEST_AGENT_MAX_DURATION_MS },
+    c4: { plantUmlServerUrl: 'http://127.0.0.1:1/plantuml', includeBase: 'stdlib', deadlineMs: 60_000, callTimeoutMs: 30_000, maxElements: 12, showLegend: false },
     database: { provider: StorageProvider.FILE },
     gmail: {},
     heartbeat: { enabled: false, intervalMs: TEST_HEARTBEAT_INTERVAL_MS },

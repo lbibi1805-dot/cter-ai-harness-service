@@ -767,6 +767,200 @@
           }
         }
       }
+    },
+    "/api/c4": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "C4 Sketcher: đề bài → C4 diagrams (PNG) trong < 5 phút",
+        "description": "Pipeline nhiều agent: Architect (checklist yêu cầu + mọi diagram) → validator (coverage, tối giản, luật C4, đủ actor/hệ thống ngoài) → render PlantUML → Repair (chỉ cấp lỗi) → Critic (xem ảnh) → render lại. Rule từ vault (RAG) được đưa vào mọi agent. Hết C4_DEADLINE_MS thì trả ảnh tốt nhất đã có. Cần CHAT_API_TOKEN; không đặt token → 503.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "provider",
+                  "description"
+                ],
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "claude",
+                      "gemini",
+                      "grok",
+                      "openai"
+                    ]
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Phải nằm trong danh sách model direct của provider; bỏ trống = mặc định"
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 12000,
+                    "description": "Đề bài / mô tả hệ thống"
+                  },
+                  "levels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "context",
+                        "container",
+                        "component",
+                        "sequence"
+                      ]
+                    },
+                    "description": "Bỏ trống = context + container. Nhận cả ctx/cnt/cmp/seq"
+                  },
+                  "fast": {
+                    "type": "boolean",
+                    "description": "Bỏ vòng Critic"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Một phần tử mỗi cấp; cấp lỗi có ok=false + error, các cấp khác vẫn có ảnh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "systemName": {
+                      "type": "string"
+                    },
+                    "requirements": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "levels": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "context",
+                                "container",
+                                "component",
+                                "sequence"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "knowledgeSources": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "File vault có chunk được đưa cho agent"
+                    },
+                    "levels": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "level": {
+                            "type": "string",
+                            "enum": [
+                              "context",
+                              "container",
+                              "component",
+                              "sequence"
+                            ]
+                          },
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "title": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "png": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "PNG base64 (không có tiền tố data:)"
+                          },
+                          "puml": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "elementCount": {
+                            "type": "integer"
+                          },
+                          "covered": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "missing": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "notes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "error": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    },
+                    "durationMs": {
+                      "type": "integer"
+                    },
+                    "deadlineHit": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body sai hoặc model không hợp lệ"
+          },
+          "401": {
+            "description": "Sai token"
+          },
+          "503": {
+            "description": "Chưa đặt CHAT_API_TOKEN"
+          }
+        }
+      }
     }
   }
 }

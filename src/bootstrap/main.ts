@@ -1,5 +1,6 @@
 import { createAgentModule, createToolCallingModelFactory } from '../modules/agent';
 import { createAiModule } from '../modules/ai';
+import { createC4Module } from '../modules/c4';
 import { createChatModule } from '../modules/chat';
 import { createConversationPoller } from '../modules/conversation';
 import { createFileQaJob } from '../modules/fileqa';
@@ -63,6 +64,10 @@ export async function main(): Promise<void> {
     productionRetriever: () => ai.rag.current()?.retriever ?? null,
   });
   const retrieveRouter = new Router(createRetrievalRoutes(new RetrievalController(retrievalQueries)), config.http.chatApiToken);
+  const c4 = createC4Module(
+    { ...config.c4, chatApiToken: config.http.chatApiToken },
+    { invocation: ai.invocation, catalog: ai.catalog, currentRetriever: () => ai.rag.current()?.retriever ?? null },
+  );
 
   // 5. Canvas polling jobs and ops endpoints
   const jobDeps = { catalog: ai.catalog, state, answers: agent.answers };
@@ -83,7 +88,7 @@ export async function main(): Promise<void> {
   );
 
   // 6. Start: the API first so the host (Render) detects the open port right away
-  const server = new HttpServer(config.http.port, [vault.router, polling.router, chat.router, retrieveRouter, ops.router], config.http.corsOrigins);
+  const server = new HttpServer(config.http.port, [vault.router, polling.router, chat.router, retrieveRouter, c4.router, ops.router], config.http.corsOrigins);
   logger.startup(config.accounts.length, config.polling.intervalMs);
   await server.start();
   // Polling starts on boot so a redeploy never leaves it silently stopped; POLL_AUTOSTART=false waits for GET /start.
