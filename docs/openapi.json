@@ -516,6 +516,10 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Trả thêm `trace` (contexts đã đưa vào prompt + quỹ đạo agent) — dùng cho repo đánh giá cter-rag-eval"
+                  },
+                  "stream": {
+                    "type": "boolean",
+                    "description": "true → trả application/x-ndjson, mỗi dòng một event: {\"type\":\"delta\",\"text\"} (đoạn chữ mới), {\"type\":\"reset\"} (retry/fallback bắt đầu: xoá phần chữ đã hiện), {\"type\":\"done\", ...như response JSON thường}, lỗi giữa chừng → {\"type\":\"error\",\"status\",\"error\"}. Agent mode chỉ có event done."
                   }
                 }
               }
@@ -774,7 +778,7 @@
           "Chat"
         ],
         "summary": "C4 Sketcher: đề bài → C4 diagrams (PNG) trong < 5 phút",
-        "description": "Pipeline nhiều agent: Architect (checklist yêu cầu + mọi diagram) → validator (coverage, tối giản, luật C4, đủ actor/hệ thống ngoài) → render PlantUML → Repair (chỉ cấp lỗi) → Critic (xem ảnh) → render lại. Rule từ vault (RAG) được đưa vào mọi agent. Hết C4_DEADLINE_MS thì trả ảnh tốt nhất đã có. Cần CHAT_API_TOKEN; không đặt token → 503.",
+        "description": "Pipeline nhiều agent: Architect (checklist yêu cầu + mọi diagram) → validator (coverage, tối giản, luật C4, đủ actor/hệ thống ngoài) → render PlantUML → Repair (chỉ cấp lỗi) → Critic (xem ảnh) → render lại. Rule từ vault (RAG) được đưa vào mọi agent. Hết C4_DEADLINE_MS thì trả ảnh tốt nhất đã có. Cần CHAT_API_TOKEN; không đặt token → 503. Human in the loop: khi đề mơ hồ, Architect trả tối đa 3 câu hỏi; run tạm dừng (đồng hồ dừng), response có `confirmation { sessionId, clarifications[{question, assumption}], expiresInSec }` và `levels: []`. Tiếp tục bằng POST /api/c4/resume.",
         "security": [
           {
             "bearerAuth": []
@@ -825,6 +829,10 @@
                   "fast": {
                     "type": "boolean",
                     "description": "Bỏ vòng Critic"
+                  },
+                  "stream": {
+                    "type": "boolean",
+                    "description": "true → application/x-ndjson: {\"type\":\"progress\",\"message\"}, {\"type\":\"analysis\",\"systemName\",\"requirements\",\"clarifications\",\"knowledgeSources\"}, {\"type\":\"level\", ...C4Level} mỗi lần một cấp có ảnh mới, cuối cùng {\"type\":\"done\", ...response}. Lỗi → {\"type\":\"error\"}."
                   }
                 }
               }
@@ -944,6 +952,32 @@
                     },
                     "deadlineHit": {
                       "type": "boolean"
+                    },
+                    "confirmation": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "sessionId": {
+                          "type": "string"
+                        },
+                        "clarifications": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "question": {
+                                "type": "string"
+                              },
+                              "assumption": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "expiresInSec": {
+                          "type": "integer"
+                        }
+                      }
                     }
                   }
                 }
@@ -955,6 +989,63 @@
           },
           "401": {
             "description": "Sai token"
+          },
+          "503": {
+            "description": "Chưa đặt CHAT_API_TOKEN"
+          }
+        }
+      }
+    },
+    "/api/c4/resume": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Tiếp tục một lần vẽ C4 đang chờ xác nhận (human in the loop)",
+        "description": "answers trống = giữ giả định của Architect (không gọi thêm model). Có answers = Architect chạy lại 1 lần theo câu trả lời rồi vẽ. Đồng hồ C4_DEADLINE_MS chạy tiếp từ chỗ đã dừng. Session sống 15 phút, dùng một lần.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sessionId"
+                ],
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "answers": {
+                    "type": "string",
+                    "maxLength": 12000
+                  },
+                  "stream": {
+                    "type": "boolean",
+                    "description": "Như /api/c4"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Giống response của /api/c4"
+          },
+          "400": {
+            "description": "Thiếu sessionId"
+          },
+          "401": {
+            "description": "Sai token"
+          },
+          "404": {
+            "description": "Session không tồn tại hoặc đã hết hạn"
           },
           "503": {
             "description": "Chưa đặt CHAT_API_TOKEN"

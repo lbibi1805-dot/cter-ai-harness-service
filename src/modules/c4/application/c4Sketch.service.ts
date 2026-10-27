@@ -1,14 +1,14 @@
-import { ServiceDisabledError, TimeoutError, UpstreamError, errorMessage } from '../../../shared/errors';
+import { randomUUID } from 'crypto';
+import { NotFoundError, ServiceDisabledError, TimeoutError, UpstreamError, errorMessage } from '../../../shared/errors';
 import { logger } from '../../../shared/logging/logger';
 import { attempt, withTimeout } from '../../../shared/resilience';
-import { UnsupportedModelError, type PromptImage } from '../../ai';
+import { UnsupportedModelError, type AIProvider, type PromptImage } from '../../ai';
 import type { CitedChunk } from '../../retrieval';
 import {
   C4_LEVEL_ORDER,
   DEFAULT_C4_LEVELS,
   isBoundary,
   toDiagramSpec,
-  toModelElements,
   validateDiagram,
   type C4DiagramSpec,
   type C4Level,
@@ -19,11 +19,14 @@ import {
 import { C4PromptBuilder } from './c4Prompts.builder';
 import { C4PumlBuilder } from './c4Puml.builder';
 import { DESIGN_RULES_QUERY, JSON_RETRY, MAX_KNOWLEDGE_CHUNKS } from './constants/c4Prompts.constants';
-import { C4Notes, KNOWLEDGE_TIMEOUT_MS, MIN_TIME_FOR_RETRY_MS, PNG_MIME_TYPE } from './constants/c4Sketch.constants';
-import { extractJsonObject, toCritiques, toRequirements, toSpecsByLevel } from './helpers/c4Answer.helper';
+import { C4_SESSION_TTL_MS, C4Notes, C4Progress, KNOWLEDGE_TIMEOUT_MS, MIN_TIME_FOR_RETRY_MS, PNG_MIME_TYPE } from './constants/c4Sketch.constants';
+import { extractJsonObject, sourcesOf, toArchitectPlan, toCritiques, toSpecsByLevel } from './helpers/c4Answer.helper';
 import type {
+  C4ArchitectPlan,
+  C4EventSink,
   C4LevelState,
   C4RepairInput,
+  C4ResumeRequest,
   C4RunContext,
   C4SketchDeps,
   C4SketchRequest,
@@ -39,6 +42,9 @@ import type {
  * Repair (only broken levels) → Critic (sees every image) → re-render. The user's knowledge base (vault RAG)
  * is retrieved once and given to every agent as design rules. Levels are validated and rendered on their own,
  * so one bad level never blocks the others, and at the deadline each level keeps its best rendered image.
+ *
+ * Human in the loop: when the architect reports a real ambiguity, the run pauses (clock stopped) and returns
+ * its questions; `resume` continues with the user's answers (one more architect call) or with its assumptions.
  */
 export class C4SketchService {
   private readonly prompts = new C4PromptBuilder();
@@ -58,7 +64,7 @@ export class C4SketchService {
     if (!this.settings.enabled) throw new ServiceDisabledError('C4 API disabled: set CHAT_API_TOKEN on the server');
   }
 
-  async sketch(request: C4SketchRequest): Promise<C4SketchResult> {
+  async sketch(request: C4SketchRequest, sink?: C4EventSink): Promise<C4SketchResult> {
     this.ensureEnabled();
     const { catalog } = this.deps;
     const model = catalog.resolve(request.provider, request.requestedModel);
@@ -67,41 +73,77 @@ export class C4SketchService {
     }
 
     const started = this.now();
-    const levels = C4_LEVEL_ORDER.filter((level) => (request.levels.length ? request.levels : DEFAULT_C4_LEVELS).includes(level));
+    const levels = this.levelsOf(request);
+    sink?.progress(C4Progress.KNOWLEDGE);
     const knowledge = await this.retrieveKnowledge(request.description);
-    const ctx: C4RunContext = {
-      provider: request.provider,
-      model,
-      systemPrompt: this.prompts.system(knowledge),
-      deadline: started + this.settings.deadlineMs,
-      label: `c4-${started}-${++this.sequence}`,
-    };
-    const states = new Map<C4Level, C4LevelState>(levels.map((level) => [level, this.newState(level)]));
-    const { maxElements } = this.settings;
+    const ctx = this.context(request.provider, model, knowledge, started, this.settings.deadlineMs, `c4-${started}-${++this.sequence}`, sink);
     logger.info(`[c4] ${ctx.label} ${levels.join('+')} with ${ctx.provider}/${model}, ${knowledge.length} knowledge chunks`);
 
-    // 1. Architect: checklist + every diagram from one shared model.
-    const architect = await attempt(() => this.askJson(ctx, this.prompts.architect(request.description, levels, maxElements), [], 'architect'));
+    // 1. Architect: checklist + every diagram from one shared model (+ questions when the statement is ambiguous).
+    sink?.progress(C4Progress.ARCHITECT(levels.length));
+    const architect = await attempt(() => this.askJson(ctx, this.prompts.architect(request.description, levels, this.settings.maxElements), [], 'architect'));
     if (!architect.ok) logger.warn(`[c4] ${ctx.label} architect failed: ${errorMessage(architect.error)}`);
-    const requirements: C4Requirement[] = architect.ok ? toRequirements(architect.value.requirements) : [];
-    const drafted = architect.ok ? toSpecsByLevel(architect.value.diagrams) : new Map<C4Level, C4DiagramSpec>();
-    const systemName = architect.ok && typeof architect.value.systemName === 'string' ? architect.value.systemName : '';
-    const sharedModel = architect.ok && architect.value.model && typeof architect.value.model === 'object' ? (architect.value.model as Record<string, unknown>) : {};
-    const rules: C4ValidationRules = { maxElements, requiredElements: [...toModelElements(sharedModel.actors), ...toModelElements(sharedModel.externalSystems)] };
+    const plan = toArchitectPlan(architect.ok ? architect.value : undefined, this.settings.maxElements);
+    sink?.analysis(plan, sourcesOf(knowledge));
+
+    if (architect.ok && plan.clarifications.length > 0) {
+      const activeMs = this.now() - started;
+      const id = randomUUID();
+      const expiresAt = this.now() + C4_SESSION_TTL_MS;
+      this.deps.sessions.save({ id, request, model, knowledge, architect: architect.value, remainingMs: this.timeLeft(ctx), activeMs, expiresAt, label: ctx.label });
+      logger.info(`[c4] ${ctx.label} paused for ${plan.clarifications.length} clarification(s)`);
+      return { ...this.summary(request.provider, model, plan, knowledge), levels: [], elapsedMs: activeMs, deadlineHit: false, confirmation: { sessionId: id, clarifications: plan.clarifications, expiresAt } };
+    }
+    return this.draw(ctx, request, plan, knowledge, 0, started);
+  }
+
+  /** Continues a paused run with the clock restarted where it stopped. */
+  async resume(resume: C4ResumeRequest, sink?: C4EventSink): Promise<C4SketchResult> {
+    this.ensureEnabled();
+    const session = this.deps.sessions.take(resume.sessionId);
+    if (!session) throw new NotFoundError('C4 session not found or expired — send /c4 again');
+
+    const resumedAt = this.now();
+    const ctx = this.context(session.request.provider, session.model, session.knowledge, resumedAt, session.remainingMs, session.label, sink);
+    let architect = session.architect;
+    const answers = resume.answers?.trim();
+    if (answers) {
+      sink?.progress(C4Progress.ARCHITECT_ANSWERS);
+      const levels = this.levelsOf(session.request);
+      const again = await attempt(() => this.askJson(ctx, this.prompts.architect(session.request.description, levels, this.settings.maxElements, answers), [], 'architect-answers'));
+      if (again.ok) architect = again.value;
+      else logger.warn(`[c4] ${ctx.label} architect (answers) failed, keeping the assumptions: ${errorMessage(again.error)}`);
+    }
+    const plan = toArchitectPlan(architect, this.settings.maxElements);
+    sink?.analysis({ ...plan, clarifications: [] }, sourcesOf(session.knowledge));
+    return this.draw(ctx, session.request, { ...plan, clarifications: [] }, session.knowledge, session.activeMs, resumedAt);
+  }
+
+  /** Steps after the architect: fallback drafts → validate + render → repair → critic → report. */
+  private async draw(ctx: C4RunContext, request: C4SketchRequest, plan: C4ArchitectPlan, knowledge: CitedChunk[], activeMsBefore: number, segmentStart: number): Promise<C4SketchResult> {
+    const levels = this.levelsOf(request);
+    const { requirements, rules } = plan;
+    const drafted = new Map<C4Level, C4DiagramSpec>([...plan.drafted].filter(([level]) => levels.includes(level)));
+    const states = new Map<C4Level, C4LevelState>(levels.map((level) => [level, this.newState(level)]));
+    const { maxElements } = this.settings;
     const requirementsJson = JSON.stringify(requirements);
 
     // 2. Drafter fallback, in parallel, only for levels the architect left out.
-    await Promise.all(levels.filter((level) => !drafted.has(level)).map(async (level) => {
-      const draft = await attempt(() => this.askJson(ctx, this.prompts.drafter(level, request.description, requirementsJson, JSON.stringify(architect.ok ? architect.value.model ?? {} : {}), maxElements), [], `draft-${level}`));
+    const missing = levels.filter((level) => !drafted.has(level));
+    if (missing.length > 0) ctx.sink?.progress(C4Progress.DRAFT(missing.length));
+    await Promise.all(missing.map(async (level) => {
+      const draft = await attempt(() => this.askJson(ctx, this.prompts.drafter(level, request.description, requirementsJson, plan.modelJson, maxElements), [], `draft-${level}`));
       if (draft.ok) drafted.set(level, toDiagramSpec(draft.value));
       else states.get(level)!.result.error = errorMessage(draft.error);
     }));
 
     // 3. Validate and render; validator/PlantUML problems are collected for one repair call.
-    await Promise.all([...drafted].map(([level, spec]) => this.tryAccept(states.get(level)!, validateDiagram(spec, level, requirements, rules))));
+    ctx.sink?.progress(C4Progress.RENDER);
+    await Promise.all([...drafted].map(([level, spec]) => this.tryAccept(ctx, states.get(level)!, validateDiagram(spec, level, requirements, rules))));
 
     const broken = [...states].filter(([, s]) => s.candidate && s.problems.length > 0);
     if (broken.length > 0 && this.timeLeft(ctx) > 0) {
+      ctx.sink?.progress(C4Progress.REPAIR(broken.length));
       const input = new Map<C4Level, C4RepairInput>(broken.map(([level, s]) => [level, { specJson: JSON.stringify(s.candidate!.spec), problems: s.problems }]));
       const repaired = await attempt(() => this.askJson(ctx, this.prompts.repair(input, maxElements), [], 'repair'));
       if (repaired.ok) {
@@ -111,7 +153,7 @@ export class C4SketchService {
           if (!spec) return;
           const validation = validateDiagram(spec, level, requirements, rules);
           if (s.result.png && validation.score >= s.candidate!.score) return;
-          if (await this.tryAccept(s, validation)) s.result.notes.push(C4Notes.REPAIRED);
+          await this.tryAccept(ctx, s, validation, C4Notes.REPAIRED);
         }));
       } else {
         logger.warn(`[c4] ${ctx.label} repair failed: ${errorMessage(repaired.error)}`);
@@ -121,9 +163,10 @@ export class C4SketchService {
     // 4. Critic sees every rendered image in one call; a revision must validate no worse and render.
     const rendered = [...states].filter(([, s]) => s.result.png);
     if (!request.fast && rendered.length > 0) {
-      if (this.now() - started > this.settings.criticCutoffMs) {
+      if (this.now() > ctx.criticBy) {
         for (const [, s] of rendered) s.result.notes.push(C4Notes.REVIEW_SKIPPED_LATE);
       } else {
+        ctx.sink?.progress(C4Progress.CRITIC);
         await this.review(ctx, rendered, requirements, requirementsJson, rules);
       }
     }
@@ -134,14 +177,10 @@ export class C4SketchService {
       if (s.result.png && deadlineHit) s.result.notes.push(C4Notes.DEADLINE);
       if (!s.result.png) s.result.error ??= s.problems[0] ?? (deadlineHit ? C4Notes.TIMED_OUT : C4Notes.NO_DIAGRAM);
     }
-    const elapsedMs = this.now() - started;
+    const elapsedMs = activeMsBefore + this.now() - segmentStart;
     logger.info(`[c4] ${ctx.label} done in ${elapsedMs}ms: ${[...states].map(([level, s]) => `${level}=${s.result.png ? 'ok' : 'failed'}`).join(', ')}`);
     return {
-      provider: request.provider,
-      model,
-      systemName,
-      requirements,
-      knowledgeSources: [...new Set(knowledge.map((chunk) => chunk.source))],
+      ...this.summary(ctx.provider, ctx.model, plan, knowledge),
       levels: [...states.values()].map((s) => s.result),
       elapsedMs,
       deadlineHit,
@@ -171,13 +210,17 @@ export class C4SketchService {
       }
       const validation = validateDiagram(verdict.spec, level, requirements, rules);
       if (validation.score > s.candidate!.score) s.result.notes.push(C4Notes.REVIEW_REJECTED_WORSE);
-      else if (await this.tryAccept(s, validation)) s.result.notes.push(`${C4Notes.REVIEW_FIXED} (${verdict.issues.slice(0, 3).join('; ')})`);
-      else s.result.notes.push(C4Notes.REVIEW_REJECTED_RENDER);
+      else if (!(await this.tryAccept(ctx, s, validation, `${C4Notes.REVIEW_FIXED} (${verdict.issues.slice(0, 3).join('; ')})`))) {
+        s.result.notes.push(C4Notes.REVIEW_REJECTED_RENDER);
+      }
     }));
   }
 
-  /** Renders the candidate; on success it becomes the level's result. Problems are kept for the repair round. */
-  private async tryAccept(state: C4LevelState, candidate: C4Validation): Promise<boolean> {
+  /**
+   * Renders the candidate; on success it becomes the level's result (with `note`) and is streamed to the client.
+   * Problems are kept for the repair round.
+   */
+  private async tryAccept(ctx: C4RunContext, state: C4LevelState, candidate: C4Validation, note?: string): Promise<boolean> {
     const level = state.result.level;
     const source = this.puml.build(candidate.spec, level);
     const render = await attempt(() => this.deps.renderer.render(source));
@@ -198,8 +241,10 @@ export class C4SketchService {
       elementCount: candidate.spec.elements.filter((e) => !isBoundary(e.kind)).length,
       covered: candidate.covered,
       missing: candidate.missing,
+      notes: note ? [...state.result.notes, note] : state.result.notes,
       error: undefined,
     };
+    ctx.sink?.level(state.result);
     return true;
   }
 
@@ -222,6 +267,28 @@ export class C4SketchService {
 
   private timeLeft(ctx: C4RunContext): number {
     return ctx.deadline - this.now();
+  }
+
+  /** `budgetMs` of machine time from `start`; the critic keeps the same tail it has in a full run. */
+  private context(provider: AIProvider, model: string, knowledge: CitedChunk[], start: number, budgetMs: number, label: string, sink?: C4EventSink): C4RunContext {
+    const deadline = start + budgetMs;
+    return {
+      provider,
+      model,
+      systemPrompt: this.prompts.system(knowledge),
+      deadline,
+      criticBy: deadline - (this.settings.deadlineMs - this.settings.criticCutoffMs),
+      label,
+      sink,
+    };
+  }
+
+  private levelsOf(request: C4SketchRequest): C4Level[] {
+    return C4_LEVEL_ORDER.filter((level) => (request.levels.length ? request.levels : DEFAULT_C4_LEVELS).includes(level));
+  }
+
+  private summary(provider: AIProvider, model: string, plan: C4ArchitectPlan, knowledge: CitedChunk[]) {
+    return { provider, model, systemName: plan.systemName, requirements: plan.requirements, knowledgeSources: sourcesOf(knowledge) };
   }
 
   /** Statement-specific notes plus the user's general design rules; RAG problems only cost the notes. */

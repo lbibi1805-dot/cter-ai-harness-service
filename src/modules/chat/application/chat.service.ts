@@ -2,7 +2,7 @@ import { ServiceDisabledError, UpstreamError, errorMessage } from '../../../shar
 import { logger } from '../../../shared/logging/logger';
 import { attempt } from '../../../shared/resilience/attempt';
 import type { Answerer } from '../../agent/domain';
-import { UnsupportedModelError, perProvider, type ModelCatalog } from '../../ai';
+import { UnsupportedModelError, perProvider, type AnswerStream, type ModelCatalog } from '../../ai';
 import { ChatServiceOptions, ChatStatus, ChatQuestion, ChatAnswer } from './interfaces/chat.interface';
 
 /**
@@ -30,7 +30,8 @@ export class ChatService {
   }
 
   /** Same model rules as a Canvas [CFH:REQUEST]; any AI failure becomes an UpstreamError (HTTP 502). */
-  async ask(question: ChatQuestion): Promise<ChatAnswer> {
+  /** With `stream`, single-shot answers are reported chunk by chunk (agent mode still answers at the end). */
+  async ask(question: ChatQuestion, stream?: AnswerStream): Promise<ChatAnswer> {
     this.ensureEnabled();
     const { provider, requestedModel, mode, content } = question;
     const model = this.catalog.resolve(provider, requestedModel);
@@ -40,7 +41,7 @@ export class ChatService {
 
     const label = `chat-api-${Date.now()}-${++this.sequence}`;
     const started = Date.now();
-    const answer = await attempt(() => this.answers.answer({ provider, model, content, label, mode }));
+    const answer = await attempt(() => this.answers.answer({ provider, model, content, label, mode, stream }));
     if (!answer.ok) {
       logger.warn(`[chat-api] ${label} failed for ${provider}/${model}: ${errorMessage(answer.error)}`);
       throw new UpstreamError(`AI request failed: ${errorMessage(answer.error)}`, undefined, { cause: answer.error });

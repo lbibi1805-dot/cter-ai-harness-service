@@ -4,9 +4,10 @@ import type { AIInvocationService, ModelCatalog } from '../ai';
 import type { ChunkRetriever } from '../rerank';
 import { C4SketchService } from './application/c4Sketch.service';
 import { CRITIC_CUTOFF_RATIO, MAX_C4_DEADLINE_MS, MIN_C4_DEADLINE_MS } from './application/constants/c4Sketch.constants';
-import type { C4KnowledgeSource, C4ModelGateway } from './application/interfaces/c4Sketch.interface';
+import type { C4KnowledgeSource, C4ModelGateway, C4SessionRepository } from './application/interfaces/c4Sketch.interface';
 import { MAX_MAX_ELEMENTS, MIN_MAX_ELEMENTS, type DiagramRenderer } from './domain';
 import { AIInvocationModelAdapter } from './infrastructure/aiInvocationModel.adapter';
+import { InMemoryC4SessionRepository } from './infrastructure/inMemoryC4Session.repository';
 import { PlantUmlRendererAdapter } from './infrastructure/plantUmlRenderer.adapter';
 import { RagKnowledgeAdapter } from './infrastructure/ragKnowledge.adapter';
 import { C4Controller } from './presentation/c4.controller';
@@ -37,6 +38,7 @@ export interface C4ModuleDeps {
   model?: C4ModelGateway;
   knowledge?: C4KnowledgeSource;
   renderer?: DiagramRenderer;
+  sessions?: C4SessionRepository;
   now?: () => number;
 }
 
@@ -60,6 +62,7 @@ export function createC4Module(config: C4ModuleConfig, deps: C4ModuleDeps): C4Mo
     },
     {
       catalog: deps.catalog,
+      sessions: deps.sessions ?? new InMemoryC4SessionRepository(deps.now),
       model: deps.model ?? new AIInvocationModelAdapter(deps.invocation),
       knowledge: deps.knowledge ?? new RagKnowledgeAdapter(deps.currentRetriever),
       renderer: deps.renderer ?? new PlantUmlRendererAdapter(config.plantUmlServerUrl),
@@ -74,7 +77,7 @@ export { C4SketchService } from './application/c4Sketch.service';
 export { C4PumlBuilder } from './application/c4Puml.builder';
 export { DEFAULT_C4_INCLUDE_BASE } from './application/constants/c4Puml.constants';
 export { DEFAULT_C4_CALL_TIMEOUT_MS, DEFAULT_C4_DEADLINE_MS } from './application/constants/c4Sketch.constants';
-export type { C4SketchRequest, C4SketchResult } from './application/interfaces/c4Sketch.interface';
+export type { C4ResumeRequest, C4SketchRequest, C4SketchResult } from './application/interfaces/c4Sketch.interface';
 export { DEFAULT_MAX_ELEMENTS } from './domain';
 export { DEFAULT_PLANTUML_SERVER_URL } from './infrastructure/constants/plantUml.constants';
 export { encodePlantUml, decodePlantUml } from './infrastructure/helpers/plantUmlEncoding.helper';

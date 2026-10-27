@@ -62,7 +62,7 @@ export { parseAIProvider } from './domain/helpers/ai.helper';
 export { PromptImage } from './domain/interfaces/promptContent.interface';
 export type { AIAnswer } from './application/interfaces/aiInvocation.interface';
 export type { AIInvocationSettings } from './application/interfaces/aiInvocation.interface';
-export type { AIRequest } from './application/interfaces/aiInvocation.interface';
+export type { AIRequest, AnswerStream } from './application/interfaces/aiInvocation.interface';
 export type { PreparedPrompt } from './application/interfaces/promptPreparer.interface';
 export { ModelCatalog } from './domain/modelCatalog';
 export type { KeyValidationResult } from './infrastructure/interfaces/aiAdapter.interface';

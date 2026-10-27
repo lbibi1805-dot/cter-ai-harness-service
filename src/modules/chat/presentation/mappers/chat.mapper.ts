@@ -25,6 +25,7 @@ export function toChatQuestion(body: unknown): ChatQuestion {
     mode: optionalString(raw.mode)?.toLowerCase() === AnswerMode.AGENT ? AnswerMode.AGENT : AnswerMode.SINGLE_SHOT,
     content: { textContent: question, imageBuffers: images, history: parseHistory(raw.history) },
     includeTrace: raw.includeTrace === true,
+    stream: raw.stream === true,
   };
 }
 

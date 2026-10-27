@@ -1,7 +1,8 @@
 import { attemptSync } from '../../../../shared/resilience';
-import { parseC4Level, toDiagramSpec, type C4Level, type C4Requirement } from '../../domain';
-import { CODE_FENCE, REVISE_VERDICT } from '../constants/c4Sketch.constants';
-import type { C4Critique, C4SpecsByLevel } from '../interfaces/c4Sketch.interface';
+import type { CitedChunk } from '../../../retrieval';
+import { parseC4Level, toDiagramSpec, toModelElements, type C4Level, type C4Requirement } from '../../domain';
+import { CODE_FENCE, MAX_CLARIFICATIONS, REVISE_VERDICT } from '../constants/c4Sketch.constants';
+import type { C4ArchitectPlan, C4Clarification, C4Critique, C4SpecsByLevel } from '../interfaces/c4Sketch.interface';
 
 /** The JSON object in a model answer: inside a ``` fence if there is one, else the first balanced {...}. */
 export function extractJsonObject(answer: string): Record<string, unknown> | undefined {
@@ -80,4 +81,35 @@ export function toCritiques(raw: unknown): Map<C4Level, C4Critique> {
     });
   }
   return critiques;
+}
+
+/** Questions the architect wants answered; each needs both a question and the assumption drawn meanwhile. */
+export function toClarifications(raw: unknown): C4Clarification[] {
+  return (Array.isArray(raw) ? raw : [])
+    .map((item) => (item && typeof item === 'object' ? (item as Record<string, unknown>) : {}))
+    .map((c) => ({
+      question: typeof c.question === 'string' ? c.question.trim() : '',
+      assumption: typeof c.assumption === 'string' ? c.assumption.trim() : '',
+    }))
+    .filter((c) => c.question)
+    .slice(0, MAX_CLARIFICATIONS);
+}
+
+/** The architect's JSON answer as a plan; an unusable answer (undefined) gives an empty plan the drafters fill. */
+export function toArchitectPlan(raw: Record<string, unknown> | undefined, maxElements: number): C4ArchitectPlan {
+  const body = raw ?? {};
+  const model = body.model && typeof body.model === 'object' ? (body.model as Record<string, unknown>) : {};
+  return {
+    systemName: typeof body.systemName === 'string' ? body.systemName : '',
+    requirements: toRequirements(body.requirements),
+    drafted: toSpecsByLevel(body.diagrams),
+    modelJson: JSON.stringify(model),
+    rules: { maxElements, requiredElements: [...toModelElements(model.actors), ...toModelElements(model.externalSystems)] },
+    clarifications: toClarifications(body.clarifications),
+  };
+}
+
+/** Vault files the knowledge chunks came from (shown to the user). */
+export function sourcesOf(knowledge: readonly CitedChunk[]): string[] {
+  return [...new Set(knowledge.map((chunk) => chunk.source))];
 }

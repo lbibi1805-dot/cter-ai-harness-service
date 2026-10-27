@@ -3,6 +3,7 @@ import { errorMessage } from '../errors';
 import { isAuthorized } from './auth';
 import { HttpStatus } from './enums/http.enums';
 import { httpStatusFor } from './httpErrorStatus';
+import { endStreamWithError } from './ndjson';
 import { sendError } from './response';
 import { Route, QueryParams, RouteHandler, RouteContext } from './interfaces/router.interface';
 
@@ -48,7 +49,9 @@ export class Router {
     try {
       await handler(ctx);
     } catch (err) {
-      sendError(ctx.res, httpStatusFor(err), errorMessage(err));
+      // A streamed response already sent its status: report the failure as the stream's last event instead.
+      if (ctx.res.headersSent) endStreamWithError(ctx.res, httpStatusFor(err), errorMessage(err));
+      else sendError(ctx.res, httpStatusFor(err), errorMessage(err));
     }
   }
 }

@@ -8,6 +8,8 @@ export interface ChatQuestion {
   mode: AnswerMode;
   content: PromptContent;
   includeTrace: boolean;
+  /** Answer as NDJSON events (delta/reset/done) instead of one JSON body. */
+  stream: boolean;
 }
 
 export interface ChatAnswer {

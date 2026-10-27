@@ -36,6 +36,9 @@ export enum HttpHeader {
   CONTENT_TYPE = 'Content-Type',
   ACCEPT = 'Accept',
   LINK = 'Link',
+  CACHE_CONTROL = 'Cache-Control',
+  /** Tells nginx-style proxies (Render) not to buffer a streamed response. */
+  ACCEL_BUFFERING = 'X-Accel-Buffering',
 }
 
 export enum ContentType {
@@ -45,4 +48,6 @@ export enum ContentType {
   PNG = 'image/png',
   JPEG = 'image/jpeg',
   HTML = 'text/html; charset=utf-8',
+  /** One JSON event per line (streamed answers). */
+  NDJSON = 'application/x-ndjson; charset=utf-8',
 }

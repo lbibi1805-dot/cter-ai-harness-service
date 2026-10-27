@@ -1,6 +1,7 @@
 import type { CitedChunk } from '../../retrieval';
 import type { C4Level } from '../domain';
 import type { C4RepairInput } from './interfaces/c4Sketch.interface';
+import { MAX_CLARIFICATIONS } from './constants/c4Sketch.constants';
 import {
   C4_SYSTEM_PROMPT,
   KNOWLEDGE_CLOSE_TAG,
@@ -24,7 +25,8 @@ export class C4PromptBuilder {
   }
 
   /** Analyst + drafter in one call: requirement checklist and every requested diagram from one shared model. */
-  architect(description: string, levels: readonly C4Level[], maxElements: number): string {
+  /** `answers`: the user's replies to an earlier run's clarification questions (human in the loop). */
+  architect(description: string, levels: readonly C4Level[], maxElements: number, answers?: string): string {
     const keys = levels.join(', ');
     return `Produce the requirement checklist and the C4 diagrams: ${keys}.
 
@@ -43,10 +45,16 @@ ${levels.map((level) => LEVEL_RULES[level]).join('\n')}
 
 ${UNIVERSAL_RULES}
 
+Step 4 — clarifications: ${answers ? 'the user already answered your questions (below); apply the answers and return "clarifications": [].' : `only for a genuine ambiguity that would change the
+diagrams (an unclear actor role, an external integration that is named but not specified, two plausible architectures). At most
+${MAX_CLARIFICATIONS}, each with the assumption you used when drawing. Return [] when the statement is clear enough; never ask about details
+that do not change the diagrams.`}
+
 JSON shape:
 { "systemName": "…",
   "requirements": [ { "id": "R1", "text": "…", "levels": ["${levels[0]}"] } ],
   "model": { "actors": [ { "id": "student", "name": "…" } ], "externalSystems": [ { "id": "sso", "name": "…" } ] },
+  "clarifications": [ { "question": "…", "assumption": "…" } ],
   "diagrams": { ${levels.map((level) => `"${level}": <spec>`).join(', ')} } }
 where each <spec> is:
 ${SPEC_SHAPE}
@@ -54,7 +62,12 @@ ${SPEC_SHAPE}
 Problem statement:
 <<<
 ${description}
->>>`;
+>>>${answers ? `
+
+The user's answers to your clarification questions:
+<<<
+${answers}
+>>>` : ''}`;
   }
 
   /** Fallback for a level the architect left out. */

@@ -144,3 +144,36 @@ describe('chat routes', () => {
     expect(body.error).toContain('all models exhausted');
   });
 });
+
+describe('chat routes — streaming', () => {
+  beforeEach(() => build());
+
+  it('answers stream=true as NDJSON delta/reset/done events', async () => {
+    answer.mockImplementation(async (request) => {
+      request.stream?.delta('Hel');
+      request.stream?.reset();
+      request.stream?.delta('Hello');
+      return { text: 'Hello', model: 'gemini-2.0-flash', attempts: 2, mode: AnswerMode.SINGLE_SHOT, contexts: [] };
+    });
+    const chunks: string[] = [];
+    let status = 0;
+    let headers: Record<string, string> = {};
+    const res = {
+      headersSent: false,
+      writableEnded: false,
+      writeHead: vi.fn(function (this: { headersSent: boolean }, code: number, h: Record<string, string>) { status = code; headers = h; this.headersSent = true; }),
+      flushHeaders: vi.fn(),
+      write: vi.fn((chunk: string) => { chunks.push(chunk); return true; }),
+      end: vi.fn((chunk?: string) => { if (chunk) chunks.push(chunk); }),
+    } as unknown as ServerResponse;
+    const body = Buffer.from(JSON.stringify({ provider: 'gemini', question: 'hi', stream: true }));
+    const req = Object.assign(Readable.from([body]), { method: 'POST', url: '/api/chat', headers: { authorization: `Bearer ${TOKEN}` } }) as unknown as IncomingMessage;
+    await router.dispatch(req, res, new URL('/api/chat', 'http://localhost'));
+
+    expect(status).toBe(200);
+    expect(headers['Content-Type']).toContain('application/x-ndjson');
+    const events = chunks.join('').trim().split('\n').map((line) => JSON.parse(line));
+    expect(events.map((e) => e.type)).toEqual(['delta', 'reset', 'delta', 'done']);
+    expect(events[3]).toMatchObject({ text: 'Hello', provider: 'gemini' });
+  });
+});

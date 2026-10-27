@@ -1,6 +1,7 @@
 import type OpenAI from 'openai';
 import type { OpenRouterConfig } from '../../domain/interfaces/aiConfig.interface';
-import type { AIAdapter, ProviderReply } from '../../domain/interfaces/aiProvider.port';
+import type { AIAdapter, ProviderReply, TextDeltaListener } from '../../domain/interfaces/aiProvider.port';
+import { streamChatCompletion } from '../helpers/chatCompletionStream.helper';
 import { toChatMessages } from '../providers/openaiMessages';
 import { assertCompletion, buildRoutingFields } from './openRouter.client';
 import { PromptContent } from '../../domain/interfaces/promptContent.interface';
@@ -21,12 +22,13 @@ export class OpenRouterAdapter implements AIAdapter {
     await this.client.models.list();
   }
 
-  async process(content: PromptContent, systemPrompt: string, model: string): Promise<ProviderReply> {
+  async process(content: PromptContent, systemPrompt: string, model: string, onDelta?: TextDeltaListener): Promise<ProviderReply> {
     const body: OpenAI.ChatCompletionCreateParamsNonStreaming = {
       model,
       messages: toChatMessages(content, systemPrompt),
       ...buildRoutingFields(model, this.fallbacks, this.config),
     };
+    if (onDelta) return streamChatCompletion(this.client, { ...body, stream: true }, onDelta);
     const completion = await this.client.chat.completions.create(body);
     const choice = assertCompletion(completion, model);
     return { text: choice.message.content ?? '', model: completion.model || model };

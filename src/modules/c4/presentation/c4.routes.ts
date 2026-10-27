@@ -6,5 +6,8 @@ import { C4ApiPath } from './enums/c4.enums';
 
 /** Needs `Authorization: Bearer <CHAT_API_TOKEN>`, like /api/chat (it spends AI credits). */
 export function createC4Routes(controller: C4Controller): Route[] {
-  return [{ method: HttpMethod.POST, match: exactPath(C4ApiPath.SKETCH), requiresAuth: true, handler: controller.sketch }];
+  return [
+    { method: HttpMethod.POST, match: exactPath(C4ApiPath.SKETCH), requiresAuth: true, handler: controller.sketch },
+    { method: HttpMethod.POST, match: exactPath(C4ApiPath.RESUME), requiresAuth: true, handler: controller.resume },
+  ];
 }

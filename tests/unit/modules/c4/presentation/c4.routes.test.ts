@@ -60,4 +60,38 @@ describe('POST /api/c4', () => {
     expect((await call(build().router, { provider: 'gemini', description: 'x' }, 'Bearer wrong')).status).toBe(401);
     expect((await call(build(false).router, { provider: 'gemini', description: 'x' }, '')).status).toBe(503);
   });
+
+  it('streams progress/analysis/level/done events with stream=true', async () => {
+    const { router } = build();
+    const chunks: string[] = [];
+    const res = {
+      headersSent: false,
+      writableEnded: false,
+      writeHead: vi.fn(function (this: { headersSent: boolean }) { this.headersSent = true; }),
+      flushHeaders: vi.fn(),
+      write: vi.fn((chunk: string) => { chunks.push(chunk); return true; }),
+      end: vi.fn((chunk?: string) => { if (chunk) chunks.push(chunk); }),
+    } as unknown as ServerResponse;
+    const body = Buffer.from(JSON.stringify({ provider: 'gemini', description: 'Cinema', levels: ['ctx'], fast: true, stream: true }));
+    const req = Object.assign(Readable.from([body]), { method: 'POST', url: '/api/c4', headers: { authorization: `Bearer ${TOKEN}` } }) as unknown as IncomingMessage;
+    await router.dispatch(req, res, new URL('/api/c4', 'http://localhost'));
+    const types = chunks.join('').trim().split('\n').map((line) => JSON.parse(line).type);
+    expect(types[0]).toBe('progress');
+    expect(types).toContain('analysis');
+    expect(types).toContain('level');
+    expect(types[types.length - 1]).toBe('done');
+  });
+
+  it('answers 404 for an unknown resume session and 400 without sessionId', async () => {
+    const { router } = build();
+    const resume = async (body: unknown) => {
+      let status = 0;
+      const res = { writeHead: vi.fn((code: number) => { status = code; }), end: vi.fn() } as unknown as ServerResponse;
+      const req = Object.assign(Readable.from([Buffer.from(JSON.stringify(body))]), { method: 'POST', url: '/api/c4/resume', headers: { authorization: `Bearer ${TOKEN}` } }) as unknown as IncomingMessage;
+      await router.dispatch(req, res, new URL('/api/c4/resume', 'http://localhost'));
+      return status;
+    };
+    expect(await resume({ sessionId: 'nope' })).toBe(404);
+    expect(await resume({})).toBe(400);
+  });
 });

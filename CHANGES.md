@@ -1,3 +1,32 @@
+# Thay đổi: Streaming `/api/chat` + `/api/c4`, human in the loop cho C4 (27/10/2026)
+
+> Trạng thái: **chưa commit** · Client: `cter-interview-cloak-client`
+
+## TL;DR khi deploy
+
+| Việc | Bắt buộc? | Chi tiết |
+|---|---|---|
+| Không làm gì | — | Không có biến môi trường mới. Client cũ (không gửi `stream`) nhận JSON như trước |
+| Proxy | Kiểm tra | Response stream là `application/x-ndjson` + `X-Accel-Buffering: no`; Render không buffer. Nếu đặt sau nginx riêng, tắt `proxy_buffering` |
+
+## Thay đổi
+
+| # | Thay đổi | Vì sao |
+|---|---|---|
+| 1 | `POST /api/chat` nhận `stream: true` → NDJSON: `delta` (đoạn chữ), `reset` (retry/fallback sau khi đã gửi chữ → client xoá phần đã hiện), `done` (body như JSON thường, text đã clean), `error` | Hiện chữ dần thay vì chờ cả câu trả lời |
+| 2 | `AIAdapter.process(..., onDelta?)`: Claude (`messages.stream`), Gemini (`generateContentStream`), OpenAI Chat Completions + Responses (`response.output_text.delta`), Grok, OpenRouter (Chat Completions stream, lỗi trong chunk → exception có code để classifier xử lý) | Một đường stream chung cho mọi provider; không truyền `onDelta` thì hành vi cũ |
+| 3 | `AIRequest.stream?: AnswerStream`; `AIInvocationService` gọi `reset()` trước mỗi lần thử lại nếu đã gửi chữ (`createStreamRelay`). Agent mode không stream (chỉ `done`) | Retry/fallback OpenRouter không làm chữ bị lặp |
+| 4 | `shared/http/ndjson.ts` (`NdjsonStream`); Router: lỗi sau khi stream đã mở → event `error` thay vì ghi header lần hai | Error boundary vẫn là một chỗ |
+| 5 | `POST /api/c4` nhận `stream: true` → `progress`, `analysis` (checklist trước khi có ảnh), `level` (mỗi ảnh ngay khi render/sửa xong), `done` | Thấy tiến độ và ảnh đầu tiên sau ~15–20 s |
+| 6 | **Human in the loop**: Architect trả `clarifications` (tối đa 3, mỗi câu kèm giả định đã dùng) chỉ khi đề mơ hồ thật. Có câu hỏi → run dừng, lưu session (bộ nhớ, 15 phút, tối đa 50, dùng một lần), response có `confirmation`. `POST /api/c4/resume { sessionId, answers?, stream? }`: answers trống = vẽ luôn bản nháp theo giả định (0 call thêm); có answers = Architect chạy lại 1 lần. Đồng hồ `C4_DEADLINE_MS` dừng khi chờ người dùng, `durationMs` chỉ tính thời gian máy | Đề thi mơ hồ (vd "có thanh toán" không nói cổng nào) được hỏi lại thay vì đoán |
+
+## Kiểm thử
+
+- `npm run typecheck` 0 lỗi; `npm test` 365 pass (mới: stream relay/reset, chat NDJSON route, C4 stream route, resume 404/400, pause/resume với đồng hồ dừng, resume có answers, session hết hạn).
+- Chạy thật local (Gemini direct): `/api/chat` stream 16 delta, chữ đầu tiên ~2 s; `/api/c4` đề "phòng khám, có thanh toán và gửi thông báo" → hỏi 1 câu; resume với câu trả lời "VNPay; SMS + email" → 2 diagram trong 37.7 s máy chạy, ảnh đầu tiên sau ~17 s.
+
+---
+
 # Thay đổi: C4 Sketcher `POST /api/c4` (27/10/2026)
 
 > Trạng thái: **chưa commit** · Client gọi: `cter-interview-cloak-client` (lệnh chat `/c4`)

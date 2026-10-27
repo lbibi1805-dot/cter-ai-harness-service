@@ -20,6 +20,8 @@ import type { PromptPreparer } from './promptPreparer.service';
 import { PreparedPrompt } from './interfaces/promptPreparer.interface';
 import { AIInvocationDeps, AIInvocationSettings, AIRequest, AIAnswer, RouteResult } from './interfaces/aiInvocation.interface';
 import { OPENROUTER_LOG_PREFIX } from './constants/aiInvocation.constants';
+import { createStreamRelay } from './helpers/answerStream.helper';
+import type { StreamRelay } from './interfaces/answerStream.interface';
 
 /**
  * Single entry point for single-shot AI calls from every flow. The prompt is
@@ -58,9 +60,10 @@ export class AIInvocationService {
       throw new AIInvocationError(`${this.adapters.credentialName(request.provider)} not configured`, FailureKind.FATAL, 0, request.model);
     }
 
+    const relay = request.stream ? createStreamRelay(request.stream) : undefined;
     let attemptsBefore = 0;
     if (direct) {
-      const directRun = await attempt(() => this.runRoute(direct, this.catalog.chainFor(request.provider, request.model), request, prompt));
+      const directRun = await attempt(() => this.runRoute(direct, this.catalog.chainFor(request.provider, request.model), request, prompt, relay));
       if (directRun.ok) return this.toAnswer(directRun.value, 0, prompt, ModelRoute.DIRECT);
       if (!openRouter || !fallbackModel) throw directRun.error;
       attemptsBefore = directRun.error instanceof AIInvocationError ? directRun.error.attempts : 0;
@@ -68,16 +71,19 @@ export class AIInvocationService {
       logger.fallback(request.provider, lastModel, `${OPENROUTER_LOG_PREFIX}${fallbackModel}`, request.label, errorMessage(directRun.error));
     }
 
-    const routed = await attempt(() => this.runRoute(openRouter!, [fallbackModel!], request, prompt));
+    const routed = await attempt(() => this.runRoute(openRouter!, [fallbackModel!], request, prompt, relay));
     if (routed.ok) return this.toAnswer(routed.value, attemptsBefore, prompt, ModelRoute.OPENROUTER);
     throw this.withPriorAttempts(routed.error, attemptsBefore);
   }
 
   /** One route: each model is retried with backoff; rate limits and permanent errors move on; fatal stops the route. */
-  private async runRoute(adapter: AIAdapter, models: string[], request: AIRequest, prompt: PreparedPrompt): Promise<RouteResult> {
+  private async runRoute(adapter: AIAdapter, models: string[], request: AIRequest, prompt: PreparedPrompt, relay?: StreamRelay): Promise<RouteResult> {
     const success = await runWithFallback(
       models,
-      (model) => withTimeout(adapter.process(prompt.content, prompt.systemPrompt, model), this.settings.timeoutMs, `${request.provider}/${model}`),
+      (model) => {
+        relay?.beforeAttempt();
+        return withTimeout(adapter.process(prompt.content, prompt.systemPrompt, model, relay?.onDelta), this.settings.timeoutMs, `${request.provider}/${model}`);
+      },
       {
         attemptsPerTarget: (kind) => this.attemptLimit(kind),
         sleep: this.sleep,

@@ -19,6 +19,17 @@ export interface AIRequest {
   content: PromptContent;
   /** Shown in logs, e.g. the file name or conversation key. */
   label: string;
+  /** Streams the answer as it is produced; absent = one reply at the end (all polling flows). */
+  stream?: AnswerStream;
+}
+
+/**
+ * A streamed answer. `reset` is called when a retry or fallback starts after text was already sent, so the
+ * client drops the partial text; the final AIAnswer text (cleaned) is authoritative.
+ */
+export interface AnswerStream {
+  delta(text: string): void;
+  reset(): void;
 }
 
 export interface AIAnswer {

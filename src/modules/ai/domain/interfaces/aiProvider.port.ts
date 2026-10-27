@@ -7,9 +7,13 @@ export interface ProviderReply {
   model: string;
 }
 
+/** Receives answer text as the model produces it (streaming); the full reply is still returned at the end. */
+export type TextDeltaListener = (text: string) => void;
+
 /** One model vendor (or the OpenRouter gateway) behind a single call. */
 export interface AIAdapter {
-  process(content: PromptContent, systemPrompt: string, model: string): Promise<ProviderReply>;
+  /** With `onDelta`, the adapter streams and reports each text chunk; the returned reply holds the whole text. */
+  process(content: PromptContent, systemPrompt: string, model: string, onDelta?: TextDeltaListener): Promise<ProviderReply>;
   validate(): Promise<void>;
 }
 

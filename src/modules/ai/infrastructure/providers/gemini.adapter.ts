@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, type Content, type Part } from '@google/generative-
 import { UpstreamError } from '../../../../shared/errors';
 import { GEMINI_MODELS_URL } from '../../domain/constants/ai.constants';
 import { ConversationRole } from '../../domain/enums/ai.enums';
-import type { AIAdapter, ProviderReply } from '../../domain/interfaces/aiProvider.port';
+import type { AIAdapter, ProviderReply, TextDeltaListener } from '../../domain/interfaces/aiProvider.port';
 import { PromptContent } from '../../domain/interfaces/promptContent.interface';
 
 export class GeminiAdapter implements AIAdapter {
@@ -20,7 +20,7 @@ export class GeminiAdapter implements AIAdapter {
     if (!res.ok) throw new UpstreamError(`HTTP ${res.status}`, res.status);
   }
 
-  async process(content: PromptContent, systemPrompt: string, model: string): Promise<ProviderReply> {
+  async process(content: PromptContent, systemPrompt: string, model: string, onDelta?: TextDeltaListener): Promise<ProviderReply> {
     const generativeModel = this.client.getGenerativeModel({ model, systemInstruction: systemPrompt });
     const parts: Part[] = [];
     if (content.textContent) parts.push({ text: content.textContent });
@@ -31,7 +31,13 @@ export class GeminiAdapter implements AIAdapter {
       role: turn.role === ConversationRole.USER ? 'user' : 'model',
       parts: [{ text: turn.text }],
     }));
-    const result = await generativeModel.generateContent({ contents: [...history, { role: 'user', parts }] });
-    return { text: result.response.text(), model };
+    const request = { contents: [...history, { role: 'user', parts }] };
+    if (!onDelta) {
+      const result = await generativeModel.generateContent(request);
+      return { text: result.response.text(), model };
+    }
+    const streamed = await generativeModel.generateContentStream(request);
+    for await (const chunk of streamed.stream) onDelta(chunk.text());
+    return { text: (await streamed.response).text(), model };
   }
 }

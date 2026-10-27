@@ -196,3 +196,23 @@ describe('AIInvocationService — answerPrepared', () => {
     expect(prepare).not.toHaveBeenCalled();
   });
 });
+
+describe('AIInvocationService — streaming', () => {
+  it('relays deltas and resets the stream before a retry that follows partial text', async () => {
+    let call = 0;
+    const adapter: AIAdapter = {
+      validate: async () => undefined,
+      process: async (_content, _system, model, onDelta) => {
+        call++;
+        onDelta?.(`part${call}`);
+        if (call === 1) throw httpError(503);
+        return { text: `part${call}`, model };
+      },
+    };
+    const events: string[] = [];
+    const { svc } = service(factoryFor(adapter));
+    const answer = await svc.answer({ ...ask(), stream: { delta: (t) => events.push(t), reset: () => events.push('<reset>') } });
+    expect(events).toEqual(['part1', '<reset>', 'part2']);
+    expect(answer.text).toBe('part2');
+  });
+});

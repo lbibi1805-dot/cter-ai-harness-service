@@ -24,6 +24,26 @@ export const REVISE_VERDICT = 'revise';
 
 export const PNG_MIME_TYPE = 'image/png';
 
+/** How long a paused run waits for the user's answer before its session is dropped. */
+export const C4_SESSION_TTL_MS = 15 * 60_000;
+
+/** Paused runs kept at once; the oldest goes first (each holds a few KB of JSON). */
+export const MAX_C4_SESSIONS = 50;
+
+/** The architect may ask at most this many questions; more would cost the user more time than it saves. */
+export const MAX_CLARIFICATIONS = 3;
+
+/** Progress messages for streaming clients (Vietnamese UI). */
+export const C4Progress = {
+  KNOWLEDGE: 'Đang tìm rule thiết kế trong knowledge base…',
+  ARCHITECT: (count: number) => `Architect đang phân tích đề và vẽ ${count} diagram…`,
+  ARCHITECT_ANSWERS: 'Architect đang cập nhật theo câu trả lời của bạn…',
+  DRAFT: (count: number) => `Đang vẽ bù ${count} diagram…`,
+  RENDER: 'Đang render PlantUML…',
+  REPAIR: (count: number) => `Đang sửa ${count} diagram…`,
+  CRITIC: 'Critic đang review ảnh…',
+} as const;
+
 /** Notes shown under each image in the client (Vietnamese UI). */
 export const C4Notes = {
   REPAIRED: 'đã tự sửa',
