@@ -1,3 +1,33 @@
+# Thay đổi: Agent mode cũng stream + event `progress` (27/10/2026)
+
+> Trạng thái: **chưa commit** · Client: `cter-interview-cloak-client` (bản có `onProgress` + đồng hồ chờ)
+
+## Vì sao
+
+`/api/chat` đã stream ở single-shot, nhưng **agent mode không stream**: `AnswerService` rẽ nhánh agent và
+gọi `runner.run()` mà không truyền `stream`, nên client chỉ nhận đúng một event `done` ở cuối — chữ hiện
+một cục sau 10–20 s im lặng. Ngoài ra cả single-shot lẫn agent đều không có event nào trong lúc dựng prompt
+(RAG) và lúc agent đọc vault.
+
+## Thay đổi
+
+| # | Thay đổi | Vì sao |
+|---|---|---|
+| 1 | `POST /api/chat` (stream) phát `progress` đầu tiên ngay khi nhận request: `{"type":"progress","stage":"preparing"}` | Client biết server đã nhận, không thấy "đứng hình" trong lúc dựng prompt/RAG |
+| 2 | `AnswerStream.progress?` + `ProgressStage` (`src/modules/ai/domain/enums/streamProgress.enums.ts`): `answering` (prompt xong, bắt đầu gọi model) và `agent-tool` + `detail` = tên tool | Một kênh "đang làm gì" độc lập với text; transport tự đặt tên event |
+| 3 | Agent stream chữ: `ToolCallingSession.next(..., onDelta?)`, `AgentRunner` truyền `stream` xuống, cả `OpenAIResponsesSession` (`stream: true`, ghép từ `response.completed`) và `ChatCompletionsSession` (ghép `delta.tool_calls` theo `index`) | Agent trả lời đến đâu hiện đến đó thay vì một cục |
+| 4 | Agent chạy tool → `progress` `agent-tool`; turn gọi tool mà có nói trước → `reset` để client xoá phần mở đầu (không thuộc câu trả lời) | Người dùng thấy "agent đang chạy search_vault" thay vì im lặng |
+| 5 | Agent lỗi → `reset()` trước khi fallback single-shot | Không để chữ của agent dính vào câu trả lời single-shot |
+| 6 | Không retry transport ở nhánh agent streaming (chỉ `withTimeout`) | Retry sau khi đã gửi chữ sẽ gửi trùng; fallback single-shot vẫn còn |
+
+## Kiểm thử
+
+- `npm run typecheck` 0 lỗi; `npx vitest run tests/unit` **341 pass** (thêm: runner stream + reset preamble +
+  progress tool; `AnswerService` truyền stream và reset khi fallback; chat route phát `progress` và forward
+  `agent-tool`).
+
+---
+
 # Thay đổi: Streaming `/api/chat` + `/api/c4`, human in the loop cho C4 (27/10/2026)
 
 > Trạng thái: **chưa commit** · Client: `cter-interview-cloak-client`

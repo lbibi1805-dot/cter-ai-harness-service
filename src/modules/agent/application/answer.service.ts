@@ -32,9 +32,17 @@ export class AnswerService implements Answerer {
     if (!resolution.supported) return this.fallback(request, resolution.reason);
 
     const { runner, systemPrompt } = this.agent;
-    const run = await attempt(() => runner.run({ model: resolution.model, systemPrompt, content: request.content, label: request.label }));
+    const run = await attempt(() => runner.run({
+      model: resolution.model,
+      systemPrompt,
+      content: request.content,
+      label: request.label,
+      stream: request.stream,
+    }));
     if (!run.ok) {
       logger.warn(`[agent] ${request.label} failed (${errorMessage(run.error)}) — falling back to single-shot`);
+      // Drop any agent text the client already shows: the single-shot answer replaces it from scratch.
+      request.stream?.reset();
       return this.fallback(request, AgentFallbackReason.AGENT_FAILED);
     }
     return toAgentAnswer(run.value);

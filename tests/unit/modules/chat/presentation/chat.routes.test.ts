@@ -6,7 +6,7 @@ import { AgentFallbackReason, AnswerMode, type Answerer } from '../../../../../s
 import { ChatController } from '../../../../../src/modules/chat/presentation/chat.controller';
 import { ChatService } from '../../../../../src/modules/chat/application/chat.service';
 import { createChatRoutes } from '../../../../../src/modules/chat/presentation/chat.routes';
-import { AIProvider, ModelCatalog, type PerProvider } from '../../../../../src/modules/ai';
+import { AIProvider, ModelCatalog, ProgressStage, type PerProvider } from '../../../../../src/modules/ai';
 import { buildTestAiConfig } from '../../../../support/configFixture';
 import { MAX_CHAT_IMAGES } from '../../../../../src/modules/chat/presentation/constants/chat.constants';
 
@@ -173,7 +173,37 @@ describe('chat routes — streaming', () => {
     expect(status).toBe(200);
     expect(headers['Content-Type']).toContain('application/x-ndjson');
     const events = chunks.join('').trim().split('\n').map((line) => JSON.parse(line));
-    expect(events.map((e) => e.type)).toEqual(['delta', 'reset', 'delta', 'done']);
-    expect(events[3]).toMatchObject({ text: 'Hello', provider: 'gemini' });
+    // `preparing` goes out before the prompt is built, so the client can show something at once.
+    expect(events.map((e) => e.type)).toEqual(['progress', 'delta', 'reset', 'delta', 'done']);
+    expect(events[0]).toMatchObject({ stage: 'preparing' });
+    expect(events[4]).toMatchObject({ text: 'Hello', provider: 'gemini' });
+  });
+
+  it('forwards pipeline progress (agent tool calls) as progress events', async () => {
+    answer.mockImplementation(async (request) => {
+      request.stream?.progress?.({ stage: ProgressStage.ANSWERING });
+      request.stream?.progress?.({ stage: ProgressStage.AGENT_TOOL, detail: 'search_vault' });
+      return { text: 'from the vault', model: 'gpt-6-astra', attempts: 1, mode: AnswerMode.AGENT, contexts: [] };
+    });
+    const chunks: string[] = [];
+    const res = {
+      headersSent: false,
+      writableEnded: false,
+      writeHead: vi.fn(),
+      flushHeaders: vi.fn(),
+      write: vi.fn((chunk: string) => { chunks.push(chunk); return true; }),
+      end: vi.fn((chunk?: string) => { if (chunk) chunks.push(chunk); }),
+    } as unknown as ServerResponse;
+    const body = Buffer.from(JSON.stringify({ provider: 'openai', model: 'gpt-6-astra', mode: 'agent', question: 'q', stream: true }));
+    const req = Object.assign(Readable.from([body]), { method: 'POST', url: '/api/chat', headers: { authorization: `Bearer ${TOKEN}` } }) as unknown as IncomingMessage;
+    await router.dispatch(req, res, new URL('/api/chat', 'http://localhost'));
+
+    const events = chunks.join('').trim().split('\n').map((line) => JSON.parse(line));
+    expect(events.filter((e) => e.type === 'progress')).toEqual([
+      { type: 'progress', stage: 'preparing' },
+      { type: 'progress', stage: 'answering' },
+      { type: 'progress', stage: 'agent-tool', detail: 'search_vault' },
+    ]);
+    expect(events.at(-1)).toMatchObject({ type: 'done', text: 'from the vault', mode: 'agent' });
   });
 });

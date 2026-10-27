@@ -13,6 +13,7 @@ import {
 } from '../../../shared/resilience';
 import { RATE_LIMIT_ATTEMPTS_PER_MODEL } from '../domain/constants/ai.constants';
 import { ModelRoute } from '../domain/enums/ai.enums';
+import { ProgressStage } from '../domain/enums/streamProgress.enums';
 import { AIInvocationError } from '../domain/errors/ai.errors';
 import type { AIAdapter, AIAdapterFactory } from '../domain/interfaces/aiProvider.port';
 import type { ModelCatalog } from '../domain/modelCatalog';
@@ -61,6 +62,8 @@ export class AIInvocationService {
     }
 
     const relay = request.stream ? createStreamRelay(request.stream) : undefined;
+    // The prompt is ready and a model call starts: a streamed client can stop saying "preparing".
+    request.stream?.progress?.({ stage: ProgressStage.ANSWERING });
     let attemptsBefore = 0;
     if (direct) {
       const directRun = await attempt(() => this.runRoute(direct, this.catalog.chainFor(request.provider, request.model), request, prompt, relay));

@@ -42,9 +42,11 @@ export function createAiModule(config: AiModuleConfig, deps: AiModuleDeps = {}):
 export { PromptPreparer } from './application/promptPreparer.service';
 export * from './domain/constants/ai.constants';
 export * from './domain/enums/ai.enums';
+export * from './domain/enums/streamProgress.enums';
 export * from './domain/errors/ai.errors';
 export * from './domain/interfaces/aiConfig.interface';
 export * from './domain/interfaces/aiProvider.port';
+export * from './domain/interfaces/streamProgress.interface';
 export { perProvider } from './domain/helpers/perProvider.helper';
 export * from './domain/promptContent';
 export { ConfiguredAIAdapterFactory } from './infrastructure/aiAdapter.factory';

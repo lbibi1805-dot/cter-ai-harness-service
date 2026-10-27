@@ -5,7 +5,7 @@ import type { ChatService } from '../application/chat.service';
 import { toChatAnswerDto, toChatQuestion } from './mappers/chat.mapper';
 import { RouteContext } from '../../../shared/http/interfaces/router.interface';
 import { MAX_CHAT_BODY_BYTES } from './constants/chat.constants';
-import { ChatStreamEvent } from './enums/chat.enums';
+import { ChatStreamEvent, ChatProgressStage } from './enums/chat.enums';
 import { NdjsonStream } from '../../../shared/http/ndjson';
 
 /** HTTP adapter for the chat API: parse the request, call ChatService, shape the JSON. */
@@ -23,9 +23,16 @@ export class ChatController {
 
     // The status line goes out with the first event, so errors before any text still get their HTTP status.
     const out = new NdjsonStream(res);
+    // Sent before the prompt is built (RAG can take seconds), so the client can show what is happening.
+    out.write({ type: ChatStreamEvent.PROGRESS, stage: ChatProgressStage.PREPARING });
     const answer = await this.chat.ask(question, {
       delta: (text) => out.write({ type: ChatStreamEvent.DELTA, text }),
       reset: () => out.write({ type: ChatStreamEvent.RESET }),
+      progress: (progress) => out.write({
+        type: ChatStreamEvent.PROGRESS,
+        stage: progress.stage,
+        ...(progress.detail ? { detail: progress.detail } : {}),
+      }),
     });
     out.end({ type: ChatStreamEvent.DONE, ...toChatAnswerDto(answer) });
   };

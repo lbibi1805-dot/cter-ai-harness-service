@@ -1,6 +1,7 @@
 import { type BackoffOptions, type Sleep } from '../../../../shared/resilience';
 import type { CitedChunk } from '../../../retrieval/domain/interfaces/retrieval.interface';
 import { ModelRoute, type AIProvider } from '../../domain/enums/ai.enums';
+import type { ProgressListener } from '../../domain/interfaces/streamProgress.interface';
 import type { AiConfig } from '../../domain/interfaces/aiConfig.interface';
 import type { ProviderReply } from '../../domain/interfaces/aiProvider.port';
 import { PromptContent } from '../../domain/interfaces/promptContent.interface';
@@ -30,6 +31,8 @@ export interface AIRequest {
 export interface AnswerStream {
   delta(text: string): void;
   reset(): void;
+  /** Optional: what the answer is doing while it has no text yet (model thinking, agent tool calls). */
+  progress?: ProgressListener;
 }
 
 export interface AIAnswer {
