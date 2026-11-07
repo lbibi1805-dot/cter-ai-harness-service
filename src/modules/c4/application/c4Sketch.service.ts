@@ -64,8 +64,11 @@ export class C4SketchService {
     if (!this.settings.enabled) throw new ServiceDisabledError('C4 API disabled: set CHAT_API_TOKEN on the server');
   }
 
-  async sketch(request: C4SketchRequest, sink?: C4EventSink): Promise<C4SketchResult> {
+  async sketch(input: C4SketchRequest, sink?: C4EventSink): Promise<C4SketchResult> {
     this.ensureEnabled();
+    // With the conversation store, every run belongs to a conversation (a new one when the client sent none).
+    const request = this.deps.conversations && !input.conversationId ? { ...input, conversationId: randomUUID() } : input;
+    if (input.conversationId && this.deps.conversations) await this.deps.conversations.open(input.conversationId);
     const { catalog } = this.deps;
     const model = catalog.resolve(request.provider, request.requestedModel);
     if (request.requestedModel !== undefined && !catalog.isAllowed(request.provider, model)) {
@@ -81,7 +84,7 @@ export class C4SketchService {
 
     // 1. Architect: checklist + every diagram from one shared model (+ questions when the statement is ambiguous).
     sink?.progress(C4Progress.ARCHITECT(levels.length));
-    const architect = await attempt(() => this.askJson(ctx, this.prompts.architect(request.description, levels, this.settings.maxElements), [], 'architect'));
+    const architect = await attempt(() => this.askJson(ctx, this.prompts.architect(request.description, levels, this.settings.maxElements), request.images, 'architect'));
     if (!architect.ok) logger.warn(`[c4] ${ctx.label} architect failed: ${errorMessage(architect.error)}`);
     const plan = toArchitectPlan(architect.ok ? architect.value : undefined, this.settings.maxElements);
     sink?.analysis(plan, sourcesOf(knowledge));
@@ -90,17 +93,18 @@ export class C4SketchService {
       const activeMs = this.now() - started;
       const id = randomUUID();
       const expiresAt = this.now() + C4_SESSION_TTL_MS;
-      this.deps.sessions.save({ id, request, model, knowledge, architect: architect.value, remainingMs: this.timeLeft(ctx), activeMs, expiresAt, label: ctx.label });
+      await this.deps.sessions.save({ id, request, model, knowledge, architect: architect.value, remainingMs: this.timeLeft(ctx), activeMs, expiresAt, label: ctx.label, conversationId: request.conversationId });
       logger.info(`[c4] ${ctx.label} paused for ${plan.clarifications.length} clarification(s)`);
-      return { ...this.summary(request.provider, model, plan, knowledge), levels: [], elapsedMs: activeMs, deadlineHit: false, confirmation: { sessionId: id, clarifications: plan.clarifications, expiresAt } };
+      const paused: C4SketchResult = { ...this.summary(request.provider, model, plan, knowledge), levels: [], elapsedMs: activeMs, deadlineHit: false, confirmation: { sessionId: id, clarifications: plan.clarifications, expiresAt } };
+      return this.recorded(paused, request.description, request, true);
     }
-    return this.draw(ctx, request, plan, knowledge, 0, started);
+    return this.recorded(await this.draw(ctx, request, plan, knowledge, 0, started), request.description, request, false);
   }
 
   /** Continues a paused run with the clock restarted where it stopped. */
   async resume(resume: C4ResumeRequest, sink?: C4EventSink): Promise<C4SketchResult> {
     this.ensureEnabled();
-    const session = this.deps.sessions.take(resume.sessionId);
+    const session = await this.deps.sessions.take(resume.sessionId);
     if (!session) throw new NotFoundError('C4 session not found or expired — send /c4 again');
 
     const resumedAt = this.now();
@@ -110,13 +114,30 @@ export class C4SketchService {
     if (answers) {
       sink?.progress(C4Progress.ARCHITECT_ANSWERS);
       const levels = this.levelsOf(session.request);
-      const again = await attempt(() => this.askJson(ctx, this.prompts.architect(session.request.description, levels, this.settings.maxElements, answers), [], 'architect-answers'));
+      const again = await attempt(() => this.askJson(ctx, this.prompts.architect(session.request.description, levels, this.settings.maxElements, answers), session.request.images, 'architect-answers'));
       if (again.ok) architect = again.value;
       else logger.warn(`[c4] ${ctx.label} architect (answers) failed, keeping the assumptions: ${errorMessage(again.error)}`);
     }
     const plan = toArchitectPlan(architect, this.settings.maxElements);
     sink?.analysis({ ...plan, clarifications: [] }, sourcesOf(session.knowledge));
-    return this.draw(ctx, session.request, { ...plan, clarifications: [] }, session.knowledge, session.activeMs, resumedAt);
+    const result = await this.draw(ctx, session.request, { ...plan, clarifications: [] }, session.knowledge, session.activeMs, resumedAt);
+    const request = { ...session.request, conversationId: session.conversationId ?? session.request.conversationId };
+    return this.recorded(result, answers ? answers : '(giữ các giả định)', request, false);
+  }
+
+  /**
+   * Writes the turn to the conversation (when one is attached): the user's text and images, the result
+   * summary, and the diagrams as artifacts. Never fails the run.
+   */
+  private async recorded(result: C4SketchResult, userText: string, request: C4SketchRequest, paused: boolean): Promise<C4SketchResult> {
+    const recorder = this.deps.conversations;
+    if (!recorder || !request.conversationId) return result;
+    const saved = await attempt(() => recorder.record({ conversationId: request.conversationId!, userText, images: request.images, result, paused }));
+    if (!saved.ok) {
+      logger.warn(`[c4] could not record the run in conversation ${request.conversationId}: ${errorMessage(saved.error)}`);
+      return { ...result, conversationId: request.conversationId };
+    }
+    return { ...result, conversationId: request.conversationId, messageId: saved.value.messageId };
   }
 
   /** Steps after the architect: fallback drafts → validate + render → repair → critic → report. */
@@ -238,6 +259,7 @@ export class C4SketchService {
       title: candidate.spec.title,
       png: render.value.png,
       puml: source,
+      spec: candidate.spec,
       elementCount: candidate.spec.elements.filter((e) => !isBoundary(e.kind)).length,
       covered: candidate.covered,
       missing: candidate.missing,

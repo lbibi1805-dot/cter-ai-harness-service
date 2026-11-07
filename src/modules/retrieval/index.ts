@@ -1,9 +1,9 @@
-import type { VaultRepository } from '../vault/domain';
+import type { VaultDocumentReader, VaultRepository } from '../vault/domain';
 import { CitationPromptBuilder } from './application/citationPrompt.builder';
 import { KnowledgeIndexer } from './application/knowledgeIndexer.service';
 import { RAGRetriever } from './application/ragRetriever.service';
 import type { EmbeddingService } from './domain/interfaces/embedding.port';
-import type { EmbeddingKeys, RetrievalConfig } from './domain/interfaces/retrieval.interface';
+import type { ChunkGuard, EmbeddingKeys, RetrievalConfig } from './domain/interfaces/retrieval.interface';
 import type { VectorStore } from './domain/interfaces/vectorStore.port';
 import { createEmbeddingService } from './infrastructure/embedding.factory';
 import { PineconeVectorStore } from './infrastructure/pineconeVectorStore.adapter';
@@ -15,7 +15,9 @@ export interface RetrievalModule {
   citations: CitationPromptBuilder;
   /** Vector search returning `topK` chunks (callers widen it when a reranker follows). */
   createRetriever(topK: number): RAGRetriever;
-  createIndexer(repository: VaultRepository): KnowledgeIndexer;
+  createIndexer(repository: VaultRepository, documents: VaultDocumentReader): KnowledgeIndexer;
+  /** Installs the vault's read-side guard; every retriever created afterwards (and before) applies it. */
+  setChunkGuard(guard: ChunkGuard): void;
 }
 
 export interface RetrievalModuleDeps {
@@ -28,13 +30,15 @@ export interface RetrievalModuleDeps {
 export function createRetrievalModule(config: RetrievalConfig, keys: EmbeddingKeys, deps: RetrievalModuleDeps = {}): RetrievalModule {
   const embedder = deps.embedder ?? createEmbeddingService(config.embeddingProvider, keys);
   const vectorStore = deps.vectorStore ?? new PineconeVectorStore(config.pineconeApiKey, config.pineconeIndex);
+  let guard: ChunkGuard = (chunks) => chunks;
   return {
     config,
     embedder,
     vectorStore,
     citations: new CitationPromptBuilder(),
-    createRetriever: (topK) => new RAGRetriever(vectorStore, embedder, topK),
-    createIndexer: (repository) => new KnowledgeIndexer(config, embedder, repository, vectorStore),
+    createRetriever: (topK) => new RAGRetriever(vectorStore, embedder, topK, (chunks) => guard(chunks)),
+    createIndexer: (repository, documents) => new KnowledgeIndexer(config, embedder, repository, vectorStore, documents),
+    setChunkGuard: (next) => { guard = next; },
   };
 }
 

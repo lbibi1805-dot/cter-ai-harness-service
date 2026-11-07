@@ -26,5 +26,9 @@ export interface ChatAnswerDto {
   fallbackReason: string | null;
   attempts: number;
   durationMs: number;
+  /** Server-side conversation (when the store is enabled): send it back with the next question. */
+  conversationId?: string;
+  messageId?: string;
+  persisted?: boolean;
   trace?: ChatTraceDto;
 }

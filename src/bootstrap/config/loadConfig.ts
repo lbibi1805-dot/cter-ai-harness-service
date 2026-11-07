@@ -16,6 +16,8 @@ import { readC4Config } from './readers/c4Config.reader';
 import { readCanvasAccounts } from './readers/canvasAccounts.reader';
 import { readRerankConfig } from './readers/rerankConfig.reader';
 import { readRetrievalConfig } from './readers/retrievalConfig.reader';
+import { readStorageConfig } from './readers/storageConfig.reader';
+import { readContextConfig } from './readers/contextConfig.reader';
 import { DEFAULT_AGENT_BUDGET } from '../../modules/agent/domain/constants/agentBudget.constants';
 import { parseStorageProvider } from '../../shared/database/helpers/database.helper';
 
@@ -55,6 +57,8 @@ export function loadConfig(): AppConfig {
       provider: parseStorageProvider(readOptionalString('VAULT_STORAGE_PROVIDER')),
       databaseUrl: readOptionalString('DATABASE_URL'),
     },
+    storage: readStorageConfig(),
+    context: readContextConfig(),
     gmail: { user: readOptionalString('GMAIL_USER'), appPassword: readOptionalString('GMAIL_APP_PASSWORD') },
     heartbeat: {
       enabled: readBoolean('CRON_ENABLED', true),

@@ -20,7 +20,7 @@ describe('VaultIndexingService', () => {
   it('starts a manual run and rejects a second one while running', async () => {
     const run = deferred();
     const indexAll = vi.fn(() => run.promise);
-    const service = new VaultIndexingService(() => ({ indexAll }));
+    const service = new VaultIndexingService(() => ({ indexAll }) as never);
 
     expect(service.requestManualReindex()).toBe(ReindexOutcome.STARTED);
     expect(service.isIndexing()).toBe(true);
@@ -34,7 +34,7 @@ describe('VaultIndexingService', () => {
 
   it('debounces uploads into a single run', async () => {
     const indexAll = vi.fn().mockResolvedValue(undefined);
-    const service = new VaultIndexingService(() => ({ indexAll }));
+    const service = new VaultIndexingService(() => ({ indexAll }) as never);
     service.scheduleAfterUpload();
     service.scheduleAfterUpload();
     await vi.advanceTimersByTimeAsync(AUTO_INDEX_DEBOUNCE_MS);
@@ -44,7 +44,7 @@ describe('VaultIndexingService', () => {
   it('reruns once when an upload lands during a run', async () => {
     const first = deferred();
     const indexAll = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined);
-    const service = new VaultIndexingService(() => ({ indexAll }));
+    const service = new VaultIndexingService(() => ({ indexAll }) as never);
 
     service.requestManualReindex();
     service.scheduleAfterUpload();

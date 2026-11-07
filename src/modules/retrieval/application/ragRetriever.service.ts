@@ -1,7 +1,7 @@
 import { attempt } from '../../../shared/resilience/attempt';
 import type { EmbeddingService } from '../domain/interfaces/embedding.port';
 import { QUERY_FALLBACK_MAX_CHARS, QUERY_MAX_CHARS } from '../domain/constants/retrieval.constants';
-import type { CitedChunk } from '../domain/interfaces/retrieval.interface';
+import type { ChunkGuard, CitedChunk } from '../domain/interfaces/retrieval.interface';
 import { normalizeText } from '../domain/textNormalizer';
 import type { VectorStore } from '../domain/interfaces/vectorStore.port';
 import { isContextLengthError } from '../domain/helpers/retrieval.helper';
@@ -12,12 +12,14 @@ export class RAGRetriever {
     private readonly vectorStore: VectorStore,
     private readonly embedder: EmbeddingService,
     private readonly topK: number,
+    /** Drops chunks of deleted/superseded vault documents (the manifest decides, not the index). */
+    private readonly guard: ChunkGuard = (chunks) => chunks,
   ) {}
 
   async retrieve(question: string): Promise<CitedChunk[]> {
     if (!question.trim()) return [];
     const vector = await this.embedQuestion(question);
-    return this.vectorStore.query(vector, this.topK);
+    return this.guard(await this.vectorStore.query(vector, this.topK));
   }
 
   /** Long inputs (a whole exam file) are cut; a "too long" rejection is retried once, shorter. */

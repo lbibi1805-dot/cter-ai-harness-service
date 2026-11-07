@@ -19,6 +19,7 @@ import {
   type ToolResult,
 } from '../domain';
 import { Attempt } from '../../../shared/resilience/interfaces/attempt.interface';
+import { ProgressStage } from '../../ai/domain/enums/streamProgress.enums';
 import { AgentRunRequest, RunProgress, ExecutedTool } from './interfaces/agentRunner.interface';
 import { parseArguments } from './helpers/agentRunner.helper';
 
@@ -50,10 +51,20 @@ export class AgentRunner {
 
     for (;;) {
       const exhausted = this.exhaustedReason(progress.steps.length, startedAt);
+      let streamedText = false;
+      const onDelta = request.stream
+        ? (text: string) => {
+            if (!text) return;
+            streamedText = true;
+            request.stream!.delta(text);
+          }
+        : undefined;
+      // Every turn is a model call: tell a streamed client that the tools are done and the answer is being written.
+      request.stream?.progress?.({ stage: ProgressStage.ANSWERING });
       const turn = await session.next(pendingOutputs, {
         allowTools: exhausted === null,
         requireTool: exhausted === null && progress.steps.length < this.budget.minToolCalls,
-      });
+      }, onDelta);
       modelCalls++;
       usage = addUsage(usage, turn.usage);
 
@@ -70,19 +81,22 @@ export class AgentRunner {
         this.logRun(request.label, result);
         return result;
       }
+      // A tool-call turn that talked first: drop the preamble, the tools' output is not part of the answer.
+      if (streamedText) request.stream?.reset();
       if (exhausted !== null) throw new ToolRequestAfterBudgetError(exhausted);
 
-      pendingOutputs = await this.runToolCalls(turn.calls, progress, startedAt);
+      pendingOutputs = await this.runToolCalls(turn.calls, progress, startedAt, request);
     }
   }
 
-  private async runToolCalls(calls: ToolCall[], progress: RunProgress, startedAt: number): Promise<ToolOutput[]> {
+  private async runToolCalls(calls: ToolCall[], progress: RunProgress, startedAt: number, request: AgentRunRequest): Promise<ToolOutput[]> {
     const outputs: ToolOutput[] = [];
     for (const call of calls) {
       if (this.exhaustedReason(progress.steps.length, startedAt) !== null) {
         outputs.push({ callId: call.id, output: BUDGET_EXHAUSTED_NOTE });
         continue;
       }
+      request.stream?.progress?.({ stage: ProgressStage.AGENT_TOOL, detail: call.name });
       const executed = await this.execute(call, progress.steps.length + 1);
       progress.steps.push(executed.step);
       progress.contexts.push(...executed.contexts);

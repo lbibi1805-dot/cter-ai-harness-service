@@ -18,6 +18,10 @@ export interface C4SketchRequest {
   fast: boolean;
   /** Answer as NDJSON events (progress/analysis/level/done) instead of one JSON body. */
   stream: boolean;
+  /** Images of the problem statement (given to the architect). */
+  images: PromptImage[];
+  /** Server-side conversation the run belongs to (its diagrams become artifacts there). */
+  conversationId?: string;
 }
 
 export interface C4LevelResult {
@@ -25,6 +29,8 @@ export interface C4LevelResult {
   title?: string;
   png?: Buffer;
   puml?: string;
+  /** The accepted diagram spec (what was rendered). */
+  spec?: C4DiagramSpec;
   elementCount: number;
   covered: string[];
   missing: string[];
@@ -59,6 +65,9 @@ export interface C4SketchResult {
   elapsedMs: number;
   deadlineHit: boolean;
   confirmation?: C4Confirmation;
+  /** Set when the run was recorded in a conversation. */
+  conversationId?: string;
+  messageId?: string;
 }
 
 /** Continues a paused run. Blank `answers` = keep the architect's assumptions. */
@@ -99,13 +108,22 @@ export interface C4Session {
   activeMs: number;
   expiresAt: number;
   label: string;
+  /** Conversation the paused run belongs to: the session is persisted there (survives a restart). */
+  conversationId?: string;
 }
 
-/** Paused runs; in memory (one server instance), entries expire. */
+/** Paused runs: in memory, and in the conversation's state when the run belongs to one. Entries expire. */
 export interface C4SessionRepository {
-  save(session: C4Session): void;
+  save(session: C4Session): Promise<void>;
   /** Removes and returns the session; undefined when unknown or expired. */
-  take(id: string): C4Session | undefined;
+  take(id: string): Promise<C4Session | undefined>;
+}
+
+/** Records C4 runs in server-side conversations (implemented by the context module). */
+export interface C4ConversationRecorder {
+  /** Checks the conversation can be used (ValidationError for a bad id, NotFoundError when soft-deleted). */
+  open(conversationId: string): Promise<void>;
+  record(input: { conversationId: string; userText: string; images: PromptImage[]; result: C4SketchResult; paused: boolean }): Promise<{ messageId: string }>;
 }
 
 /** One model call with the C4 system prompt (not the chat persona) and no per-call retrieval. */
@@ -146,6 +164,8 @@ export interface C4SketchDeps {
   knowledge: C4KnowledgeSource;
   renderer: DiagramRenderer;
   puml: C4PumlOptions;
+  /** Absent = runs are not recorded in conversations. */
+  conversations?: C4ConversationRecorder;
   /** Test hook. */
   now?: () => number;
 }

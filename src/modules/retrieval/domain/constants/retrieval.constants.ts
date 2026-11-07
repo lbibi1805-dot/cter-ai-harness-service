@@ -18,10 +18,6 @@ export const CHUNK_OVERLAP_TOKENS = 100;
 /** Rough token estimate used for chunk sizing (no tokenizer dependency). */
 export const CHARS_PER_TOKEN = 4;
 
-export const CHUNK_INDEX_DIGITS = 3;
-
-export const CHUNK_ID_HEADING_MAX_CHARS = 30;
-
 // ── Query embedding ──────────────────────────────────────────────
 /**
  * Embedding inputs are capped (OpenAI 8192 tokens, Gemini ~2048). A whole

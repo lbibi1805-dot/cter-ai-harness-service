@@ -1,7 +1,7 @@
 import { errorMessage } from '../../../shared/errors';
 import { logger } from '../../../shared/logging/logger';
 import { attempt } from '../../../shared/resilience/attempt';
-import type { AIInvocationService } from '../../ai';
+import { withJit, withMemory, type AIInvocationService } from '../../ai';
 import {
   AgentFallbackReason,
   AnswerMode,
@@ -32,9 +32,18 @@ export class AnswerService implements Answerer {
     if (!resolution.supported) return this.fallback(request, resolution.reason);
 
     const { runner, systemPrompt } = this.agent;
-    const run = await attempt(() => runner.run({ model: resolution.model, systemPrompt, content: request.content, label: request.label }));
+    const run = await attempt(() => runner.run({
+      model: resolution.model,
+      // Tool models take a plain system prompt + content: fold the context layers in here.
+      systemPrompt: withMemory(systemPrompt, request.content.memory),
+      content: { ...request.content, textContent: withJit(request.content.textContent, request.content.jitContext) },
+      label: request.label,
+      stream: request.stream,
+    }));
     if (!run.ok) {
       logger.warn(`[agent] ${request.label} failed (${errorMessage(run.error)}) — falling back to single-shot`);
+      // Drop any agent text the client already shows: the single-shot answer replaces it from scratch.
+      request.stream?.reset();
       return this.fallback(request, AgentFallbackReason.AGENT_FAILED);
     }
     return toAgentAnswer(run.value);

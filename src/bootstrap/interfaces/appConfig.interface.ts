@@ -8,6 +8,18 @@ import type { RetrievalConfig } from '../../modules/retrieval';
 import type { CanvasAccountConfig } from '../../shared/canvas/interfaces/canvasAccount.interface';
 import { AgentLimits } from '../../modules/agent/domain/interfaces/agentBudget.interface';
 import { DatabaseSettings } from '../../shared/database/interfaces/database.interface';
+import type { ObjectStorageSettings } from '../../shared/storage';
+import type { AIProvider } from '../../modules/ai';
+import type { AuxTimeouts, ContextSettings } from '../../modules/context';
+
+export interface ContextAppConfig {
+  /** CONVERSATION_STORE_ENABLED: server-side conversations + context engineering on /api/chat and /api/c4. */
+  conversationStoreEnabled: boolean;
+  purgeDays: number;
+  settings: ContextSettings;
+  aux: { provider: AIProvider; model: string };
+  timeouts: AuxTimeouts;
+}
 
 export interface HttpConfig {
   port: number;
@@ -47,6 +59,9 @@ export interface AppConfig {
   c4: C4Config;
   /** Neon (prod) or local JSON files — shared by the vault manifest and poll cursors. */
   database: DatabaseSettings;
+  /** R2 (prod) or a local directory (dev): vault files and conversation artifacts. */
+  storage: ObjectStorageSettings;
+  context: ContextAppConfig;
   gmail: GmailCredentials;
   heartbeat: HeartbeatSettings;
 }

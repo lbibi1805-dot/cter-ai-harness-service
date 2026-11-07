@@ -14,8 +14,9 @@ function agentModel(behaviour: 'answer' | 'fail'): ToolCallingModel {
   return {
     model: 'gpt-6-astra',
     startSession: () => ({
-      next: async () => {
+      next: async (_outputs, _options, onDelta) => {
         if (behaviour === 'fail') throw new Error('HTTP 500');
+        onDelta?.('agent ');
         return { kind: ModelTurnKind.FINAL, text: 'agent text', usage: { inputTokens: 5, outputTokens: 1 } };
       },
     }),
@@ -68,8 +69,23 @@ describe('AnswerService', () => {
 
   it('falls back when the agent run fails, so the answer is never lost', async () => {
     const { svc } = service(singleShot(), 'fail');
-    await expect(svc.answer({ ...REQUEST, mode: AnswerMode.AGENT }))
+    const reset = vi.fn();
+    await expect(svc.answer({ ...REQUEST, mode: AnswerMode.AGENT, stream: { delta: vi.fn(), reset } }))
       .resolves.toMatchObject({ text: 'single-shot text', fallbackReason: AgentFallbackReason.AGENT_FAILED });
+    // Anything the agent already streamed must be dropped before the single-shot answer starts.
+    expect(reset).toHaveBeenCalledTimes(1);
+  });
+
+  it('streams agent text through the request stream', async () => {
+    const { svc } = service();
+    const deltas: string[] = [];
+    const result = await svc.answer({
+      ...REQUEST,
+      mode: AnswerMode.AGENT,
+      stream: { delta: (text) => deltas.push(text), reset: vi.fn() },
+    });
+    expect(result).toMatchObject({ text: 'agent text', mode: AnswerMode.AGENT });
+    expect(deltas).toEqual(['agent ']);
   });
 
   it('falls back when agent mode is disabled (no OpenAI key / vault)', async () => {

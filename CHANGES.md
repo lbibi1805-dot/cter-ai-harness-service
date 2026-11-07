@@ -1,3 +1,117 @@
+# Thay đổi: Vault lên Cloudflare R2, hội thoại phía server, context engineering (07/11/2026)
+
+> Trạng thái: **chưa commit** · Plan: `planning/planning-06112026/02`, `03`, `04`, `12`, `13 §4` · Prod: `planning/planning-06112026/handoff/01-prod-runbook.md`
+> · Client: `cter-interview-cloak-client` gửi `conversationId` (tương thích ngược).
+
+## Vì sao
+
+Nội dung vault nằm trong cột `content` của Neon và chunk ID dựa trên tên file (trùng giữa `Bài 1.md`/`Bái 1.md`);
+upload file y hệt vẫn bị re-embed; xoá không có trạng thái nên lỗi giữa chừng để lại vector "ma". Hội thoại chỉ
+nằm ở client (bỏ ảnh, bỏ turn `/c4`, cắt cứng 20 turn), phiên `/c4` mất khi restart.
+
+## Thay đổi (behaviour change)
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | **Object storage** `src/shared/storage` (port + R2 qua S3 API + local disk): key phải thuộc prefix `vault/`, `vault-images/`, `derived/`, `conversations/`, `tmp/`; xoá prefix không bao giờ chạm root; metadata `sha256` mọi object | R2: checksum `WHEN_REQUIRED`, path-style. Thiếu một phần `R2_*` → không khởi động |
+| 2 | **Vault**: file ở `vault/{docId}/{hash}.md` (content-addressed); manifest giữ `doc_id`, `object_key`, `status`, `indexed_hash`, `last_error`. Chunk ID `<docId>#<hash8>#<idx3>`, metadata Pinecone thêm `docId`, `contentHash` | Sửa bug trùng chunk ID. Bỏ `DiskVaultDocumentStore`; Dockerfile không bake `documents-vault` |
+| 3 | Upload cùng nội dung → `outcome: unchanged`, **0 put, 0 embed** (sửa bug cũ). Hash = md5 nội dung chuẩn hoá (thêm bỏ BOM, CRLF→LF, trim cuối) | `POST /api/vault/files` trả `outcome` |
+| 4 | Index: đọc từ object storage (kiểm sha256), embed từng file, upsert, **rồi** đổi pointer, **rồi** xoá vector cũ; lỗi → `failed`, bản cũ vẫn phục vụ; thử lại sau 30/90/240 s | `KnowledgeIndexer` viết lại |
+| 5 | **Xoá** theo state machine `deleting` (commit trước) → vector theo prefix → object theo prefix → row; lỗi giữa chừng → `202 {pending}`, reconcile làm nốt | `DELETE /api/vault/files…` thêm `deleted`, `pending` |
+| 6 | **Reconciler** lúc startup và `POST /api/vault/sync` (tên cũ `/sync-pinecone` vẫn chạy): xoá nốt row `deleting`, vector/object mồ côi (object > 10 phút), xếp lại file chưa index | Chạy tuần tự với indexing |
+| 7 | **Read-side guard** cho RAG: bỏ chunk của doc đã xoá/đang xoá/phiên bản cũ; trích dẫn dùng đường dẫn hiện tại | `RetrievalModule.setChunkGuard` |
+| 8 | **Rename** `POST /api/vault/files/<path>/rename {newPath}`: chỉ đổi `file_path` (0 put, 0 embed) | |
+| 9 | Manifest **cache trong RAM** (1 instance): `/health`, liệt kê file, guard = 0 query DB sau lần load đầu | Note 13 §3.1 B |
+| 10 | **Hội thoại phía server** (`CONVERSATION_STORE_ENABLED`, mặc định tắt): bảng `conversations`/`messages`/`artifacts`, file ở `conversations/<id>/`; `/api/chat` nhận `conversationId`, trả `conversationId`, `messageId`, `persisted`; `/api/conversations` (GET, list, soft delete 204, restore, `?hard=true` admin); purge sau `CONVERSATION_PURGE_DAYS` (chạy ké, ≤ 1 lần/ngày) | 1 turn = 1 read + 1 transaction. Ghi DB lỗi không làm hỏng câu trả lời |
+| 11 | **Context engineering** `src/modules/context`: Context Assembler (summary + artifact registry + turn chưa tóm tắt + JIT ảnh/spec C4 + RAG); caption/OCR ảnh, viết lại câu follow-up có đại từ, auto-compact rolling summary giữ mọi artifact id — bằng aux model | `PromptContent` thêm `memory`, `jitContext`, `retrievalQuery`; agent mode gộp các lớp vào prompt |
+| 12 | **C4**: nhận `conversationId`, `images` (đưa cho architect); mỗi lần vẽ thuộc 1 conversation, lưu `c4_spec`/`c4_png`/`c4_puml` + tóm tắt element; phiên chờ trả lời lưu ở `conversations.state.pendingC4` → resume được sau restart | Tạo conversation mới khi client không gửi id |
+| 13 | **Fix**: upload nhiều file một lần có thể gán **sai đường dẫn** cho nội dung (formidable trả file theo thứ tự ghi xong) | `parseMultipart` giữ thứ tự part |
+| 14 | SchemaGuard áp DDL trong **1 transaction** (1 round-trip) | |
+| 15 | Script: `vault:reset` (dry-run mặc định, `--confirm`, `--allow-prod`), `vault:upload`, `vault:export-legacy`, `smoke:r2` | |
+| 16 | `/api/conversations*` nhận `CHAT_API_TOKEN` **hoặc** `ADMIN_TOKEN` (monitoring UI có trang Chats); purge vẫn chỉ `ADMIN_TOKEN`. `isAuthorized`/`Router` nhận nhiều token | `cter-monitoring-client-ui` cập nhật theo: trạng thái file, upload `path`+`outcome`, rename, xoá folder, Sync/Reindex, Chats. Plan: `planning-06112026/16-monitoring.md` |
+
+## Biến môi trường mới
+
+| Biến | Mặc định | Ghi chú |
+|---|---|---|
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | — | Dev `cter-dev`, prod `cter-prod`; token chỉ cho bucket đó |
+| `R2_ENDPOINT` | — | Tuỳ chọn |
+| `OBJECT_STORAGE_DIR` | `./data/object-store` | Khi không có R2 |
+| `CONVERSATION_STORE_ENABLED` | `false` | Feature flag |
+| `CONVERSATION_PURGE_DAYS` | `30` | |
+| `CONTEXT_KEEP_RECENT_TURNS`, `CONTEXT_COMPACT_THRESHOLD_TOKENS` | `6`, `12000` | |
+| `AUX_PROVIDER`, `AUX_MODEL`, `AUX_SYNC_TIMEOUT_MS` | `gemini`, `gemini-3.1-flash-lite`, `15000` | |
+
+`VAULT_PATH` không còn dùng. Package mới: `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`; dev: `@electric-sql/pglite`, `aws-sdk-client-mock`, `fast-check`.
+Migration: `004_vault_object_storage.sql`, `005_conversations.sql` (SchemaGuard tự áp); `006_drop_legacy_vault_content.sql` **chạy tay sau reset**.
+
+## Kiểm thử
+
+- `tsc` 0 lỗi, `npm test` **53 file / 497 test** (Postgres in-process PGlite, R2 contract test, property test I1–I6 có chèn lỗi).
+- Live trên dev (Neon branch dev, R2 `cter-dev`, Pinecone dev, Gemini): vault 20/20, hội thoại 19/19. Chi tiết: `planning/planning-06112026/handoff/02-dev-test-report.md`.
+
+---
+
+# Thay đổi: Câu trả lời chat được chuẩn hoá math + sanitize Mermaid (05/11/2026)
+
+> Trạng thái: **chưa commit** · Plan: `planning/planning-05112026/03-latex-math-rendering.md` (+ bước 6 của plan 02)
+> · Client: `cter-interview-cloak-client` port strict mode (`MathDelimiters.cs`) và chạy cùng fixture.
+
+## Vì sao
+
+Client chỉ nhận math dạng `$…$` / `$$…$$`, nhưng model hay trả `\( \)`, `\[ \]`, `\begin{equation}` trần.
+`normalizeMathDelimiters` đã có nhưng chỉ dùng cho PDF, và nó còn sửa cả nội dung trong code block.
+
+## Thay đổi (behaviour change)
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | **Chat answers are math-normalized**: text cuối của `POST /api/chat` (JSON `text` và event `done` của stream) và reply Canvas `[CFH:REPLY]` đi qua `normalizeMathDelimiters(text, { mode: 'strict' })` | Một chỗ duy nhất: `ClientAnswerService` (`src/modules/agent/application/clientAnswer.service.ts`) bọc `AnswerService`; `main.ts` truyền `agent.clientAnswers` cho chat + conversation. Delta stream vẫn raw (client tự chuẩn hoá). File Q&A (PDF) giữ answerer cũ |
+| 2 | Strict mode: chỉ đổi `\(…\)`→`$…$`, `\[…\]`→`$$…$$` (trim), `\begin{equation\|align\|gather\|…}` → `$$…$$` (`align`→`aligned`, `gather`→`gathered`, env khác bọc nguyên); `$…$` theo luật Pandoc (giá `$5 và $10` không phải math), `\$` là dấu đô la literal; không heuristic nào khác | Hợp đồng + fixture dùng chung: `tests/fixtures/math-delimiters.json` |
+| 3 | **Code không bao giờ bị đụng** (cả 2 mode): fenced block ```` ``` ````/`~~~` và inline code được bỏ qua | PDF (loose) giữ nguyên output với phần ngoài code (fuzz 200k input so với bản cũ: 0 khác biệt); trước đây `$HOME` trong code có thể bị chèn space / bọc `$` |
+| 4 | **Mermaid sanitize cho chat**: thân các fence ```` ```mermaid ```` trong câu trả lời chat/Canvas đi qua cùng logic `sanitizeMermaidGlyphs` của PDF (xoá dòng glyph rời, `δl`→`δ<sub>l</sub>`) | Chỉ thân block mermaid; fence khác không đổi |
+| 5 | Chuyển `mathNormalizer.ts` và `sanitizeMermaidGlyphs` sang `src/shared/text/` (thêm `splitCodeSegments`, `formatAnswerForClient`) | `document` module re-export, import cũ vẫn chạy |
+| 6 | `system-prompt.md`: cấm `\(\)`/`\[\]`, `$$` trên dòng riêng, không đặt math trong code block, `\$` cho dấu đô la; bỏ hướng dẫn `\begin{equation}`/`\begin{align}` trần (dùng `aligned` trong `$$`) | Ảnh hưởng cả prompt của File Q&A (PDF vẫn render `aligned` bằng KaTeX) |
+
+Không có env var mới.
+
+## Kiểm thử
+
+- `tests/unit/shared/text/*` (fixture strict 50 case + idempotent, loose regression, code segments, mermaid),
+  `ClientAnswerService`, chat route stream (delta raw, `done` + JSON đã chuẩn hoá).
+
+---
+
+# Thay đổi: Agent mode cũng stream + event `progress` (27/10/2026)
+
+> Trạng thái: **chưa commit** · Client: `cter-interview-cloak-client` (bản có `onProgress` + đồng hồ chờ)
+
+## Vì sao
+
+`/api/chat` đã stream ở single-shot, nhưng **agent mode không stream**: `AnswerService` rẽ nhánh agent và
+gọi `runner.run()` mà không truyền `stream`, nên client chỉ nhận đúng một event `done` ở cuối — chữ hiện
+một cục sau 10–20 s im lặng. Ngoài ra cả single-shot lẫn agent đều không có event nào trong lúc dựng prompt
+(RAG) và lúc agent đọc vault.
+
+## Thay đổi
+
+| # | Thay đổi | Vì sao |
+|---|---|---|
+| 1 | `POST /api/chat` (stream) phát `progress` đầu tiên ngay khi nhận request: `{"type":"progress","stage":"preparing"}` | Client biết server đã nhận, không thấy "đứng hình" trong lúc dựng prompt/RAG |
+| 2 | `AnswerStream.progress?` + `ProgressStage` (`src/modules/ai/domain/enums/streamProgress.enums.ts`): `answering` (prompt xong, bắt đầu gọi model) và `agent-tool` + `detail` = tên tool | Một kênh "đang làm gì" độc lập với text; transport tự đặt tên event |
+| 3 | Agent stream chữ: `ToolCallingSession.next(..., onDelta?)`, `AgentRunner` truyền `stream` xuống, cả `OpenAIResponsesSession` (`stream: true`, ghép từ `response.completed`) và `ChatCompletionsSession` (ghép `delta.tool_calls` theo `index`) | Agent trả lời đến đâu hiện đến đó thay vì một cục |
+| 4 | Agent chạy tool → `progress` `agent-tool`; turn gọi tool mà có nói trước → `reset` để client xoá phần mở đầu (không thuộc câu trả lời) | Người dùng thấy "agent đang chạy search_vault" thay vì im lặng |
+| 5 | Agent lỗi → `reset()` trước khi fallback single-shot | Không để chữ của agent dính vào câu trả lời single-shot |
+| 6 | Không retry transport ở nhánh agent streaming (chỉ `withTimeout`) | Retry sau khi đã gửi chữ sẽ gửi trùng; fallback single-shot vẫn còn |
+
+## Kiểm thử
+
+- `npm run typecheck` 0 lỗi; `npx vitest run tests/unit` **341 pass** (thêm: runner stream + reset preamble +
+  progress tool; `AnswerService` truyền stream và reset khi fallback; chat route phát `progress` và forward
+  `agent-tool`).
+
+---
+
 # Thay đổi: Streaming `/api/chat` + `/api/c4`, human in the loop cho C4 (27/10/2026)
 
 > Trạng thái: **chưa commit** · Client: `cter-interview-cloak-client`

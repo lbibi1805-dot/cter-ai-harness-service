@@ -144,4 +144,41 @@ describe('AgentRunner', () => {
     const model: ToolCallingModel = { model: 'm', startSession: () => ({ next: async () => { throw new Error('HTTP 500'); } }) };
     await expect(new AgentRunner([search], BUDGET).run({ model, systemPrompt: 's', content: CONTENT, label: 'q' })).rejects.toThrow('HTTP 500');
   });
+
+  it('streams turn text, drops a preamble before tool calls, and reports tool progress', async () => {
+    const model: ToolCallingModel = {
+      model: 'm',
+      startSession: () => {
+        let turns = 0;
+        return {
+          next: async (_outputs, options, onDelta) => {
+            if (turns++ === 0) {
+              onDelta?.('Let me check. ');
+              return calls([AgentToolName.SEARCH_VAULT, { query: 'a' }]);
+            }
+            onDelta?.('The ');
+            onDelta?.('answer');
+            return final('The answer');
+          },
+        };
+      },
+    };
+    const deltas: string[] = [];
+    const resets = vi.fn();
+    const progress: string[] = [];
+    const result = await new AgentRunner([search], BUDGET).run({
+      model, systemPrompt: 's', content: CONTENT, label: 'q',
+      stream: {
+        delta: (text) => deltas.push(text),
+        reset: resets,
+        progress: (p) => progress.push(p.detail ? `${p.stage}:${p.detail}` : p.stage),
+      },
+    });
+
+    expect(result.text).toBe('The answer');
+    expect(deltas).toEqual(['Let me check. ', 'The ', 'answer']);
+    // The tool-call preamble is not part of the answer, so the client is told to drop it.
+    expect(resets).toHaveBeenCalledTimes(1);
+    expect(progress).toEqual(['answering', 'agent-tool:search_vault', 'answering']);
+  });
 });

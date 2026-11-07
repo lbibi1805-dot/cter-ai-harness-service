@@ -1,0 +1,252 @@
+[
+  {
+    "name": "inline paren math",
+    "input": "Let \\(\\alpha\\) be small",
+    "expected": "Let $\\alpha$ be small"
+  },
+  {
+    "name": "inline paren math trims inner",
+    "input": "với \\( n > 1 \\) thì",
+    "expected": "với $n > 1$ thì"
+  },
+  {
+    "name": "display bracket math trims inner",
+    "input": "\\[ x^2 \\]",
+    "expected": "$$x^2$$"
+  },
+  {
+    "name": "display bracket math multi-line",
+    "input": "Ta có:\n\\[\n  a^2 + b^2 = c^2\n\\]\nVậy xong.",
+    "expected": "Ta có:\n$$a^2 + b^2 = c^2$$\nVậy xong."
+  },
+  {
+    "name": "existing multi-line display math untouched",
+    "input": "Công thức:\n$$\nx = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}\n$$\nhết.",
+    "expected": "Công thức:\n$$\nx = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}\n$$\nhết."
+  },
+  {
+    "name": "existing inline math untouched",
+    "input": "Einstein: $E=mc^2$ nổi tiếng.",
+    "expected": "Einstein: $E=mc^2$ nổi tiếng."
+  },
+  {
+    "name": "existing inline math not spaced",
+    "input": "biến$x$tăng",
+    "expected": "biến$x$tăng"
+  },
+  {
+    "name": "prices are not math",
+    "input": "Giá $5 và $10",
+    "expected": "Giá $5 và $10"
+  },
+  {
+    "name": "price range with dash",
+    "input": "It costs $5-$10 per unit.",
+    "expected": "It costs $5-$10 per unit."
+  },
+  {
+    "name": "price followed by inline math",
+    "input": "Costs $5, and \\(x\\) grows",
+    "expected": "Costs $5, and $x$ grows"
+  },
+  {
+    "name": "opening dollar followed by space is literal",
+    "input": "a $ b $ c",
+    "expected": "a $ b $ c"
+  },
+  {
+    "name": "escaped dollar is literal",
+    "input": "Giá \\$5 và \\(x\\)",
+    "expected": "Giá \\$5 và $x$"
+  },
+  {
+    "name": "escaped dollars never start math",
+    "input": "\\$x\\$ stays",
+    "expected": "\\$x\\$ stays"
+  },
+  {
+    "name": "escaped dollar inside math does not close it",
+    "input": "$a\\$b$ ok",
+    "expected": "$a\\$b$ ok"
+  },
+  {
+    "name": "blank line breaks inline math",
+    "input": "Cost $5\n\nand x$ later",
+    "expected": "Cost $5\n\nand x$ later"
+  },
+  {
+    "name": "unclosed display dollars literal",
+    "input": "$$ unclosed \\(y\\)",
+    "expected": "$$ unclosed $y$"
+  },
+  {
+    "name": "inline code containing paren math",
+    "input": "Gõ `\\(x\\)` để viết \\(x\\)",
+    "expected": "Gõ `\\(x\\)` để viết $x$"
+  },
+  {
+    "name": "double backtick inline code",
+    "input": "Use ``a ` \\[b\\]`` here \\[c\\]",
+    "expected": "Use ``a ` \\[b\\]`` here $$c$$"
+  },
+  {
+    "name": "unmatched backtick is literal",
+    "input": "one ` tick \\(z\\)",
+    "expected": "one ` tick $z$"
+  },
+  {
+    "name": "fenced code with HOME and bracket",
+    "input": "Chạy:\n```bash\necho $HOME\nprintf '\\[x\\]'\n```\nrồi \\(y\\)",
+    "expected": "Chạy:\n```bash\necho $HOME\nprintf '\\[x\\]'\n```\nrồi $y$"
+  },
+  {
+    "name": "tilde fence untouched",
+    "input": "~~~\n\\(a\\) and $HOME\n~~~\n\\(b\\)",
+    "expected": "~~~\n\\(a\\) and $HOME\n~~~\n$b$"
+  },
+  {
+    "name": "shorter closing fence does not close",
+    "input": "````\n\\(a\\)\n```\nstill code \\(b\\)\n````\n\\(c\\)",
+    "expected": "````\n\\(a\\)\n```\nstill code \\(b\\)\n````\n$c$"
+  },
+  {
+    "name": "unclosed fence runs to end",
+    "input": "Text \\(a\\)\n```python\nx = \"\\(b\\)\"\nprint(\"$5\")",
+    "expected": "Text $a$\n```python\nx = \"\\(b\\)\"\nprint(\"$5\")"
+  },
+  {
+    "name": "indented fence up to three spaces",
+    "input": "   ```\n\\(a\\)\n   ```\n\\(b\\)",
+    "expected": "   ```\n\\(a\\)\n   ```\n$b$"
+  },
+  {
+    "name": "mermaid fence untouched",
+    "input": "```mermaid\nflowchart LR\n  A[\"\\(x\\)\"] --> B[$y$]\n```\nSau đó \\(z\\).",
+    "expected": "```mermaid\nflowchart LR\n  A[\"\\(x\\)\"] --> B[$y$]\n```\nSau đó $z$."
+  },
+  {
+    "name": "aligned already inside display math",
+    "input": "$$\n\\begin{aligned}\na &= 1 \\\\\nb &= 2\n\\end{aligned}\n$$",
+    "expected": "$$\n\\begin{aligned}\na &= 1 \\\\\nb &= 2\n\\end{aligned}\n$$"
+  },
+  {
+    "name": "bare align env",
+    "input": "\\begin{align}\na &= 1 \\\\\nb &= 2\n\\end{align}",
+    "expected": "$$\\begin{aligned}a &= 1 \\\\\nb &= 2\\end{aligned}$$"
+  },
+  {
+    "name": "bare align star env",
+    "input": "\\begin{align*} x &= y \\end{align*}",
+    "expected": "$$\\begin{aligned}x &= y\\end{aligned}$$"
+  },
+  {
+    "name": "eqnarray env",
+    "input": "\\begin{eqnarray} a &=& b \\end{eqnarray}",
+    "expected": "$$\\begin{aligned}a &=& b\\end{aligned}$$"
+  },
+  {
+    "name": "gather env",
+    "input": "\\begin{gather} a = b \\\\ c = d \\end{gather}",
+    "expected": "$$\\begin{gathered}a = b \\\\ c = d\\end{gathered}$$"
+  },
+  {
+    "name": "equation env",
+    "input": "\\begin{equation}\n  E = mc^2\n\\end{equation}",
+    "expected": "$$E = mc^2$$"
+  },
+  {
+    "name": "equation star and displaymath",
+    "input": "\\begin{equation*} a \\end{equation*} và \\begin{displaymath} b \\end{displaymath}",
+    "expected": "$$a$$ và $$b$$"
+  },
+  {
+    "name": "pmatrix env wrapped unchanged",
+    "input": "Ma trận \\begin{pmatrix} 1 & 0 \\\\ 0 & 1 \\end{pmatrix} là đơn vị",
+    "expected": "Ma trận $$\\begin{pmatrix} 1 & 0 \\\\ 0 & 1 \\end{pmatrix}$$ là đơn vị"
+  },
+  {
+    "name": "cases env wrapped unchanged",
+    "input": "\\begin{cases} 1 & x>0 \\\\ 0 & x\\le 0 \\end{cases}",
+    "expected": "$$\\begin{cases} 1 & x>0 \\\\ 0 & x\\le 0 \\end{cases}$$"
+  },
+  {
+    "name": "nested env inside equation",
+    "input": "\\begin{equation} A = \\begin{bmatrix} a \\end{bmatrix} \\end{equation}",
+    "expected": "$$A = \\begin{bmatrix} a \\end{bmatrix}$$"
+  },
+  {
+    "name": "unterminated env left as-is",
+    "input": "\\begin{align} a &= 1 và \\(x\\)",
+    "expected": "\\begin{align} a &= 1 và $x$"
+  },
+  {
+    "name": "unterminated inline paren left as-is",
+    "input": "mở \\(x + 1 mà không đóng",
+    "expected": "mở \\(x + 1 mà không đóng"
+  },
+  {
+    "name": "unterminated display bracket left as-is",
+    "input": "mở \\[ x và $y$",
+    "expected": "mở \\[ x và $y$"
+  },
+  {
+    "name": "empty paren math left as-is",
+    "input": "rỗng \\(\\) đây",
+    "expected": "rỗng \\(\\) đây"
+  },
+  {
+    "name": "paren math inside existing math untouched",
+    "input": "$\\(a\\)$ và $$\\[b\\]$$",
+    "expected": "$\\(a\\)$ và $$\\[b\\]$$"
+  },
+  {
+    "name": "double backslash is not a bracket opener",
+    "input": "a \\\\[2pt] b",
+    "expected": "a \\\\[2pt] b"
+  },
+  {
+    "name": "double backslash before paren",
+    "input": "x \\\\(y\\)",
+    "expected": "x \\\\(y\\)"
+  },
+  {
+    "name": "closer search skips escaped backslash",
+    "input": "\\(a \\\\\\) b",
+    "expected": "$a \\\\$ b"
+  },
+  {
+    "name": "bare commands not wrapped in strict",
+    "input": "giá trị \\text{mean} và (\\alpha + 1) hay [\\sqrt{x}]",
+    "expected": "giá trị \\text{mean} và (\\alpha + 1) hay [\\sqrt{x}]"
+  },
+  {
+    "name": "file citations untouched",
+    "input": "tham khảo [Week-01/QNX.md] và (docs/v1.pdf)",
+    "expected": "tham khảo [Week-01/QNX.md] và (docs/v1.pdf)"
+  },
+  {
+    "name": "vietnamese text around math",
+    "input": "Nghiệm của phương trình bậc hai là \\[x = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}\\] với \\(\\Delta = b^2 - 4ac\\) và \\(a \\neq 0\\).",
+    "expected": "Nghiệm của phương trình bậc hai là $$x = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}$$ với $\\Delta = b^2 - 4ac$ và $a \\neq 0$."
+  },
+  {
+    "name": "inline code span stops at blank line",
+    "input": "a ` b\n\n` \\(c\\)",
+    "expected": "a ` b\n\n` $c$"
+  },
+  {
+    "name": "backtick fence with backtick in info is not a fence",
+    "input": "```js``` and \\(x\\)",
+    "expected": "```js``` and $x$"
+  },
+  {
+    "name": "plain text unchanged",
+    "input": "This is a long plain English sentence without any LaTeX commands.",
+    "expected": "This is a long plain English sentence without any LaTeX commands."
+  },
+  {
+    "name": "empty string",
+    "input": "",
+    "expected": ""
+  }
+]

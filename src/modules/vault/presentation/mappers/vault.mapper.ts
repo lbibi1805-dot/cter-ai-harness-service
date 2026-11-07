@@ -51,6 +51,8 @@ export function toManifestDto(entries: VaultEntry[]): Record<string, ManifestEnt
   const files: Record<string, ManifestEntryDto> = {};
   for (const entry of entries) {
     files[entry.filePath] = {
+      docId: entry.docId,
+      status: entry.status,
       hash: entry.hash,
       chunkIds: entry.chunkIds,
       indexed: entry.indexed,

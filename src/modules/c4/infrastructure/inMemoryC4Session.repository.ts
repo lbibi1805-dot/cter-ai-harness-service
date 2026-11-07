@@ -7,13 +7,13 @@ export class InMemoryC4SessionRepository implements C4SessionRepository {
 
   constructor(private readonly now: () => number = Date.now) {}
 
-  save(session: C4Session): void {
+  async save(session: C4Session): Promise<void> {
     this.dropExpired();
     while (this.sessions.size >= MAX_C4_SESSIONS) this.sessions.delete(this.sessions.keys().next().value!);
     this.sessions.set(session.id, session);
   }
 
-  take(id: string): C4Session | undefined {
+  async take(id: string): Promise<C4Session | undefined> {
     this.dropExpired();
     const session = this.sessions.get(id);
     this.sessions.delete(id);

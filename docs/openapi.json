@@ -519,7 +519,7 @@
                   },
                   "stream": {
                     "type": "boolean",
-                    "description": "true → trả application/x-ndjson, mỗi dòng một event: {\"type\":\"delta\",\"text\"} (đoạn chữ mới), {\"type\":\"reset\"} (retry/fallback bắt đầu: xoá phần chữ đã hiện), {\"type\":\"done\", ...như response JSON thường}, lỗi giữa chừng → {\"type\":\"error\",\"status\",\"error\"}. Agent mode chỉ có event done."
+                    "description": "true → trả application/x-ndjson, mỗi dòng một event: {\"type\":\"progress\",\"stage\",\"detail?\"} (chưa có chữ: stage = preparing | answering | agent-tool, detail = tên tool khi agent chạy), {\"type\":\"delta\",\"text\"} (đoạn chữ mới), {\"type\":\"reset\"} (retry/fallback bắt đầu: xoá phần chữ đã hiện), {\"type\":\"done\", ...như response JSON thường}, lỗi giữa chừng → {\"type\":\"error\",\"status\",\"error\"}. Agent mode cũng stream chữ của câu trả lời cuối."
                   }
                 }
               }

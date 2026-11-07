@@ -6,6 +6,7 @@ import { ReadDocumentTool } from '../../../../../../src/modules/agent/infrastruc
 import { VaultSearchTool } from '../../../../../../src/modules/agent/infrastructure/tools/vaultSearch.tool';
 import { MAX_LISTED_ITEMS, SEARCH_RESULTS_SHOWN } from '../../../../../../src/modules/agent/domain';
 import { extractSection } from '../../../../../../src/modules/agent/infrastructure/helpers/readDocument.helper';
+import { vaultEntry } from '../../../../../support/vaultFixture';
 
 const DOC = [
   '# Lab 4',
@@ -18,7 +19,7 @@ const DOC = [
   'a counter',
 ].join('\n');
 
-const entry = (filePath: string, content = DOC): VaultEntry => ({ filePath, content, hash: 'h', chunkIds: [], indexed: true, updatedAt: '' });
+const entry = (filePath: string): VaultEntry => vaultEntry(filePath);
 const chunk = (source: string, text: string, score = 0.8): CitedChunk => ({ chunkId: source, source, heading: 'H', parentHeading: '', text, tokenCount: 1, score });
 
 describe('extractSection', () => {
@@ -31,7 +32,7 @@ describe('extractSection', () => {
 });
 
 describe('ReadDocumentTool', () => {
-  const tool = new ReadDocumentTool({ findByPath: async (p) => (p === 'lab-4/a.md' ? entry(p) : null) });
+  const tool = new ReadDocumentTool({ readDocument: async (p: string) => (p === 'lab-4/a.md' ? DOC : null) });
 
   it('reads a whole file and cites it', async () => {
     const result = await tool.execute({ path: 'lab-4/a.md' });

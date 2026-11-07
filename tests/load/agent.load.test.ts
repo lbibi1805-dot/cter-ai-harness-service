@@ -6,7 +6,7 @@ import { createAgentModule, createOpenAIToolModelFactory, type AnswerResult } fr
 import { AnswerMode, type AgentLimits } from '../../src/modules/agent/domain';
 import { AIProvider } from '../../src/modules/ai';
 import { createRerankModule, DEFAULT_RERANK_CONFIG, RerankProvider, type ChunkRetriever, type RerankConfig } from '../../src/modules/rerank';
-import { FileVaultRepository } from '../../src/modules/vault';
+import { InMemoryVaultRepository } from '../../src/modules/vault';
 import type { CitedChunk } from '../../src/modules/retrieval';
 import { createFakeAiModule } from '../support/aiFixture';
 import { FakeOpenAIResponsesServer, type ResponsesRequestBody } from '../support/fakeOpenAIResponsesServer';
@@ -67,7 +67,8 @@ describe('L2 agent answers under load', () => {
     const searcher = ranking.wrap(vectorSearch, { topN: 10, fallbackTopK: 10, label: 'agent' });
     const { answers } = createAgentModule({ limits: agentLimits(minToolCalls), systemPrompt: 'sys' }, {
       singleShot: ai.invocation,
-      vaultRepository: new FileVaultRepository(workDir),
+      vaultRepository: new InMemoryVaultRepository(),
+      vaultDocuments: { readDocument: async () => null },
       createModel: createOpenAIToolModelFactory({ apiKey: 'k', timeoutMs: 10_000, baseURL: openai.baseURL, sleep: async () => undefined }),
       retrieval: null,
       searcher: { search: (q) => searcher.retrieve(q) },

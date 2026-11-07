@@ -22,7 +22,7 @@ function makeService() {
     deleteFile: vi.fn().mockRejectedValue(new NotFoundError('Not found')),
     deleteFolder: vi.fn().mockRejectedValue(new NotFoundError('Folder not found or empty')),
     deleteAll: vi.fn().mockResolvedValue(0),
-    syncVectorIndex: vi.fn().mockResolvedValue(0),
+    renameFile: vi.fn(),
   };
 }
 
@@ -36,6 +36,7 @@ function makeIndexing() {
 let service: ReturnType<typeof makeService>;
 let indexing: ReturnType<typeof makeIndexing>;
 let router: Router;
+let reconcile: ReturnType<typeof vi.fn>;
 
 async function call(method: string, url: string, headers: Record<string, string> = {}) {
   let status = 0;
@@ -49,11 +50,28 @@ async function call(method: string, url: string, headers: Record<string, string>
   return { status, body: JSON.parse(body) };
 }
 
+/** A request with a JSON body (the rename route reads one). */
+async function makeJsonCall(method: string, url: string, body: unknown) {
+  const { Readable } = await import('stream');
+  let status = 0;
+  let out = '';
+  const res = {
+    writeHead: vi.fn((code: number) => { status = code; }),
+    end: vi.fn((chunk: string) => { out = chunk; }),
+  } as unknown as ServerResponse;
+  const req = Object.assign(Readable.from([Buffer.from(JSON.stringify(body))]), {
+    method, url, headers: { authorization: `Bearer ${ADMIN_TOKEN}`, 'content-type': 'application/json' },
+  }) as unknown as IncomingMessage;
+  await router.dispatch(req, res, new URL(url, 'http://localhost'));
+  return { status, body: JSON.parse(out) };
+}
+
 describe('vault routes', () => {
   beforeEach(() => {
     service = makeService();
     indexing = makeIndexing();
-    const controller = new VaultController(service as unknown as VaultService, indexing as unknown as VaultIndexingService);
+    reconcile = vi.fn();
+    const controller = new VaultController(service as unknown as VaultService, indexing as unknown as VaultIndexingService, reconcile as never);
     router = new Router(createVaultRoutes(controller), ADMIN_TOKEN);
   });
 
@@ -84,16 +102,25 @@ describe('vault routes', () => {
     expect(body).toEqual({ error: 'File not found' });
   });
 
-  it('DELETE /files/:path returns the vector sync result, 404 when missing', async () => {
-    service.deleteFile.mockResolvedValueOnce(VectorSyncResult.OK);
-    expect(await call('DELETE', '/api/vault/files/a.md')).toEqual({ status: 200, body: { ok: true, pinecone: 'ok' } });
+  it('DELETE /files/:path returns 200 when clean, 202 when cleanup is pending, 404 when missing', async () => {
+    service.deleteFile.mockResolvedValueOnce({ deleted: 1, pending: 0, vectors: VectorSyncResult.OK });
+    expect(await call('DELETE', '/api/vault/files/a.md')).toEqual({ status: 200, body: { ok: true, deleted: 1, pending: 0, pinecone: 'ok' } });
+    service.deleteFile.mockResolvedValueOnce({ deleted: 1, pending: 1, vectors: VectorSyncResult.PARTIAL });
+    expect(await call('DELETE', '/api/vault/files/a.md')).toEqual({ status: 202, body: { ok: true, deleted: 1, pending: 1, pinecone: 'partial' } });
     expect((await call('DELETE', '/api/vault/files/missing.md')).status).toBe(404);
   });
 
   it('DELETE /files?folder= deletes a folder, 404 when empty', async () => {
-    service.deleteFolder.mockResolvedValueOnce(2);
-    expect(await call('DELETE', '/api/vault/files?folder=f')).toEqual({ status: 200, body: { ok: true, deleted: 2 } });
+    service.deleteFolder.mockResolvedValueOnce({ deleted: 2, pending: 0, vectors: VectorSyncResult.OK });
+    expect(await call('DELETE', '/api/vault/files?folder=f')).toEqual({ status: 200, body: { ok: true, deleted: 2, pending: 0, pinecone: 'ok' } });
     expect((await call('DELETE', '/api/vault/files?folder=none')).status).toBe(404);
+  });
+
+  it('POST /files/:path/rename renames (validated body)', async () => {
+    service.renameFile.mockResolvedValueOnce({ filePath: 'b.md' });
+    const req = makeJsonCall('POST', '/api/vault/files/a.md/rename', { newPath: 'b.md' });
+    expect(await req).toEqual({ status: 200, body: { ok: true, file: { filePath: 'b.md' } } });
+    expect(service.renameFile).toHaveBeenCalledWith('a.md', 'b.md');
   });
 
   it('DELETE /files without a folder requires X-Confirm', async () => {
@@ -111,11 +138,13 @@ describe('vault routes', () => {
     expect((await call('POST', '/api/vault/reindex')).status).toBe(400);
   });
 
-  it('POST /sync-pinecone reconciles, 400 without a vector index', async () => {
-    service.syncVectorIndex.mockResolvedValueOnce(-1);
-    expect(await call('POST', '/api/vault/sync-pinecone')).toEqual({ status: 200, body: { ok: true, result: -1 } });
-    service.syncVectorIndex.mockRejectedValueOnce(new ValidationError('vault not configured'));
-    expect((await call('POST', '/api/vault/sync-pinecone')).status).toBe(400);
+  it('POST /sync and the legacy /sync-pinecone run the reconciler', async () => {
+    reconcile.mockResolvedValueOnce({ deletesResumed: 1 });
+    expect(await call('POST', '/api/vault/sync')).toEqual({ status: 200, body: { ok: true, result: { deletesResumed: 1 } } });
+    reconcile.mockResolvedValueOnce({ deletesResumed: 0 });
+    expect((await call('POST', '/api/vault/sync-pinecone')).status).toBe(200);
+    reconcile.mockRejectedValueOnce(new ValidationError('bad'));
+    expect((await call('POST', '/api/vault/sync')).status).toBe(400);
   });
 
   it('rejects writes with a wrong token but allows reads', async () => {

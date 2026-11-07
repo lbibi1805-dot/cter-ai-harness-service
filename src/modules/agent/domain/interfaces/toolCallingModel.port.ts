@@ -1,4 +1,5 @@
 import type { AIProvider } from '../../../ai/domain/enums/ai.enums';
+import type { TextDeltaListener } from '../../../ai/domain/interfaces/aiProvider.port';
 import type { AgentFallbackReason, ModelTurnKind } from '../enums/agent.enums';
 import { PromptContent } from '../../../ai/domain/interfaces/promptContent.interface';
 import { TokenUsage } from './agentRun.interface';
@@ -32,8 +33,10 @@ export interface ToolCallingSession {
    * Sends the outputs of the previous tool calls (empty on the first turn).
    * With `allowTools: false` the model must answer in text; with
    * `requireTool: true` (and tools allowed) it must call a tool.
+   * With `onDelta` the turn is streamed: the text is reported chunk by chunk
+   * (a tool-call turn may emit a short preamble) and still returned whole.
    */
-  next(toolOutputs: ToolOutput[], options: TurnOptions): Promise<ModelTurn>;
+  next(toolOutputs: ToolOutput[], options: TurnOptions, onDelta?: TextDeltaListener): Promise<ModelTurn>;
 }
 
 /** Port implemented per API family (OpenAI Responses, Chat Completions via OpenRouter). */

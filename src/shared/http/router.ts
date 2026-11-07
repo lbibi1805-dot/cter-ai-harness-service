@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { errorMessage } from '../errors';
-import { isAuthorized } from './auth';
+import { isAuthorized, type AuthTokens } from './auth';
 import { HttpStatus } from './enums/http.enums';
 import { httpStatusFor } from './httpErrorStatus';
 import { endStreamWithError } from './ndjson';
@@ -11,7 +11,7 @@ import { Route, QueryParams, RouteHandler, RouteContext } from './interfaces/rou
 export class Router {
   constructor(
     private readonly routes: Route[],
-    private readonly adminToken: string | undefined,
+    private readonly adminToken: AuthTokens,
   ) {}
 
   /** True when some route owns this path (whatever the method). */

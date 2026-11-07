@@ -10,7 +10,7 @@ import { FakeCanvasServer } from '../support/fakeCanvasServer';
 import { FakeOpenAIResponsesServer } from '../support/fakeOpenAIResponsesServer';
 import { createAgentModule, createOpenAIToolModelFactory } from '../../src/modules/agent';
 import { createRerankModule, DEFAULT_RERANK_CONFIG, RerankProvider, type ChunkRetriever } from '../../src/modules/rerank';
-import { FileVaultRepository } from '../../src/modules/vault';
+import { InMemoryVaultRepository } from '../../src/modules/vault';
 import { MAX_CONV_PER_ROUND, createConversationPoller, parseReplyMessage } from '../../src/modules/conversation';
 import { StateManager } from '../../src/shared/state/processingStateStore';
 import type { CanvasAccountConfig } from '../../src/shared/canvas/interfaces/canvasAccount.interface';
@@ -64,7 +64,8 @@ describe('L3 conversation soak', () => {
     const searcher = ranking.wrap(vector, { topN: 10, fallbackTopK: 10, label: 'agent' });
     const { answers } = createAgentModule({ limits: { maxToolCalls: 4, minToolCalls: 1, maxDurationMs: 30_000 }, systemPrompt: 'sys' }, {
       singleShot: ai.invocation,
-      vaultRepository: new FileVaultRepository(workDir),
+      vaultRepository: new InMemoryVaultRepository(),
+      vaultDocuments: { readDocument: async () => null },
       createModel: createOpenAIToolModelFactory({ apiKey: 'k', timeoutMs: 10_000, baseURL: openai.baseURL, sleep: async () => undefined }),
       retrieval: null,
       searcher: { search: (q) => searcher.retrieve(q) },

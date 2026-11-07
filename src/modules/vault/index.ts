@@ -1,10 +1,12 @@
-import * as path from 'path';
 import { Router } from '../../shared/http/router';
+import type { ObjectStorage } from '../../shared/storage';
 import type { RetrievalModule } from '../retrieval';
+import type { ReconcileReport } from './application/interfaces/vault.interface';
 import { VaultService } from './application/vault.service';
+import { createVaultChunkGuard } from './application/vaultChunkGuard';
 import { VaultIndexingService } from './application/vaultIndexing.service';
-import type { VaultRepository } from './domain';
-import { DiskVaultDocumentStore } from './infrastructure/diskVaultDocumentStore.adapter';
+import type { VaultDocumentReader, VaultRepository } from './domain';
+import { CachedVaultRepository } from './infrastructure/cachedVault.repository';
 import { RetrievalVectorIndex } from './infrastructure/retrievalVectorIndex.adapter';
 import { createVaultRepository } from './infrastructure/vaultRepository.factory';
 import { VaultController } from './presentation/vault.controller';
@@ -13,40 +15,56 @@ import { DatabaseSettings } from '../../shared/database/interfaces/database.inte
 
 export interface VaultModuleConfig {
   database: DatabaseSettings;
-  /** Folder holding raw markdown copies of uploaded files. */
-  vaultPath: string;
   adminToken?: string;
 }
 
 export interface VaultModuleDeps {
   /** Null when Pinecone is not configured: files are stored but never indexed. */
   retrieval: RetrievalModule | null;
-  /** Test hook. */
+  /** Where file bytes live (R2 in prod). */
+  storage: ObjectStorage;
+  /** Test hook (wrapped in the RAM cache like the real one). */
   repository?: VaultRepository;
 }
 
 export interface VaultModule {
-  repository: VaultRepository;
+  /** The cached manifest: reads cost no database query after the first load. */
+  repository: CachedVaultRepository;
   service: VaultService;
   indexing: VaultIndexingService;
+  documents: VaultDocumentReader;
   router: Router;
+  /** Reload the manifest, then garbage-collect (serialized with indexing runs). */
+  reconcile(): Promise<ReconcileReport>;
 }
 
-/** Wires the vault module: repository → services → controller → routes. */
+/** Wires the vault module: repository (+RAM cache) → services → controller → routes; installs the RAG guard. */
 export function createVaultModule(config: VaultModuleConfig, deps: VaultModuleDeps): VaultModule {
-  const repository = deps.repository ?? createVaultRepository(config.database);
-  const { retrieval } = deps;
+  const repository = new CachedVaultRepository(deps.repository ?? createVaultRepository(config.database));
+  const { retrieval, storage } = deps;
   const vectors = retrieval ? new RetrievalVectorIndex(retrieval.vectorStore) : null;
-  const documents = new DiskVaultDocumentStore(path.resolve(process.cwd(), config.vaultPath));
 
-  const indexing = new VaultIndexingService(retrieval ? () => retrieval.createIndexer(repository) : null);
-  const service = new VaultService(repository, vectors, documents, indexing);
-  const router = new Router(createVaultRoutes(new VaultController(service, indexing)), config.adminToken);
-  return { repository, service, indexing, router };
+  let service: VaultService | null = null;
+  const indexing = new VaultIndexingService(retrieval ? () => retrieval.createIndexer(repository, service!.documents) : null);
+  service = new VaultService(repository, vectors, storage, indexing);
+  retrieval?.setChunkGuard(createVaultChunkGuard(repository));
+
+  const vaultService = service;
+  const reconcile = (): Promise<ReconcileReport> => indexing.runExclusive(async () => {
+    await repository.refresh();
+    return vaultService.reconcile();
+  });
+  const router = new Router(createVaultRoutes(new VaultController(vaultService, indexing, reconcile)), config.adminToken);
+  return { repository, service: vaultService, indexing, documents: vaultService.documents, router, reconcile };
 }
 
 export * from './domain';
+export type { ReconcileReport, VaultUploadResult, VaultFileView } from './application/interfaces/vault.interface';
+export { VaultService } from './application/vault.service';
+export { createVaultChunkGuard } from './application/vaultChunkGuard';
 export { FileVaultRepository } from './infrastructure/fileVault.repository';
+export { InMemoryVaultRepository } from './infrastructure/inMemoryVault.repository';
+export { NeonVaultRepository } from './infrastructure/neonVault.repository';
+export { CachedVaultRepository } from './infrastructure/cachedVault.repository';
 export { createVaultRepository } from './infrastructure/vaultRepository.factory';
-export { RECONCILE_ALL_VECTORS_DELETED } from './application/constants/vault.constants';
 export { VAULT_API_PREFIX } from './presentation/constants/vault.constants';

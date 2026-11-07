@@ -3,6 +3,7 @@ import { logger } from '../../shared/logging/logger';
 import type { Answerer } from '../agent/domain';
 import type { AIProvider, ModelCatalog } from '../ai';
 import { ChatService } from './application/chat.service';
+import type { ChatTurns } from './application/interfaces/chatTurns.interface';
 import { ChatController } from './presentation/chat.controller';
 import { createChatRoutes } from './presentation/chat.routes';
 
@@ -16,6 +17,8 @@ export interface ChatModuleDeps {
   catalog: ModelCatalog;
   agentEnabled: boolean;
   isProviderConfigured: (provider: AIProvider) => boolean;
+  /** Server-side conversation memory (context module); absent = stateless. */
+  turns?: ChatTurns;
 }
 
 export interface ChatModule {
@@ -34,6 +37,7 @@ export function createChatModule(config: ChatModuleConfig, deps: ChatModuleDeps)
     enabled,
     agentEnabled: deps.agentEnabled,
     isProviderConfigured: deps.isProviderConfigured,
+    turns: deps.turns,
   });
   const controller = new ChatController(service);
   return { router: new Router(createChatRoutes(controller), config.chatApiToken), enabled };
@@ -44,3 +48,4 @@ export type { ChatAnswer } from './application/interfaces/chat.interface';
 export type { ChatQuestion } from './application/interfaces/chat.interface';
 export type { ChatStatus } from './application/interfaces/chat.interface';
 export { ChatApiPath } from './presentation/enums/chat.enums';
+export type { ChatTurns, ChatTurnInput, ChatTurnOutcome, ChatTurnRecord, PreparedChatTurn } from './application/interfaces/chatTurns.interface';
