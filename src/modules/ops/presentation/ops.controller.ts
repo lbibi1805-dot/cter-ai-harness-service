@@ -50,6 +50,13 @@ export class OpsController {
     sendJson(res, HttpStatus.OK, { accounts: this.ops.canvasAccounts() });
   };
 
+  /** `GET /api/storage/check` (admin): writes, reads and deletes one tiny object; 503 when it fails. */
+  storageCheck = async ({ res }: RouteContext): Promise<void> => {
+    const probe = await this.ops.storageCheck();
+    if (!probe) return sendJson(res, HttpStatus.SERVICE_UNAVAILABLE, { ok: false, error: 'object storage not configured' });
+    sendJson(res, probe.ok ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE, probe);
+  };
+
   cronStatus = async ({ res }: RouteContext): Promise<void> => {
     sendJson(res, HttpStatus.OK, this.cron.status());
   };

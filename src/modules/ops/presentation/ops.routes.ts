@@ -15,6 +15,7 @@ export function createOpsRoutes(controller: OpsController): Route[] {
     { method: HttpMethod.DELETE, match: exactPath(OpsApiPath.LOGS), requiresAuth: true, handler: controller.clearLogs },
     { method: HttpMethod.GET, match: exactPath(OpsApiPath.AI_USAGE), handler: controller.aiUsage },
     { method: HttpMethod.GET, match: exactPath(OpsApiPath.CANVAS_ACCOUNTS), handler: controller.canvasAccounts },
+    { method: HttpMethod.GET, match: exactPath(OpsApiPath.STORAGE_CHECK), requiresAuth: true, handler: controller.storageCheck },
     { method: HttpMethod.GET, match: exactPath(OpsApiPath.CRON), handler: controller.cronStatus },
     { method: HttpMethod.POST, match: exactPath(OpsApiPath.CRON), requiresAuth: true, handler: controller.updateCron },
   ];

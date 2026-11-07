@@ -12,4 +12,5 @@ export enum OpsApiPath {
   AI_USAGE = '/api/ai-usage',
   CANVAS_ACCOUNTS = '/api/canvas-accounts',
   CRON = '/api/cron',
+  STORAGE_CHECK = '/api/storage/check',
 }

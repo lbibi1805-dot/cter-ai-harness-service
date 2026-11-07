@@ -1,3 +1,4 @@
+import type { ObjectStorageProbe } from '../../../../shared/storage';
 import type { CanvasAccountConfig } from '../../../../shared/canvas/interfaces/canvasAccount.interface';
 
 /** What the ops endpoints report about the rest of the service (wired in bootstrap). */
@@ -11,6 +12,8 @@ export interface OpsStatusSource {
   /** Null when the vector index is not configured. */
   vectorIndex: { index: string; provider: string } | null;
   vaultStats(): Promise<{ total: number; indexed: number }>;
+  /** Put/head/delete one tiny object (on demand only — costs R2 operations). Absent: no object storage. */
+  probeStorage?(): Promise<ObjectStorageProbe>;
 }
 
 export interface MaskedAccount {

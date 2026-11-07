@@ -49,6 +49,11 @@ export class OpsService {
     };
   }
 
+  /** Null when the service has no object storage wired. */
+  async storageCheck() {
+    return this.source.probeStorage ? this.source.probeStorage() : null;
+  }
+
   canvasAccounts(): Array<MaskedAccount & { url: string }> {
     return this.source.accounts.map((account) => ({ ...maskedAccount(account), url: account.url }));
   }

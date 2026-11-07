@@ -64,4 +64,16 @@ describe('parseMultipart keeps request order', () => {
       server.close();
     }
   });
+
+  it('an empty file does not reject the whole batch (it reaches the use case with empty content)', async () => {
+    await withServer(async (port) => {
+      const form = new FormData();
+      for (const [path, content] of [['e/a.md', 'A'], ['e/empty.md', ''], ['e/b.md', 'B']]) {
+        form.append('files', new Blob([content]), path.split('/').pop()!);
+        form.append('path', path);
+      }
+      const res = await fetch(`http://127.0.0.1:${port}/`, { method: 'POST', body: form });
+      expect(await res.json()).toEqual([['e/a.md', 'A'], ['e/empty.md', ''], ['e/b.md', 'B']]);
+    });
+  });
 });

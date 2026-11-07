@@ -138,6 +138,10 @@ export class VaultService {
         results.push({ file: filePath, error: 'path too long' });
         continue;
       }
+      if (upload.content.trim().length === 0) {
+        results.push({ file: filePath, error: 'empty file' });
+        continue;
+      }
       const stored = await attempt(() => this.uploadOne(filePath, upload.content));
       if (!stored.ok) {
         logger.warn(`[vault] upload failed for ${filePath}: ${errorMessage(stored.error)}`);

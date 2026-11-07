@@ -2,7 +2,7 @@ import formidable from 'formidable';
 import * as fs from 'fs';
 import type { IncomingMessage } from 'http';
 import { MultipartPayload, UploadedTextFile } from './interfaces/multipart.interface';
-import { MAX_UPLOAD_FILE_BYTES } from './constants/multipart.constants';
+import { MAX_UPLOAD_FILE_BYTES, MAX_UPLOAD_TOTAL_BYTES } from './constants/multipart.constants';
 
 /**
  * Parses a multipart body and reads every uploaded file as UTF-8 text.
@@ -13,7 +13,15 @@ import { MAX_UPLOAD_FILE_BYTES } from './constants/multipart.constants';
  * differ when several files are uploaded at once.
  */
 export async function parseMultipart(req: IncomingMessage): Promise<MultipartPayload> {
-  const form = formidable({ multiples: true, maxFileSize: MAX_UPLOAD_FILE_BYTES });
+  // Empty files are allowed here so one empty file does not reject the whole batch;
+  // the use case reports it per file. Total size is capped separately from one file.
+  const form = formidable({
+    multiples: true,
+    maxFileSize: MAX_UPLOAD_FILE_BYTES,
+    maxTotalFileSize: MAX_UPLOAD_TOTAL_BYTES,
+    allowEmptyFiles: true,
+    minFileSize: 0,
+  });
   const partOrder = new Map<string, number>();
   form.on('fileBegin', (_name, file) => {
     partOrder.set(file.newFilename, partOrder.size);
