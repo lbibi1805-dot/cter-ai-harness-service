@@ -1,3 +1,4 @@
+
 # Thay đổi: Vault lên Cloudflare R2, hội thoại phía server, context engineering (07/11/2026)
 
 > Trạng thái: **chưa commit** · Plan: `planning/planning-06112026/02`, `03`, `04`, `12`, `13 §4` · Prod: `planning/planning-06112026/handoff/01-prod-runbook.md`
