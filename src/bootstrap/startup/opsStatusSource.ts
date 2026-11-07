@@ -2,10 +2,11 @@ import { AI_PROVIDERS, ModelRoute, perProvider, type AiModule } from '../../modu
 import type { OpsStatusSource } from '../../modules/ops';
 import type { PollingModule } from '../../modules/polling';
 import type { VaultModule } from '../../modules/vault';
+import { probeObjectStorage, type ObjectStorage } from '../../shared/storage';
 import type { AppConfig } from '../interfaces/appConfig.interface';
 
 /** What `/`, `/health` and `/api/ai-usage` report, read live from the running modules. */
-export function buildOpsStatusSource(config: AppConfig, ai: AiModule, polling: PollingModule, vault: VaultModule): OpsStatusSource {
+export function buildOpsStatusSource(config: AppConfig, ai: AiModule, polling: PollingModule, vault: VaultModule, storage?: ObjectStorage): OpsStatusSource {
   return {
     accounts: config.accounts,
     pollingState: () => polling.scheduler.status().state,
@@ -21,5 +22,6 @@ export function buildOpsStatusSource(config: AppConfig, ai: AiModule, polling: P
     }),
     vectorIndex: config.retrieval ? { index: config.retrieval.pineconeIndex, provider: config.retrieval.embeddingProvider } : null,
     vaultStats: () => vault.service.stats(),
+    ...(storage ? { probeStorage: () => probeObjectStorage(storage) } : {}),
   };
 }

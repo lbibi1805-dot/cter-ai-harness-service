@@ -6,3 +6,4 @@ export type { ObjectStorage } from './objectStorage.port';
 export { R2ObjectStorage } from './r2ObjectStorage.adapter';
 export { LocalDiskObjectStorage } from './localDiskObjectStorage.adapter';
 export { createObjectStorage } from './objectStorage.factory';
+export { probeObjectStorage, type ObjectStorageProbe } from './helpers/objectStorageProbe';

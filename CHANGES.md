@@ -28,6 +28,8 @@ nằm ở client (bỏ ảnh, bỏ turn `/c4`, cắt cứng 20 turn), phiên `/c
 | 12 | **C4**: nhận `conversationId`, `images` (đưa cho architect); mỗi lần vẽ thuộc 1 conversation, lưu `c4_spec`/`c4_png`/`c4_puml` + tóm tắt element; phiên chờ trả lời lưu ở `conversations.state.pendingC4` → resume được sau restart | Tạo conversation mới khi client không gửi id |
 | 13 | **Fix**: upload nhiều file một lần có thể gán **sai đường dẫn** cho nội dung (formidable trả file theo thứ tự ghi xong) | `parseMultipart` giữ thứ tự part |
 | 14 | SchemaGuard áp DDL trong **1 transaction** (1 round-trip) | |
+| 16 | **`GET /api/storage/check`** (ADMIN_TOKEN): ghi/đọc/xoá 1 object nhỏ trong `tmp/healthcheck/` → `{ok, kind, location, latencyMs, failedStep?, error?}`; 503 khi lỗi hoặc chưa có storage. Chỉ gọi theo yêu cầu (nút trong monitoring), **không** gắn vào heartbeat | 2 Class A + 1 Class B R2/lần |
+| 17 | **Fix upload**: 1 file rỗng (0 byte) làm **cả batch** bị từ chối (`options.allowEmptyFiles is false…`). Nay file rỗng/chỉ khoảng trắng trả lỗi riêng `{file, error: "empty file"}`, các file khác vẫn lưu. Tổng dung lượng 1 request nâng lên 200 MB (trước = giới hạn 1 file 50 MB) | `parseMultipart`, `VaultService.uploadFiles` |
 | 15 | Script: `vault:reset` (dry-run mặc định, `--confirm`, `--allow-prod`), `vault:upload`, `vault:export-legacy`, `smoke:r2` | |
 | 16 | `/api/conversations*` nhận `CHAT_API_TOKEN` **hoặc** `ADMIN_TOKEN` (monitoring UI có trang Chats); purge vẫn chỉ `ADMIN_TOKEN`. `isAuthorized`/`Router` nhận nhiều token | `cter-monitoring-client-ui` cập nhật theo: trạng thái file, upload `path`+`outcome`, rename, xoá folder, Sync/Reindex, Chats. Plan: `planning-06112026/16-monitoring.md` |
 

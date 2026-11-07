@@ -74,6 +74,16 @@ describe('vault sync: upload → object storage → index (notes 02 + 12)', () =
     expect(v.vectors.records.get(done.chunkIds[0])).toMatchObject({ docId: e.docId, contentHash: e.hash, source: 'mon/a.md' });
   });
 
+  it('an empty file gets a per-file error; the other files of the batch are stored', async () => {
+    const results = await v.service.uploadFiles([
+      { rawName: 'e/a.md', content: '## A\nx' },
+      { rawName: 'e/empty.md', content: '  \n' },
+    ]);
+    expect(results[0]).toMatchObject({ file: 'e/a.md', outcome: 'created' });
+    expect(results[1]).toEqual({ file: 'e/empty.md', error: 'empty file' });
+    expect(await v.repo.findByPath('e/empty.md')).toBeNull();
+  });
+
   it('I4: re-uploading identical content does no object put and no embedding (bug fix)', async () => {
     await v.upload('a.md', '## A\nsame');
     await v.index();

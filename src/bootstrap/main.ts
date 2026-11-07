@@ -107,7 +107,7 @@ export async function main(): Promise<void> {
   );
   const ops = createOpsModule(
     { port: config.http.port, heartbeat: config.heartbeat, adminToken: config.http.adminToken },
-    buildOpsStatusSource(config, ai, polling, vault),
+    buildOpsStatusSource(config, ai, polling, vault, storage),
   );
 
   // 7. Start: the API first so the host (Render) detects the open port right away
