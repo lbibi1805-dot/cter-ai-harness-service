@@ -8,7 +8,7 @@ import { vi, type Mock } from 'vitest';
 import { AIProvider, createAiModule, type AIAdapter } from '../../src/modules/ai';
 import { createAgentModule, createOpenAIToolModelFactory } from '../../src/modules/agent';
 import { createConversationPoller } from '../../src/modules/conversation';
-import { FileVaultRepository } from '../../src/modules/vault';
+import { seedVault } from './vaultFixture';
 import type { CanvasAccountConfig } from '../../src/shared/canvas/interfaces/canvasAccount.interface';
 import { StateManager } from '../../src/shared/state/processingStateStore';
 import { buildTestAiConfig, buildTestConfig, perProvider } from './configFixture';
@@ -39,8 +39,7 @@ export async function startAgentConversationHarness(): Promise<AgentConversation
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-conv-'));
   const account = (): CanvasAccountConfig => ({ url: canvas.baseUrl, apiKey: 'token', index: 1 });
 
-  const vault = new FileVaultRepository(workDir);
-  await vault.save({ filePath: HARNESS_VAULT_DOC, hash: 'h', chunkIds: [], indexed: true, content: `## Semaphore\n${HARNESS_VAULT_TEXT}` });
+  const vault = await seedVault({ [HARNESS_VAULT_DOC]: `## Semaphore\n${HARNESS_VAULT_TEXT}` });
 
   const config = buildTestConfig({
     accounts: [account()],
@@ -59,7 +58,8 @@ export async function startAgentConversationHarness(): Promise<AgentConversation
   );
   const { answers } = createAgentModule({ limits: config.agent, systemPrompt: config.prompts.systemPrompt }, {
     singleShot: ai.invocation,
-    vaultRepository: vault,
+    vaultRepository: vault.repository,
+    vaultDocuments: vault.documents,
     createModel: createOpenAIToolModelFactory({ apiKey: 'k', timeoutMs: HARNESS_TIMEOUT_MS, baseURL: openai.baseURL, sleep: async () => undefined }),
     retrieval: null,
     searcher: { search: async () => [{ chunkId: 'c', source: HARNESS_VAULT_DOC, heading: 'Semaphore', parentHeading: '', text: HARNESS_VAULT_TEXT, tokenCount: 5, score: 0.8 }] },

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { chunkSection, makeChunk, parseMarkdownSections } from '../../../../../src/modules/retrieval/domain/markdownChunker';
+import { chunkDocument, chunkSection, makeChunk, parseMarkdownSections } from '../../../../../src/modules/retrieval/domain/markdownChunker';
+import { chunkId } from '../../../../../src/modules/vault/domain';
 
 describe('markdownChunker', () => {
   // ── parseMarkdown ───────────────────────────────────────────────────
@@ -60,40 +61,20 @@ describe('markdownChunker', () => {
     });
   });
 
-  // ── makeChunk ────────────────────────────────────────────────────────
+  // ── makeChunk / chunk ids ───────────────────────────────────────────
   describe('makeChunk', () => {
-    const make = (source: string, heading: string, index: number) => makeChunk('sample text', source, heading, '', index);
-
-    it('generates ID from source and heading', () => {
-      const c = make('Week-01/file.md', 'Introduction', 0);
-      expect(c.id).toContain('Week-01');
-      expect(c.id).toContain('Introduction');
-      expect(c.id).toContain('chunk_000');
+    it('uses the id given by the caller; heading and path stay in metadata', () => {
+      const c = makeChunk('sample text', 'Week-01/file.md', 'Giới thiệu', 'Parent', chunkId('7f3c0000-0000-4000-8000-000000000001', 'a1b2c3d4e5f6', 7));
+      expect(c.id).toBe('7f3c0000-0000-4000-8000-000000000001#a1b2c3d4#007');
+      expect(c.source).toBe('Week-01/file.md');
+      expect(c.heading).toBe('Giới thiệu');
+      expect(c.parentHeading).toBe('Parent');
     });
 
-    it('sanitizes non-ASCII chars in ID', () => {
-      const c = make('tài-liệu/note.md', 'Giới thiệu', 5);
-      expect(c.id).not.toMatch(/[^\w-]/);
-      expect(c.id).toContain('chunk_005');
-    });
-
-    it('sanitizes backslashes in source path', () => {
-      const c = make('Week-02\\Lecture.md', 'Topic', 1);
-      expect(c.id).toContain('Week-02');
-      expect(c.id).toContain('Lecture');
-      expect(c.id).not.toContain('\\');
-    });
-
-    it('uses sanitized heading for ID (max 30 chars)', () => {
-      const c = make('file.md', 'A very long heading that should be truncated', 2);
-      const parts = c.id.split('_');
-      const headingPart = parts.slice(1, -2).join('-');
-      expect(headingPart.length).toBeLessThanOrEqual(30);
-    });
-
-    it('falls back to source-only ID when heading is empty', () => {
-      const c = make('file.md', '', 0);
-      expect(c.id).toBe('file_chunk_000');
+    it('chunkDocument numbers chunks from 0 for each document', () => {
+      let i = 0;
+      const chunks = chunkDocument('a.md', ['## One', '', 'first', '', '## Two', '', 'second'].join('\n'), () => chunkId('doc-1', 'ffffffff00', i++));
+      expect(chunks.map((c) => c.id)).toEqual(['doc-1#ffffffff#000', 'doc-1#ffffffff#001']);
     });
   });
 
@@ -101,7 +82,7 @@ describe('markdownChunker', () => {
   describe('chunkSection', () => {
     function chunk(text: string, src = 'test.md', heading = 'Section', parent = '') {
       let counter = 0;
-      return chunkSection(text, src, heading, parent, () => counter++);
+      return chunkSection(text, src, heading, parent, () => `id-${counter++}`);
     }
 
     it('returns single chunk for short text', () => {

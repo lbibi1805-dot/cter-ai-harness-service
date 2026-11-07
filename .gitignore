@@ -29,3 +29,7 @@ tests/load/runs/
 # Editor / notebook leftovers
 .ipynb_checkpoints/
 /.opencode/
+
+# Local object storage (dev fallback when R2_* is unset)
+data/object-store/
+data/test-object-store/

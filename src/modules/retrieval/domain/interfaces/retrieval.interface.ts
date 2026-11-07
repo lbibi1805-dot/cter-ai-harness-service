@@ -12,7 +12,13 @@ export interface CitedChunk {
   score?: number;
   /** Cross-encoder relevance in [0, 1], set when the chunk went through the reranker. */
   rerankScore?: number;
+  /** Vault document id and content hash of the indexed version (absent on legacy vectors). */
+  docId?: string;
+  contentHash?: string;
 }
+
+/** Read-side guard: drops chunks of deleted or superseded documents and fixes renamed paths. */
+export type ChunkGuard = (chunks: CitedChunk[]) => CitedChunk[];
 
 /** A chunk on its way into the vector index. */
 export interface IndexedChunk {
@@ -23,6 +29,8 @@ export interface IndexedChunk {
   parentHeading: string;
   tokenCount: number;
   vector: number[];
+  docId?: string;
+  contentHash?: string;
 }
 
 /** Metadata stored next to each vector in Pinecone. */
@@ -32,6 +40,8 @@ export interface ChunkMetadata {
   heading: string;
   parentHeading: string;
   tokenCount: number;
+  docId?: string;
+  contentHash?: string;
 }
 
 /** Retrieval is enabled only when a Pinecone key is configured. */

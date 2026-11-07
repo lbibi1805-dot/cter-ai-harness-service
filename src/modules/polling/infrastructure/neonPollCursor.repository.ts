@@ -1,6 +1,7 @@
 import { SchemaGuard } from '../../../shared/database/database';
 import type { PollCursorRepository, PollJobName } from '../domain';
 import { NeonSql } from '../../../shared/database/interfaces/database.interface';
+import { neonSqlClient } from '../../../shared/database/neonSqlClient';
 import { CursorRow } from './interfaces/neonPollCursor.interface';
 import { POLL_CURSOR_SCHEMA_STATEMENTS } from './constants/pollCursorSchema.constants';
 
@@ -8,7 +9,7 @@ export class NeonPollCursorRepository implements PollCursorRepository {
   private readonly schema: SchemaGuard;
 
   constructor(private readonly sql: NeonSql) {
-    this.schema = new SchemaGuard(sql, POLL_CURSOR_SCHEMA_STATEMENTS);
+    this.schema = new SchemaGuard(neonSqlClient(sql), POLL_CURSOR_SCHEMA_STATEMENTS);
   }
 
   async get(job: PollJobName, accountIndex: number): Promise<Date | null> {

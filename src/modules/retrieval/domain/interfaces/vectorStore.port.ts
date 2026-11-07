@@ -9,5 +9,7 @@ export interface VectorStore {
   deleteAll(): Promise<void>;
   /** A missing index counts as already deleted. */
   deleteByIds(ids: string[]): Promise<void>;
+  /** Every record id starting with `prefix` (all when omitted). Serverless indexes only; throws otherwise. */
+  listIds(prefix?: string): Promise<string[]>;
   fetchByIds(ids: string[]): Promise<Record<string, ChunkMetadata & { id: string }>>;
 }

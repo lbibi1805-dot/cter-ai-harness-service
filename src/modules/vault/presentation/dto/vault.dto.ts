@@ -4,6 +4,8 @@ export interface PageLimits {
 }
 
 export interface ManifestEntryDto {
+  docId: string;
+  status: string;
   hash: string;
   chunkIds: string[];
   indexed: boolean;

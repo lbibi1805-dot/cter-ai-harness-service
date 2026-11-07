@@ -6,10 +6,11 @@ import type { VaultRepository } from '../vault';
 import { buildAgentSystemPrompt } from './application/agentPrompt.builder';
 import { AgentRunner } from './application/agentRunner.service';
 import { AnswerService } from './application/answer.service';
+import { ClientAnswerService } from './application/clientAnswer.service';
 import { AgentToolName, buildAgentBudget, type AgentLimits, type ToolCallingModelFactory } from './domain';
 import { RagVaultSearcher } from './infrastructure/ragVaultSearcher.adapter';
 import { ListFolderTool } from './infrastructure/tools/listFolder.tool';
-import { ReadDocumentTool } from './infrastructure/tools/readDocument.tool';
+import { ReadDocumentTool, type VaultDocumentSource } from './infrastructure/tools/readDocument.tool';
 import { VaultSearchTool } from './infrastructure/tools/vaultSearch.tool';
 import { AgentCapability } from './application/interfaces/answer.interface';
 import { VaultSearcher } from './infrastructure/interfaces/vaultSearch.interface';
@@ -23,6 +24,8 @@ export interface AgentModuleConfig {
 export interface AgentModuleDeps {
   singleShot: AIInvocationService;
   vaultRepository: VaultRepository;
+  /** File content for `read_document` (the vault service reads object storage). */
+  vaultDocuments: VaultDocumentSource;
   /** Null when no tool-calling model is reachable with the configured credentials. */
   createModel: ToolCallingModelFactory | null;
   /** Null when Pinecone is not configured (the agent cannot search). */
@@ -37,6 +40,8 @@ export interface AgentModuleDeps {
 
 export interface AgentModule {
   answers: AnswerService;
+  /** `answers` with the final text formatted for client rendering (math + Mermaid); for chat API and Canvas replies. */
+  clientAnswers: ClientAnswerService;
   enabled: boolean;
 }
 
@@ -47,7 +52,8 @@ export interface AgentModule {
 export function createAgentModule(config: AgentModuleConfig, deps: AgentModuleDeps): AgentModule {
   const capability = buildCapability(config, deps);
   if (!capability) logger.info('[agent] agent mode disabled (needs a tool-calling model and PINECONE_API_KEY) — agent requests will be answered single-shot');
-  return { answers: new AnswerService(deps.singleShot, capability), enabled: capability !== null };
+  const answers = new AnswerService(deps.singleShot, capability);
+  return { answers, clientAnswers: new ClientAnswerService(answers), enabled: capability !== null };
 }
 
 function buildCapability(config: AgentModuleConfig, deps: AgentModuleDeps): AgentCapability | null {
@@ -55,7 +61,7 @@ function buildCapability(config: AgentModuleConfig, deps: AgentModuleDeps): Agen
   if (!searcher || !deps.createModel) return null;
 
   const budget = buildAgentBudget(config.limits);
-  const tools = [new VaultSearchTool(searcher), new ReadDocumentTool(deps.vaultRepository), new ListFolderTool(deps.vaultRepository)]
+  const tools = [new VaultSearchTool(searcher), new ReadDocumentTool(deps.vaultDocuments), new ListFolderTool(deps.vaultRepository)]
     .filter((tool) => !deps.disabledTools?.includes(tool.name));
   return {
     runner: new AgentRunner(tools, budget),
@@ -66,6 +72,7 @@ function buildCapability(config: AgentModuleConfig, deps: AgentModuleDeps): Agen
 
 export { AgentRunner } from './application/agentRunner.service';
 export { AnswerService } from './application/answer.service';
+export { ClientAnswerService } from './application/clientAnswer.service';
 export * from './domain';
 export { ChatCompletionsToolModel } from './infrastructure/toolModels/chatCompletionsToolModel.adapter';
 export { OpenAIResponsesToolModel } from './infrastructure/toolModels/openaiResponsesToolModel.adapter';

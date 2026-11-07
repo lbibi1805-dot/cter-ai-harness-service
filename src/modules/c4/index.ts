@@ -4,7 +4,9 @@ import type { AIInvocationService, ModelCatalog } from '../ai';
 import type { ChunkRetriever } from '../rerank';
 import { C4SketchService } from './application/c4Sketch.service';
 import { CRITIC_CUTOFF_RATIO, MAX_C4_DEADLINE_MS, MIN_C4_DEADLINE_MS } from './application/constants/c4Sketch.constants';
-import type { C4KnowledgeSource, C4ModelGateway, C4SessionRepository } from './application/interfaces/c4Sketch.interface';
+import type { C4ConversationRecorder, C4KnowledgeSource, C4ModelGateway, C4SessionRepository } from './application/interfaces/c4Sketch.interface';
+import type { ConversationStore } from '../conversation-store';
+import { ConversationC4SessionRepository } from './infrastructure/conversationC4Session.repository';
 import { MAX_MAX_ELEMENTS, MIN_MAX_ELEMENTS, type DiagramRenderer } from './domain';
 import { AIInvocationModelAdapter } from './infrastructure/aiInvocationModel.adapter';
 import { InMemoryC4SessionRepository } from './infrastructure/inMemoryC4Session.repository';
@@ -40,6 +42,10 @@ export interface C4ModuleDeps {
   renderer?: DiagramRenderer;
   sessions?: C4SessionRepository;
   now?: () => number;
+  /** Conversation store: paused runs persist in `conversations.state` (survive restarts). */
+  conversationStore?: ConversationStore | null;
+  /** Records runs in conversations (context module). */
+  conversations?: C4ConversationRecorder | null;
 }
 
 export interface C4Module {
@@ -62,7 +68,10 @@ export function createC4Module(config: C4ModuleConfig, deps: C4ModuleDeps): C4Mo
     },
     {
       catalog: deps.catalog,
-      sessions: deps.sessions ?? new InMemoryC4SessionRepository(deps.now),
+      sessions: deps.sessions ?? (deps.conversationStore
+        ? new ConversationC4SessionRepository(new InMemoryC4SessionRepository(deps.now), deps.conversationStore, deps.now)
+        : new InMemoryC4SessionRepository(deps.now)),
+      ...(deps.conversations ? { conversations: deps.conversations } : {}),
       model: deps.model ?? new AIInvocationModelAdapter(deps.invocation),
       knowledge: deps.knowledge ?? new RagKnowledgeAdapter(deps.currentRetriever),
       renderer: deps.renderer ?? new PlantUmlRendererAdapter(config.plantUmlServerUrl),

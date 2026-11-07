@@ -1,8 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { depthOf, folderPathOf, type VaultEntry } from '../../domain';
 import { DATA_DIR_NAME, MANIFEST_FILE_NAME } from '../constants/fileVault.constants';
-import { StoredEntry } from '../interfaces/fileVault.interface';
 
 export function resolveManifestPath(rootDir: string, rootManifest: string): string {
   const dataDir = path.resolve(rootDir, DATA_DIR_NAME);
@@ -20,17 +18,4 @@ export function resolveManifestPath(rootDir: string, rootManifest: string): stri
 
 export function isInFolder(filePath: string, folder: string): boolean {
   return filePath === folder || filePath.startsWith(`${folder}/`);
-}
-
-export function storedEntryToVaultEntry(filePath: string, stored: StoredEntry): VaultEntry {
-  return {
-    filePath,
-    hash: stored.hash,
-    chunkIds: stored.chunkIds ?? [],
-    indexed: !!stored.indexed,
-    updatedAt: stored.updatedAt ?? new Date().toISOString(),
-    content: stored.content ?? '',
-    folderPath: folderPathOf(filePath),
-    depth: depthOf(filePath),
-  };
 }

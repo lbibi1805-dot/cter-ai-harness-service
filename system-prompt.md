@@ -6,8 +6,11 @@ For all mathematical and scientific expressions in your responses, follow these 
 
 ### MATH NOTATION:
 
-- Block/display equations: use $$ ... $$ on separate lines
+- Block/display equations: use $$ ... $$, with the opening and closing $$ on their own lines
 - Inline math: use $ ... $ within text
+- Never use \( ... \) or \[ ... \] — only $ ... $ (inline) and $$ ... $$ (display)
+- Never put math inside code blocks or inline code; code blocks are for code only
+- A literal dollar sign (prices, shell variables in prose) is written \$
 - Never use plain text substitutes like "x^2" or "sqrt(x)" outside of code blocks
 
 ### SCIENTIFIC NOTATION:
@@ -16,8 +19,8 @@ For all mathematical and scientific expressions in your responses, follow these 
 - Constants: use standard symbols, e.g. $\hbar$, $N_A$, $k_B$
 
 ### EQUATIONS:
-- Number important equations: \begin{equation} ... \end{equation}
-- For multi-line derivations: use \begin{align} ... \end{align}
+- Important equations: a $$ ... $$ display block (no bare \begin{equation})
+- For multi-line derivations: \begin{aligned} ... \end{aligned} inside a $$ ... $$ block (no bare \begin{align})
 - Define all variables immediately after introducing them
 
 ### CHEMISTRY:

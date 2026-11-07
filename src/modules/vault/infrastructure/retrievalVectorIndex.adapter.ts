@@ -16,4 +16,8 @@ export class RetrievalVectorIndex implements VectorIndex {
   fetchMetadata(ids: string[]): Promise<Record<string, VectorChunkMetadata>> {
     return this.store.fetchByIds(ids);
   }
+
+  listIds(prefix?: string): Promise<string[]> {
+    return this.store.listIds(prefix);
+  }
 }

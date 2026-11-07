@@ -16,6 +16,7 @@ export function toChatQuestion(body: unknown): ChatQuestion {
   if (!provider) throw new ValidationError(`Provider "${rawProvider}" is not servable (supported: ${AI_PROVIDERS.join(', ')})`);
 
   const images = parseImages(raw.images);
+  const conversationId = optionalString(raw.conversationId);
   const question = typeof raw.question === 'string' ? raw.question.trim() : '';
   if (!question && images.length === 0) throw new ValidationError('Provide a question or at least one image');
 
@@ -26,10 +27,11 @@ export function toChatQuestion(body: unknown): ChatQuestion {
     content: { textContent: question, imageBuffers: images, history: parseHistory(raw.history) },
     includeTrace: raw.includeTrace === true,
     stream: raw.stream === true,
+    ...(conversationId ? { conversationId } : {}),
   };
 }
 
-export function toChatAnswerDto({ question, answer, durationMs }: ChatAnswer): ChatAnswerDto {
+export function toChatAnswerDto({ question, answer, durationMs, conversation }: ChatAnswer): ChatAnswerDto {
   return {
     text: answer.text,
     provider: question.provider,
@@ -39,6 +41,7 @@ export function toChatAnswerDto({ question, answer, durationMs }: ChatAnswer): C
     fallbackReason: answer.fallbackReason ?? null,
     attempts: answer.attempts,
     durationMs,
+    ...(conversation ? { conversationId: conversation.conversationId, messageId: conversation.messageId, persisted: conversation.persisted } : {}),
     ...(question.includeTrace ? { trace: { contexts: answer.contexts ?? [], ...(answer.agent ? { agent: answer.agent } : {}) } } : {}),
   };
 }

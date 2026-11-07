@@ -25,6 +25,9 @@ export interface C4SketchDto {
   levels: C4LevelDto[];
   durationMs: number;
   deadlineHit: boolean;
+  /** Server-side conversation the run was recorded in (null when none). */
+  conversationId: string | null;
+  messageId: string | null;
   /** Human in the loop: the run paused; answer with POST /api/c4/resume { sessionId, answers? }. */
   confirmation: C4ConfirmationDto | null;
 }

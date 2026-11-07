@@ -66,7 +66,7 @@ function service(model: ReturnType<typeof scriptedModel>, opts: ServiceOptions =
   });
 }
 
-const REQUEST: C4SketchRequest = { provider: AIProvider.GEMINI, description: 'Cinema booking with VNPay', levels: [], fast: false, stream: false };
+const REQUEST: C4SketchRequest = { provider: AIProvider.GEMINI, description: 'Cinema booking with VNPay', levels: [], fast: false, stream: false, images: [] };
 
 describe('C4SketchService', () => {
   it('runs architect → repair → critic: 3 model calls for 2 levels, knowledge in the system prompt', async () => {
@@ -210,11 +210,11 @@ describe('C4SketchService', () => {
     expect(done.levels[0].png).toEqual(PNG);
   });
 
-  it('drops expired sessions', () => {
+  it('drops expired sessions', async () => {
     let clock = 0;
     const sessions = new InMemoryC4SessionRepository(() => clock);
-    sessions.save({ id: 's1', request: REQUEST, model: 'm', knowledge: [], architect: {}, remainingMs: 1, activeMs: 1, expiresAt: 100, label: 'l' });
+    await sessions.save({ id: 's1', request: REQUEST, model: 'm', knowledge: [], architect: {}, remainingMs: 1, activeMs: 1, expiresAt: 100, label: 'l' });
     clock = 100;
-    expect(sessions.take('s1')).toBeUndefined();
+    expect(await sessions.take('s1')).toBeUndefined();
   });
 });

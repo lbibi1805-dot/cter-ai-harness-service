@@ -1,3 +1,4 @@
+import { DEFAULT_CONTEXT_SETTINGS } from '../../src/modules/context';
 import type { AppConfig } from '../../src/bootstrap/interfaces/appConfig.interface';
 import { StorageProvider } from '../../src/shared/database/enums/database.enums';
 import { AIProvider, OPENROUTER_DEFAULT_BASE_URL, type AiConfig, type PerProvider } from '../../src/modules/ai';
@@ -54,6 +55,14 @@ export function buildTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     agent: { maxToolCalls: 4, minToolCalls: 1, maxDurationMs: TEST_AGENT_MAX_DURATION_MS },
     c4: { plantUmlServerUrl: 'http://127.0.0.1:1/plantuml', includeBase: 'stdlib', deadlineMs: 60_000, callTimeoutMs: 30_000, maxElements: 12, showLegend: false },
     database: { provider: StorageProvider.FILE },
+    storage: { r2: null, localDir: './data/test-object-store' },
+    context: {
+      conversationStoreEnabled: false,
+      purgeDays: 30,
+      settings: { ...DEFAULT_CONTEXT_SETTINGS },
+      aux: { provider: AIProvider.GEMINI, model: 'gemini-3.1-flash-lite' },
+      timeouts: { imageNoteMs: 1_000, imageNoteSyncMs: 1_000, rewriteMs: 1_000, compactMs: 1_000 },
+    },
     gmail: {},
     heartbeat: { enabled: false, intervalMs: TEST_HEARTBEAT_INTERVAL_MS },
     ...overrides,

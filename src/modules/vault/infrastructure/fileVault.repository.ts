@@ -1,116 +1,36 @@
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  folderPathOf,
-  summarizeFolders,
-  type NewVaultEntry,
-  type PagedResult,
-  type VaultEntry,
-  type VaultFolder,
-  type VaultRepository,
-  type VaultSearchCriteria,
-  type VaultStats,
-} from '../domain';
-import { StoredEntry, ManifestFile } from './interfaces/fileVault.interface';
+import { MARKDOWN_CONTENT_TYPE, VaultEntryStatus, VaultSourceType, depthOf, folderPathOf, type VaultEntry } from '../domain';
 import { MANIFEST_FILE_NAME } from './constants/fileVault.constants';
-import { isInFolder, resolveManifestPath, storedEntryToVaultEntry } from './helpers/fileVault.helper';
+import { resolveManifestPath } from './helpers/fileVault.helper';
+import { InMemoryVaultRepository } from './inMemoryVault.repository';
+import type { ManifestFile, StoredEntry } from './interfaces/fileVault.interface';
 
 /**
  * Vault manifest kept in a local JSON file — the dev fallback when Neon is not
  * configured. Prefers `data/.vault-manifest.json` and mirrors writes to the
- * repo-root copy so older deployments keep reading the same data.
+ * repo-root copy so older deployments keep reading the same data. Legacy
+ * entries (content inline, no object key) load as "needs re-upload".
  */
-export class FileVaultRepository implements VaultRepository {
+export class FileVaultRepository extends InMemoryVaultRepository {
   private readonly manifestPath: string;
   private readonly mirrorPath: string;
-  private files: Record<string, StoredEntry> | null = null;
 
   constructor(rootDir: string = process.cwd()) {
+    super();
     this.mirrorPath = path.resolve(rootDir, MANIFEST_FILE_NAME);
     this.manifestPath = resolveManifestPath(rootDir, this.mirrorPath);
+    this.replaceAll(this.load());
   }
 
-  async search(criteria: VaultSearchCriteria): Promise<PagedResult<VaultEntry>> {
-    let entries = this.allEntries();
-    if (criteria.folder) entries = entries.filter((e) => isInFolder(e.filePath, criteria.folder!));
-    if (criteria.text) {
-      const needle = criteria.text.toLowerCase();
-      entries = entries.filter((e) => e.filePath.toLowerCase().includes(needle));
+  protected override changed(): void {
+    const files: Record<string, StoredEntry> = {};
+    for (const entry of this.files.values()) {
+      const { filePath, folderPath: _folder, depth: _depth, ...stored } = entry;
+      files[filePath] = stored;
     }
-    if (typeof criteria.indexed === 'boolean') entries = entries.filter((e) => e.indexed === criteria.indexed);
-    return {
-      items: entries.slice(criteria.offset, criteria.offset + criteria.limit),
-      total: entries.length,
-    };
-  }
-
-  async findAll(): Promise<VaultEntry[]> {
-    return this.allEntries();
-  }
-
-  async findByFolder(folder: string): Promise<VaultEntry[]> {
-    return this.allEntries().filter((e) => isInFolder(e.filePath, folder));
-  }
-
-  async findByPath(filePath: string): Promise<VaultEntry | null> {
-    const stored = this.load()[filePath];
-    return stored ? storedEntryToVaultEntry(filePath, stored) : null;
-  }
-
-  async save(entry: NewVaultEntry): Promise<void> {
-    this.load()[entry.filePath] = {
-      hash: entry.hash,
-      chunkIds: entry.chunkIds,
-      indexed: entry.indexed,
-      updatedAt: new Date().toISOString(),
-      content: entry.content,
-    };
-    this.persist();
-  }
-
-  async remove(filePath: string): Promise<void> {
-    delete this.load()[filePath];
-    this.persist();
-  }
-
-  async removeAll(): Promise<void> {
-    this.files = {};
-    this.persist();
-  }
-
-  async listFolders(): Promise<VaultFolder[]> {
-    const counts = new Map<string, number>();
-    for (const filePath of Object.keys(this.load())) {
-      const folder = folderPathOf(filePath);
-      if (folder) counts.set(folder, (counts.get(folder) ?? 0) + 1);
-    }
-    return summarizeFolders([...counts.entries()].map(([folderPath, fileCount]) => ({ folderPath, fileCount })));
-  }
-
-  async stats(): Promise<VaultStats> {
-    const stored = Object.values(this.load());
-    return { total: stored.length, indexed: stored.filter((s) => s.indexed).length };
-  }
-
-  private allEntries(): VaultEntry[] {
-    return Object.entries(this.load())
-      .map(([filePath, stored]) => storedEntryToVaultEntry(filePath, stored))
-      .sort((a, b) => a.filePath.localeCompare(b.filePath));
-  }
-
-  private load(): Record<string, StoredEntry> {
-    if (this.files) return this.files;
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8')) as ManifestFile;
-      this.files = raw.files ?? {};
-    } catch {
-      this.files = {};
-    }
-    return this.files;
-  }
-
-  private persist(): void {
-    const payload = JSON.stringify({ files: this.files ?? {} }, null, 2);
+    const payload = JSON.stringify({ files }, null, 2);
     for (const target of new Set([this.manifestPath, this.mirrorPath])) {
       try {
         fs.writeFileSync(target, payload);
@@ -118,5 +38,31 @@ export class FileVaultRepository implements VaultRepository {
         // Best-effort mirror; the primary manifest is what gets read back.
       }
     }
+  }
+
+  private load(): VaultEntry[] {
+    let raw: ManifestFile;
+    try {
+      raw = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8')) as ManifestFile;
+    } catch {
+      return [];
+    }
+    return Object.entries(raw.files ?? {}).map(([filePath, stored]) => ({
+      filePath,
+      docId: stored.docId ?? crypto.randomUUID(),
+      hash: stored.hash ?? '',
+      objectKey: stored.objectKey ?? '',
+      chunkIds: stored.chunkIds ?? [],
+      indexed: !!stored.indexed,
+      indexedHash: stored.indexedHash ?? null,
+      status: stored.status ?? VaultEntryStatus.ACTIVE,
+      sourceType: stored.sourceType ?? VaultSourceType.MARKDOWN,
+      contentType: stored.contentType ?? MARKDOWN_CONTENT_TYPE,
+      sizeBytes: stored.sizeBytes ?? null,
+      lastError: stored.lastError ?? null,
+      updatedAt: stored.updatedAt ?? new Date().toISOString(),
+      folderPath: folderPathOf(filePath),
+      depth: depthOf(filePath),
+    }));
   }
 }

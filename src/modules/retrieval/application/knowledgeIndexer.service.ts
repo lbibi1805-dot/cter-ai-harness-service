@@ -2,7 +2,16 @@ import { errorMessage } from '../../../shared/errors';
 import { logger } from '../../../shared/logging/logger';
 import { attempt } from '../../../shared/resilience/attempt';
 import { sleep as realSleep, retryTransient } from '../../../shared/resilience/retry';
-import { computeContentHash, type VaultEntry, type VaultRepository } from '../../vault/domain';
+import {
+  chunkId,
+  computeContentHash,
+  hasStoredObject,
+  needsIndexing,
+  type VaultDocumentReader,
+  type VaultEntry,
+  type VaultIndexRunReport,
+  type VaultRepository,
+} from '../../vault/domain';
 import type { EmbeddingService } from '../domain/interfaces/embedding.port';
 import { chunkDocument } from '../domain/markdownChunker';
 import { EMBEDDING_BACKOFF, EMBEDDING_MAX_ATTEMPTS } from '../domain/constants/retrieval.constants';
@@ -11,128 +20,121 @@ import { normalizeText } from '../domain/textNormalizer';
 import type { VectorStore } from '../domain/interfaces/vectorStore.port';
 import { Sleep } from '../../../shared/resilience/interfaces/retry.interface';
 import { EMPTY_FILES_PREVIEW } from './constants/knowledgeIndexer.constants';
-import { IndexingSettings, IndexingPlan } from './interfaces/knowledgeIndexer.interface';
+import { IndexingSettings } from './interfaces/knowledgeIndexer.interface';
 
 /**
- * Brings Pinecone in line with the vault stored in the database: changed files
- * are re-chunked, embedded and upserted; their old vectors are deleted first.
- * A file is marked indexed only when every one of its chunks got a vector.
+ * Brings Pinecone in line with the manifest, one file at a time (bounded
+ * memory): read the latest content from object storage, chunk with ids
+ * `<docId>#<hash8>#<idx>`, embed, upsert, then switch the manifest to the new
+ * version and only after that delete the previous vectors. The previous
+ * version stays searchable until the switch; a failure marks the file
+ * `failed` and leaves the previous version live.
  */
 export class KnowledgeIndexer {
+  private batchesSent = 0;
+
   constructor(
     private readonly settings: IndexingSettings,
     private readonly embedder: EmbeddingService,
     private readonly repository: VaultRepository,
     private readonly vectorStore: VectorStore,
+    private readonly documents: VaultDocumentReader,
     private readonly sleep: Sleep = realSleep,
   ) {}
 
-  async indexAll(): Promise<void> {
+  async indexAll(): Promise<VaultIndexRunReport> {
     await this.prepareIndex();
-
     const entries = await this.repository.findAll();
     if (entries.length === 0) {
-      logger.info('Neon vault empty — nothing to index');
-      return;
+      logger.info('Vault empty — nothing to index');
+      return { indexed: 0, failed: 0 };
+    }
+    this.reportLegacyRows(entries.filter((e) => !hasStoredObject(e)).map((e) => e.filePath));
+
+    const pending = entries.filter(needsIndexing);
+    if (pending.length === 0) {
+      logger.info(`All ${entries.length} vault files indexed — skipping`);
+      return { indexed: 0, failed: 0 };
     }
 
-    const plan = this.planIndexing(entries);
-    this.reportEmptyFiles(plan.emptyContent);
-    if (plan.indexable.length === 0) {
-      this.reportNothingToIndex(entries, plan);
-      return;
-    }
-
-    logger.info(`Neon vault: ${entries.length} files, ${plan.indexable.length} pending — indexing ${plan.indexable.length} files`);
-    const chunksByFile = await this.chunkFiles(plan.indexable);
-    const allChunks = [...chunksByFile.values()].flat();
-    await this.embedChunks(allChunks);
-
-    const embedded = allChunks.filter((chunk) => chunk.vector.length > 0);
-    if (embedded.length > 0) {
-      logger.info(`Upserting ${embedded.length}/${allChunks.length} chunks to Pinecone...`);
-      await this.vectorStore.upsertChunks(embedded);
-    }
-    await this.saveIndexingResults(plan.indexable, chunksByFile);
-    logger.info(`Vault indexing complete — ${embedded.length} new chunks stored`);
-  }
-
-  /** Pinecone being down must not block startup: the manifest is still updated. */
-  private async prepareIndex(): Promise<void> {
-    const ready = await attempt(() => this.vectorStore.ensureIndex(this.embedder.dimension));
-    if (!ready.ok) logger.warn(`Pinecone unavailable — proceeding with manifest only (${errorMessage(ready.error)})`);
-  }
-
-  private planIndexing(entries: VaultEntry[]): IndexingPlan {
-    const indexable: VaultEntry[] = [];
-    const emptyContent: string[] = [];
-    for (const entry of entries) {
-      const content = entry.content ?? '';
-      if (!content.trim()) {
-        emptyContent.push(entry.filePath);
+    logger.info(`Vault: ${entries.length} files, indexing ${pending.length} (provider=${this.settings.embeddingProvider}, batch=${this.settings.embeddingBatchSize})`);
+    let indexed = 0;
+    let failed = 0;
+    for (const entry of pending) {
+      const result = await attempt(() => this.indexOne(entry));
+      if (result.ok && result.value) {
+        indexed++;
         continue;
       }
-      if (!entry.indexed || computeContentHash(content) !== entry.hash) indexable.push(entry);
+      failed++;
+      const reason = result.ok ? 'not committed' : errorMessage(result.error);
+      logger.warn(`[index] ${entry.filePath} failed: ${reason}`);
+      if (!result.ok) await attempt(() => this.repository.markFailed(entry.docId, entry.hash, reason));
     }
-    return { indexable, emptyContent };
+    logger.info(`Vault indexing complete — ${indexed} indexed, ${failed} failed`);
+    return { indexed, failed };
   }
 
-  private reportEmptyFiles(emptyContent: string[]): void {
-    if (emptyContent.length === 0) return;
-    const preview = emptyContent.slice(0, EMPTY_FILES_PREVIEW).join(', ');
-    const more = emptyContent.length > EMPTY_FILES_PREVIEW ? '…' : '';
-    logger.info(`Neon vault has ${emptyContent.length} files with empty content (need re-upload): ${preview}${more}`);
-  }
+  /** Returns true when the new version is live. Throws (→ `failed`) on any error. */
+  private async indexOne(entry: VaultEntry): Promise<boolean> {
+    const content = await this.documents.readContent(entry);
+    if (content === null) throw new Error(`object missing: ${entry.objectKey}`);
+    if (computeContentHash(content) !== entry.hash) throw new Error('stored content does not match the manifest hash');
+    if (!content.trim()) throw new Error('empty content');
 
-  private reportNothingToIndex(entries: VaultEntry[], plan: IndexingPlan): void {
-    const pending = entries.filter((entry) => !entry.indexed).length;
-    if (pending === 0) logger.info(`All ${entries.length} files indexed — skipping`);
-    else logger.info(`Neon vault: ${entries.length} files, ${pending} pending but ${plan.emptyContent.length} have empty content — skipping (re-upload needed)`);
-  }
+    let index = 0;
+    const chunks = chunkDocument(entry.filePath, normalizeText(content), () => chunkId(entry.docId, entry.hash, index++))
+      .map((chunk) => ({ ...chunk, docId: entry.docId, contentHash: entry.hash }));
+    await this.embedChunks(chunks);
+    const missing = chunks.filter((chunk) => chunk.vector.length === 0).length;
+    if (missing > 0) throw new Error(`embedding failed for ${missing}/${chunks.length} chunks`);
 
-  /** Chunks each file and records its new chunk ids before embedding, so a crash never loses track of vectors. */
-  private async chunkFiles(files: VaultEntry[]): Promise<Map<string, IndexedChunk[]>> {
-    const chunksByFile = new Map<string, IndexedChunk[]>();
-    let chunkCounter = 0;
-    for (const entry of files) {
-      await this.deleteOldVectors(entry);
-      const chunks = chunkDocument(entry.filePath, normalizeText(entry.content), () => chunkCounter++);
-      chunksByFile.set(entry.filePath, chunks);
-      await this.repository.save({
-        filePath: entry.filePath,
-        hash: computeContentHash(entry.content),
-        chunkIds: chunks.map((chunk) => chunk.id),
-        indexed: false,
-        content: entry.content,
-      });
+    await this.vectorStore.upsertChunks(chunks);
+    const newIds = chunks.map((chunk) => chunk.id);
+    const committed = await this.repository.commitIndexed({ docId: entry.docId, hash: entry.hash, chunkIds: newIds });
+    if (!committed) {
+      // The file changed or is being deleted meanwhile: these vectors are already stale.
+      await this.deleteQuietly(newIds, `stale vectors of ${entry.filePath}`);
+      logger.info(`[index] ${entry.filePath} changed during indexing — skipped (next run picks up the new version)`);
+      return true;
     }
-    return chunksByFile;
+    const fresh = new Set(newIds);
+    await this.deleteQuietly(entry.chunkIds.filter((id) => !fresh.has(id)), `previous vectors of ${entry.filePath}`);
+    logger.info(`[index] ${entry.filePath}: ${chunks.length} chunks live`);
+    return true;
   }
 
-  /** Best effort: stale vectors of an edited file are harmless and get overwritten by id. */
-  private async deleteOldVectors(entry: VaultEntry): Promise<void> {
-    if (entry.chunkIds.length === 0) return;
-    const deleted = await attempt(() => this.vectorStore.deleteByIds(entry.chunkIds));
-    if (!deleted.ok) logger.warn(`Could not delete old vectors of ${entry.filePath}: ${errorMessage(deleted.error)}`);
+  /** Pinecone being down must not block startup: files simply stay pending. */
+  private async prepareIndex(): Promise<void> {
+    const ready = await attempt(() => this.vectorStore.ensureIndex(this.embedder.dimension));
+    if (!ready.ok) logger.warn(`Pinecone unavailable — indexing will fail and be retried (${errorMessage(ready.error)})`);
   }
 
-  /** Fills `chunk.vector` in place; a batch that keeps failing is left empty (its files stay unindexed). */
+  private reportLegacyRows(paths: string[]): void {
+    if (paths.length === 0) return;
+    const preview = paths.slice(0, EMPTY_FILES_PREVIEW).join(', ');
+    const more = paths.length > EMPTY_FILES_PREVIEW ? '…' : '';
+    logger.info(`Vault has ${paths.length} legacy files without a stored object (run the vault reset + re-upload): ${preview}${more}`);
+  }
+
+  /** Best effort: leftovers are filtered by the read-side guard and removed by reconcile. */
+  private async deleteQuietly(ids: string[], label: string): Promise<void> {
+    if (ids.length === 0) return;
+    const deleted = await attempt(() => this.vectorStore.deleteByIds(ids));
+    if (!deleted.ok) logger.warn(`Could not delete ${label}: ${errorMessage(deleted.error)} — reconcile will retry`);
+  }
+
+  /** Fills `chunk.vector` in place; a batch that keeps failing is left empty. */
   private async embedChunks(chunks: IndexedChunk[]): Promise<void> {
-    const { embeddingBatchSize: batchSize, embeddingDelayMs: delayMs, embeddingProvider } = this.settings;
+    const { embeddingBatchSize: batchSize, embeddingDelayMs: delayMs } = this.settings;
     const totalBatches = Math.ceil(chunks.length / batchSize);
-    logger.info(`Embedding ${chunks.length} new chunks... (provider=${embeddingProvider}, batch=${batchSize}, delay=${delayMs}ms)`);
-
     for (let start = 0; start < chunks.length; start += batchSize) {
+      if (this.batchesSent++ > 0) await this.sleep(delayMs);
       const batch = chunks.slice(start, start + batchSize);
       const batchNumber = start / batchSize + 1;
-      logger.info(`Embedding batch ${batchNumber}/${totalBatches} (${batch.length} chunks, ${start + 1}-${start + batch.length}/${chunks.length})`);
-
       const vectors = await attempt(() => this.embedWithRetry(batch, batchNumber, totalBatches));
       if (vectors.ok) batch.forEach((chunk, i) => { chunk.vector = vectors.value[i] ?? []; });
       else logger.warn(`Skipping batch ${batchNumber}/${totalBatches}: ${errorMessage(vectors.error)}`);
-
-      const isLastBatch = start + batchSize >= chunks.length;
-      if (!isLastBatch) await this.sleep(delayMs);
     }
   }
 
@@ -144,18 +146,5 @@ export class KnowledgeIndexer {
       onRetry: (attemptNumber, err, kind, delayMs) =>
         logger.info(`${kind} on batch ${batchNumber}/${totalBatches} — retry ${attemptNumber}/${EMBEDDING_MAX_ATTEMPTS} in ${delayMs}ms (${errorMessage(err)})`),
     });
-  }
-
-  private async saveIndexingResults(files: VaultEntry[], chunksByFile: Map<string, IndexedChunk[]>): Promise<void> {
-    for (const entry of files) {
-      const chunks = chunksByFile.get(entry.filePath) ?? [];
-      await this.repository.save({
-        filePath: entry.filePath,
-        hash: computeContentHash(entry.content),
-        chunkIds: chunks.map((chunk) => chunk.id),
-        indexed: chunks.length > 0 && chunks.every((chunk) => chunk.vector.length > 0),
-        content: entry.content,
-      });
-    }
   }
 }

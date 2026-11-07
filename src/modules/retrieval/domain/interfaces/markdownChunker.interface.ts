@@ -4,5 +4,5 @@ export interface MarkdownSection {
   content: string;
 }
 
-/** Hands out globally increasing chunk numbers across files of one indexing run. */
-export type ChunkCounter = () => number;
+/** Hands out the next chunk id of one document (`<docId>#<hash8>#<idx>`). */
+export type ChunkIdFactory = () => string;

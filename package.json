@@ -12,10 +12,16 @@
     "test:watch": "vitest",
     "test:load": "vitest run --config vitest.load.config.ts",
     "test:e2e": "vitest run tests/e2e",
-    "test:unit": "vitest run tests/unit"
+    "test:unit": "vitest run tests/unit",
+    "vault:reset": "tsx scripts/reset-vault.ts",
+    "vault:upload": "tsx scripts/upload-vault.ts",
+    "smoke:r2": "tsx scripts/smoke-r2.ts",
+    "vault:export-legacy": "tsx scripts/export-legacy-vault.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",
+    "@aws-sdk/client-s3": "^3.1164.0",
+    "@aws-sdk/s3-request-presigner": "^3.1164.0",
     "@google/generative-ai": "^0.24.1",
     "@napi-rs/canvas": "^1.0.0",
     "@neondatabase/serverless": "^1.1.0",
@@ -34,9 +40,12 @@
     "puppeteer": "^24.9.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
     "@types/formidable": "^3.5.1",
     "@types/node": "^25.9.1",
     "@types/pg": "^8.23.1",
+    "aws-sdk-client-mock": "^4.1.0",
+    "fast-check": "^4.10.2",
     "tsx": "^4.22.3",
     "typescript": "^5.5.3",
     "vitest": "^4.1.10"

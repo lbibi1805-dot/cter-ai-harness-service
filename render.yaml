@@ -20,6 +20,24 @@ services:
         value: postgres-r2
       - key: DATABASE_URL
         sync: false
+      # ── Object storage: Cloudflare R2, one bucket per environment (prod: cter-prod). Token scoped to that bucket. ──
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: cter-prod
+      # ── Server-side conversations + context engineering (feature flag; enable after the smoke test) ──
+      - key: CONVERSATION_STORE_ENABLED
+        value: "false"
+      - key: CONVERSATION_PURGE_DAYS
+        value: 30
+      - key: AUX_PROVIDER
+        value: gemini
+      - key: AUX_MODEL
+        value: gemini-3.1-flash-lite
       - key: PINECONE_API_KEY
         sync: false
       - key: PINECONE_INDEX

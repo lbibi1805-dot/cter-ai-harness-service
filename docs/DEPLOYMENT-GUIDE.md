@@ -79,6 +79,7 @@ Nguồn sự thật là `src/bootstrap/config/loadConfig.ts`; bảng dưới li�
 | `EMBEDDING_PROVIDER` | `openai` | **Phải khớp** index (openai = 1536 chiều, gemini = 3072) |
 | `VAULT_STORAGE_PROVIDER` | `postgres-r2` | `postgres-r2` = Neon (production) · `sqlite-disk` = file local |
 | `DATABASE_URL` | `postgresql://…` | Bắt buộc khi `postgres-r2` |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | account id, token, `cter-prod` | **Mới 07/11.** File vault + ảnh/diagram hội thoại nằm trên Cloudflare R2. Mỗi môi trường 1 bucket (`cter-dev`, `cter-prod`); token *Object Read & Write* chỉ cho đúng bucket đó. Thiếu cả 4 → thư mục local (chỉ dev, Render mất khi restart); thiếu 1 phần → không khởi động |
 | `ADMIN_TOKEN` | chuỗi ngẫu nhiên | Bearer cho các API ghi: vault, điều khiển polling, `POST /api/cron`, `DELETE /api/logs`. Bỏ trống = ai cũng gọi được (không nên) |
 | `CHAT_API_TOKEN` | chuỗi ngẫu nhiên (khác `ADMIN_TOKEN`) | **Tuỳ chọn.** Bearer cho `POST /api/chat` + `GET /api/chat/status` — client desktop (InterviewCloak) chat thẳng với server thay vì qua Canvas. Bỏ trống = chat API **tắt** (trả 503), khác `ADMIN_TOKEN` vì endpoint này tiêu tiền AI. Đưa token này cho client, **không** đưa `ADMIN_TOKEN` |
 
@@ -95,7 +96,12 @@ Nguồn sự thật là `src/bootstrap/config/loadConfig.ts`; bảng dưới li�
 | `MODEL_FALLBACK_{OPENAI,GEMINI,CLAUDE,GROK}` | — | openai, gemini | Chuỗi model dự phòng, ngăn cách bằng dấu phẩy |
 | `GROK_BASE_URL` | `https://api.x.ai/v1` | có | |
 | `RAG_TOP_K` | `6` | `20` | Số chunk lấy từ Pinecone. **Khi bật rerank** chỉ còn là số chunk dùng lúc rerank lỗi |
-| `VAULT_PATH` | `./documents-vault` | có | Chỉ dùng khi index từ đĩa |
+| `VAULT_PATH` | — | *(xoá được)* | **Không còn dùng** từ 07/11: vault nằm trên R2, upload qua `POST /api/vault/files` hoặc `npm run vault:upload` |
+| `OBJECT_STORAGE_DIR` | `./data/object-store` | không đặt | Thư mục thay R2 khi chạy local |
+| `CONVERSATION_STORE_ENABLED` | `false` | `true` sau smoke test | Hội thoại phía server + context engineering cho `/api/chat`, `/api/c4` (xem `docs/API_CONVERSATIONS.md`) |
+| `CONVERSATION_PURGE_DAYS` | `30` | `30` | Thời gian khôi phục conversation đã xoá mềm |
+| `CONTEXT_KEEP_RECENT_TURNS`, `CONTEXT_COMPACT_THRESHOLD_TOKENS` | `6`, `12000` | mặc định | Auto-compact |
+| `AUX_PROVIDER`, `AUX_MODEL`, `AUX_SYNC_TIMEOUT_MS` | `gemini`, `gemini-3.1-flash-lite`, `15000` | mặc định | Model phụ: caption/OCR ảnh, tóm tắt, viết lại câu hỏi |
 | `EMBEDDING_DELAY_MS`, `EMBEDDING_BATCH_SIZE` | gemini 4000/1 · openai 500/100 | có | Nhịp gọi embedding khi index |
 | `CANVAS_MATERIALS_FOLDER` / `_INPUT_` / `_OUTPUT_` | `Materials2` / `Q` / `A` | có | |
 | `CANVAS_EMAIL_<n>` | — | có | Email nhận thông báo cho tài khoản n |
@@ -228,7 +234,8 @@ CMD ["node", "dist/index.js"]
 - [ ] `ADMIN_TOKEN` đã đặt
 - [ ] `CHAT_API_TOKEN` đã đặt (nếu client desktop dùng kênh "API server")
 - [ ] Đã chạy `npm test` và `npm run test:load` xanh
-- [ ] `documents-vault/` (nếu dùng RAG) đã upload .md lên server
+- [ ] R2: bucket đúng môi trường, token chỉ cho bucket đó, lifecycle rule `tmp/` 1 ngày + abort multipart 1 ngày; `npm run smoke:r2` xanh
+- [ ] Vault đã reset + upload lại sau khi chuyển sang R2 (`planning/planning-06112026/handoff/`), `POST /api/vault/sync` báo `legacyRows: 0`
 - [ ] `knowledge.md` + `system-prompt.md` có mặt (fallback khi RAG không hoạt động)
 - [ ] Build thử local: `npm ci && npm run build && node dist/index.js`
 - [ ] Mở port cần thiết (3000) hoặc bỏ qua nếu chỉ dùng local

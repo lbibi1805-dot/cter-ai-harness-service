@@ -3,6 +3,7 @@ import { AI_PROVIDERS, parseAIProvider } from '../../../ai';
 import { C4_LEVEL_ORDER, parseC4Level, type C4Level } from '../../domain';
 import type { C4ArchitectPlan, C4LevelResult, C4ResumeRequest, C4SketchRequest, C4SketchResult } from '../../application/interfaces/c4Sketch.interface';
 import { MAX_DESCRIPTION_CHARS } from '../constants/c4.constants';
+import { parseImages } from '../../../chat/presentation/helpers/chat.helper';
 import type { C4AnalysisDto, C4LevelDto, C4SketchDto } from '../dto/c4.dto';
 
 /** Shape validation of a `POST /api/c4` body; model rules are checked by C4SketchService. */
@@ -28,7 +29,17 @@ export function toC4SketchRequest(body: unknown): C4SketchRequest {
   });
 
   const model = typeof raw.model === 'string' && raw.model.trim() ? raw.model.trim() : undefined;
-  return { provider, requestedModel: model, description, levels: [...new Set<C4Level>(levels)], fast: raw.fast === true, stream: raw.stream === true };
+  const conversationId = typeof raw.conversationId === 'string' && raw.conversationId.trim() ? raw.conversationId.trim() : undefined;
+  return {
+    provider,
+    requestedModel: model,
+    description,
+    levels: [...new Set<C4Level>(levels)],
+    fast: raw.fast === true,
+    stream: raw.stream === true,
+    images: parseImages(raw.images),
+    ...(conversationId ? { conversationId } : {}),
+  };
 }
 
 /** Shape validation of a `POST /api/c4/resume` body. */
@@ -52,6 +63,8 @@ export function toC4SketchDto(result: C4SketchResult, now: number = Date.now()):
     levels: result.levels.map(toC4LevelDto),
     durationMs: result.elapsedMs,
     deadlineHit: result.deadlineHit,
+    conversationId: result.conversationId ?? null,
+    messageId: result.messageId ?? null,
     confirmation: result.confirmation
       ? {
           sessionId: result.confirmation.sessionId,

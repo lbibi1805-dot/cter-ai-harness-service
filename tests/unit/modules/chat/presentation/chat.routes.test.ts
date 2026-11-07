@@ -3,6 +3,7 @@ import { Readable } from 'stream';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { Router } from '../../../../../src/shared/http/router';
 import { AgentFallbackReason, AnswerMode, type Answerer } from '../../../../../src/modules/agent/domain';
+import { ClientAnswerService } from '../../../../../src/modules/agent';
 import { ChatController } from '../../../../../src/modules/chat/presentation/chat.controller';
 import { ChatService } from '../../../../../src/modules/chat/application/chat.service';
 import { createChatRoutes } from '../../../../../src/modules/chat/presentation/chat.routes';
@@ -205,5 +206,36 @@ describe('chat routes — streaming', () => {
       { type: 'progress', stage: 'agent-tool', detail: 'search_vault' },
     ]);
     expect(events.at(-1)).toMatchObject({ type: 'done', text: 'from the vault', mode: 'agent' });
+  });
+
+  it('with the client answerer (as wired in main), deltas stay raw and done/JSON text is math-normalized', async () => {
+    const raw = 'Let \\(x\\) be\n```bash\necho \\(y\\) $HOME\n```';
+    const normalized = 'Let $x$ be\n```bash\necho \\(y\\) $HOME\n```';
+    answer.mockImplementation(async (request) => {
+      request.stream?.delta(raw);
+      return { text: raw, model: 'gemini-2.0-flash', attempts: 1, mode: AnswerMode.SINGLE_SHOT, contexts: [] };
+    });
+    const service = new ChatService(new ClientAnswerService({ answer }), CATALOG, { enabled: true, agentEnabled: true, isProviderConfigured: () => true });
+    router = new Router(createChatRoutes(new ChatController(service)), TOKEN);
+
+    const chunks: string[] = [];
+    const res = {
+      headersSent: false,
+      writableEnded: false,
+      writeHead: vi.fn(),
+      flushHeaders: vi.fn(),
+      write: vi.fn((chunk: string) => { chunks.push(chunk); return true; }),
+      end: vi.fn((chunk?: string) => { if (chunk) chunks.push(chunk); }),
+    } as unknown as ServerResponse;
+    const body = Buffer.from(JSON.stringify({ provider: 'gemini', question: 'q', stream: true }));
+    const req = Object.assign(Readable.from([body]), { method: 'POST', url: '/api/chat', headers: { authorization: `Bearer ${TOKEN}` } }) as unknown as IncomingMessage;
+    await router.dispatch(req, res, new URL('/api/chat', 'http://localhost'));
+
+    const events = chunks.join('').trim().split('\n').map((line) => JSON.parse(line));
+    expect(events.find((e) => e.type === 'delta')).toMatchObject({ text: raw });
+    expect(events.at(-1)).toMatchObject({ type: 'done', text: normalized });
+
+    const json = await call('POST', '/api/chat', { provider: 'gemini', question: 'q' });
+    expect(json.body.text).toBe(normalized);
   });
 });

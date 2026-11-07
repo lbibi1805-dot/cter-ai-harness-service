@@ -1,7 +1,7 @@
 import { errorMessage } from '../../../shared/errors';
 import { logger } from '../../../shared/logging/logger';
 import { attempt } from '../../../shared/resilience/attempt';
-import type { AIInvocationService } from '../../ai';
+import { withJit, withMemory, type AIInvocationService } from '../../ai';
 import {
   AgentFallbackReason,
   AnswerMode,
@@ -34,8 +34,9 @@ export class AnswerService implements Answerer {
     const { runner, systemPrompt } = this.agent;
     const run = await attempt(() => runner.run({
       model: resolution.model,
-      systemPrompt,
-      content: request.content,
+      // Tool models take a plain system prompt + content: fold the context layers in here.
+      systemPrompt: withMemory(systemPrompt, request.content.memory),
+      content: { ...request.content, textContent: withJit(request.content.textContent, request.content.jitContext) },
       label: request.label,
       stream: request.stream,
     }));

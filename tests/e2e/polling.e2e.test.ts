@@ -15,7 +15,7 @@ import { createFileQaJob } from '../../src/modules/fileqa';
 import type { Notifier } from '../../src/modules/notification';
 import { createOpsModule, type OpsModule } from '../../src/modules/ops';
 import { FilePollCursorRepository, PollJobName, createPollingModule, type PollingModule } from '../../src/modules/polling';
-import { FileVaultRepository } from '../../src/modules/vault';
+import { seedVault } from '../support/vaultFixture';
 import { closeBrowser, getBrowser } from '../../src/modules/document';
 import { StateManager } from '../../src/shared/state/processingStateStore';
 import { buildTestAiConfig, buildTestConfig, perProvider } from '../support/configFixture';
@@ -30,7 +30,7 @@ describe.skipIf(process.env.SKIP_BROWSER_TESTS === '1')('polling end-to-end', ()
   const canvas = new FakeCanvasServer();
   const openai = new FakeOpenAIResponsesServer();
   const VAULT_DOC = 'mon-qnx-current/lab-4/Mutex-vs-Semaphore.md';
-  let vaultRepository: FileVaultRepository;
+  let vault: Awaited<ReturnType<typeof seedVault>>;
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'polling-e2e-'));
   const cursorFile = path.join(workDir, 'poll-cursors.json');
   const aiProcess = vi.fn<AIAdapter['process']>(async (content: PromptContent, _system, model) => ({
@@ -55,7 +55,8 @@ describe.skipIf(process.env.SKIP_BROWSER_TESTS === '1')('polling end-to-end', ()
     const notifier: Notifier = { notifySuccess: vi.fn(), notifyError: vi.fn() };
     const { answers } = createAgentModule({ limits: config.agent, systemPrompt: 'sys' }, {
       singleShot: ai.invocation,
-      vaultRepository,
+      vaultRepository: vault.repository,
+      vaultDocuments: vault.documents,
       createModel: createOpenAIToolModelFactory({ apiKey: 'test', timeoutMs: E2E_TIMEOUT_MS, baseURL: openai.baseURL, sleep: async () => undefined }),
       retrieval: null,
       searcher: { search: async () => [{ chunkId: 'c1', source: VAULT_DOC, heading: 'Mutex', parentHeading: '', text: 'Mutex: chỉ thread đang giữ khóa mới được unlock.', tokenCount: 10, score: 0.82 }] },
@@ -80,11 +81,7 @@ describe.skipIf(process.env.SKIP_BROWSER_TESTS === '1')('polling end-to-end', ()
   beforeAll(async () => {
     await canvas.start();
     await openai.start();
-    vaultRepository = new FileVaultRepository(workDir);
-    await vaultRepository.save({
-      filePath: VAULT_DOC, hash: 'h', chunkIds: [], indexed: true,
-      content: '## Mutex\nOwner thread unlocks; priority inheritance.\n## Semaphore\nsem_wait blocks at zero.',
-    });
+    vault = await seedVault({ [VAULT_DOC]: '## Mutex\nOwner thread unlocks; priority inheritance.\n## Semaphore\nsem_wait blocks at zero.' });
     config = buildTestConfig({
       accounts: [{ url: canvas.baseUrl, apiKey: 'token', index: 1 }],
       ai: buildTestAiConfig({

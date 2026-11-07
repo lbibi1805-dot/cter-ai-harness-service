@@ -16,6 +16,9 @@ import type { VectorStore } from '../domain/interfaces/vectorStore.port';
 import { inBatches } from './helpers/pineconeVectorStore.helper';
 import { PineconeChunkMetadata } from './interfaces/pineconeVectorStore.interface';
 
+/** Pinecone's maximum page size for list. */
+const LIST_PAGE_SIZE = 100;
+
 /**
  * Pinecone-backed vector store. Deleting from an index that does not exist
  * yet is a no-op: the SDK's 404 is translated here, at the boundary.
@@ -51,6 +54,8 @@ export class PineconeVectorStore implements VectorStore {
             heading: chunk.heading,
             parentHeading: chunk.parentHeading,
             tokenCount: chunk.tokenCount,
+            ...(chunk.docId ? { docId: chunk.docId } : {}),
+            ...(chunk.contentHash ? { contentHash: chunk.contentHash } : {}),
           },
         })),
       });
@@ -69,6 +74,8 @@ export class PineconeVectorStore implements VectorStore {
         parentHeading: match.metadata?.parentHeading ?? '',
         tokenCount: match.metadata?.tokenCount ?? 0,
         score: match.score,
+        ...(match.metadata?.docId ? { docId: match.metadata.docId } : {}),
+        ...(match.metadata?.contentHash ? { contentHash: match.metadata.contentHash } : {}),
       }));
   }
 
@@ -83,6 +90,18 @@ export class PineconeVectorStore implements VectorStore {
     }
   }
 
+  async listIds(prefix?: string): Promise<string[]> {
+    const ids: string[] = [];
+    let paginationToken: string | undefined;
+    do {
+      const page = await this.listPage(prefix, paginationToken);
+      if (!page) return ids;
+      for (const vector of page.vectors ?? []) if (vector.id) ids.push(vector.id);
+      paginationToken = page.pagination?.next;
+    } while (paginationToken);
+    return ids;
+  }
+
   async fetchByIds(ids: string[]): Promise<Record<string, PineconeChunkMetadata & { id: string }>> {
     const found: Record<string, PineconeChunkMetadata & { id: string }> = {};
     for (const batch of inBatches(ids)) {
@@ -92,6 +111,16 @@ export class PineconeVectorStore implements VectorStore {
       }
     }
     return found;
+  }
+
+  /** Null when the index does not exist yet (nothing to list). */
+  private async listPage(prefix: string | undefined, paginationToken: string | undefined) {
+    try {
+      return await this.index().listPaginated({ ...(prefix ? { prefix } : {}), limit: LIST_PAGE_SIZE, ...(paginationToken ? { paginationToken } : {}) });
+    } catch (err) {
+      if (err instanceof PineconeErrors.PineconeNotFoundError || extractHttpStatus(err) === HttpStatus.NOT_FOUND) return null;
+      throw err;
+    }
   }
 
   private index(): Index<PineconeChunkMetadata> {

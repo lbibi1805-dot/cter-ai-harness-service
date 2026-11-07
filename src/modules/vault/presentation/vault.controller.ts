@@ -1,8 +1,11 @@
+import { readJsonBody } from '../../../shared/http/body';
 import { HttpStatus } from '../../../shared/http/enums/http.enums';
 import { parseMultipart } from '../../../shared/http/multipart';
 import { sendError, sendJson } from '../../../shared/http/response';
+import { ValidationError } from '../../../shared/errors';
 import type { VaultService } from '../application/vault.service';
 import { type VaultIndexingService } from '../application/vaultIndexing.service';
+import type { ReconcileReport, VaultDeleteResult } from '../application/interfaces/vault.interface';
 import { ReindexOutcome } from '../domain';
 import {
   parsePage,
@@ -12,13 +15,14 @@ import {
   requireDeleteAllConfirmation,
 } from './mappers/vault.mapper';
 import { RouteContext } from '../../../shared/http/interfaces/router.interface';
-import { CHUNK_PAGE_LIMITS, RETRY_AFTER_SECONDS } from './constants/vault.constants';
+import { CHUNK_PAGE_LIMITS, MAX_RENAME_BODY_BYTES, RETRY_AFTER_SECONDS } from './constants/vault.constants';
 
 /** HTTP adapter for the vault: parses requests, calls use cases, shapes JSON. */
 export class VaultController {
   constructor(
     private readonly vault: VaultService,
     private readonly indexing: VaultIndexingService,
+    private readonly reconcile: () => Promise<ReconcileReport>,
   ) {}
 
   searchFiles = async ({ res, query }: RouteContext): Promise<void> => {
@@ -57,15 +61,23 @@ export class VaultController {
     sendJson(res, HttpStatus.OK, { ok: true, files: await this.vault.uploadFiles(uploads) });
   };
 
+  /** `POST /api/vault/files/<path>/rename` `{ "newPath": "folder/new.md" }` — no re-embedding. */
+  renameFile = async ({ req, res, params }: RouteContext): Promise<void> => {
+    const body = (await readJsonBody(req, MAX_RENAME_BODY_BYTES)) as { newPath?: unknown } | null;
+    if (!body || typeof body.newPath !== 'string') throw new ValidationError('Body must be { "newPath": string }');
+    sendJson(res, HttpStatus.OK, { ok: true, file: await this.vault.renameFile(params.path, body.newPath) });
+  };
+
+  /** 200 when everything is gone; 202 when cleanup is still pending (the row stays `deleting`, reconcile finishes it). */
   deleteFile = async ({ res, params }: RouteContext): Promise<void> => {
-    sendJson(res, HttpStatus.OK, { ok: true, pinecone: await this.vault.deleteFile(params.path) });
+    this.sendDeleteResult(res, await this.vault.deleteFile(params.path));
   };
 
   /** `DELETE /api/vault/files` — a folder with `?folder=`, otherwise everything (needs confirmation). */
   deleteFiles = async ({ req, res, query }: RouteContext): Promise<void> => {
-    if (query.folder) return sendJson(res, HttpStatus.OK, { ok: true, deleted: await this.vault.deleteFolder(query.folder) });
+    if (query.folder) return this.sendDeleteResult(res, await this.vault.deleteFolder(query.folder));
     requireDeleteAllConfirmation(req.headers);
-    sendJson(res, HttpStatus.OK, { ok: true, deleted: await this.vault.deleteAll() });
+    this.sendDeleteResult(res, await this.vault.deleteAll());
   };
 
   reindex = async ({ res }: RouteContext): Promise<void> => {
@@ -79,9 +91,15 @@ export class VaultController {
     }
   };
 
+  /** `POST /api/vault/sync` (and the legacy `/sync-pinecone`): reload the manifest and garbage-collect. */
   syncVectorIndex = async ({ res }: RouteContext): Promise<void> => {
-    sendJson(res, HttpStatus.OK, { ok: true, result: await this.vault.syncVectorIndex() });
+    sendJson(res, HttpStatus.OK, { ok: true, result: await this.reconcile() });
   };
+
+  private sendDeleteResult(res: RouteContext['res'], result: VaultDeleteResult): void {
+    const status = result.pending > 0 ? HttpStatus.ACCEPTED : HttpStatus.OK;
+    sendJson(res, status, { ok: true, deleted: result.deleted, pending: result.pending, pinecone: result.vectors });
+  }
 
   private async respondFileChunks({ res, query }: RouteContext, filePath: string): Promise<void> {
     const page = parsePage(query, CHUNK_PAGE_LIMITS);

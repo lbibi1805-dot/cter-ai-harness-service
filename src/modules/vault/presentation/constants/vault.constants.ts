@@ -11,3 +11,5 @@ export const CHUNK_PAGE_LIMITS: PageLimits = { defaultLimit: 50, maxLimit: 100 }
 export const RELATIVE_PATH_FIELDS = ['path', 'webkitRelativePath'] as const;
 
 export const VAULT_API_PREFIX = '/api/vault';
+
+export const MAX_RENAME_BODY_BYTES = 8 * 1024;
