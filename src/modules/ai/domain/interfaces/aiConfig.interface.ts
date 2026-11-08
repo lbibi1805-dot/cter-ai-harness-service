@@ -1,4 +1,5 @@
 import type { AIProvider, OpenRouterProviderSort } from '../enums/ai.enums';
+import type { AiLatencySettings, ProviderTuning } from './latency.interface';
 
 export type PerProvider<T> = Record<AIProvider, T>;
 
@@ -28,7 +29,17 @@ export interface AiConfig {
   /** Direct fallback chain per provider, tried before OpenRouter. */
   modelFallback: PerProvider<string[]>;
   grokBaseUrl: string;
+  /** AI_TIMEOUT_MS: per-attempt cap of a non-streamed call (streamed ones use the first-token/idle timeouts). */
   timeoutMs: number;
   maxRetryCount: number;
   openRouter: OpenRouterConfig;
+  /** Omitted = DEFAULT_AI_LATENCY. */
+  latency?: Partial<AiLatencySettings>;
+  /** Omitted = DEFAULT_PROVIDER_TUNING. */
+  tuning?: Partial<ProviderTuning>;
+  /**
+   * GEMINI_INLINE_IMAGES_MAX_MB in bytes (read with the chat limits): above it, a Gemini request's images
+   * go through the Files API instead of inline. Omitted = 15 MB.
+   */
+  geminiInlineImagesMaxBytes?: number;
 }

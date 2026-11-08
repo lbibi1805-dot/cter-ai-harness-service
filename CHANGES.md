@@ -1,4 +1,179 @@
 
+# Thay đổi: Hot window ảnh (KV cache), upload ảnh phía server, Gemini Files API, xem trước PlantUML, deadline theo đường (08/11/2026, chiều)
+
+> Trạng thái: **chưa commit** (branch `feature/bach-planning-0611-rest`) · Plan: `planning/planning-06112026/09`, `15`, `18 bước 5`
+> · Client: `cter-interview-cloak-client` cập nhật cùng đợt (upload-first có fallback base64; preview PlantUML). Tương thích ngược hai chiều.
+
+## Vì sao
+
+Ảnh của các lượt trước chỉ quay lại prompt qua JIT (vị trí đổi theo turn → không ăn KV cache); client gửi base64 ảnh trong
+mọi request; Gemini trả 413 khi tổng ảnh > 15 MB; essay tốn 1 call aux riêng; resume `/c4` sau restart mất ảnh đề;
+`CHAT_DEADLINE_MS` 90 s cắt câu trả lời PDF dài của Canvas và trần từng bước C4 (`C4_CALL_TIMEOUT_MS` 150 s) thực chất bị
+kẹp ở 90 s; sửa sơ đồ trong chat không xem được hình; `gemini-2.5-flash-lite` trả 404 cho key mới.
+
+## Thay đổi (behaviour change)
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | **Hot window ảnh (18 bước 5)**: `ConversationTurn.images?`; ảnh của `CONTEXT_HOT_WINDOW_TURNS` cặp user/assistant gần nhất nằm **tại chỗ** trong history (≤ 3 ảnh/turn). PNG C4 trợ lý vẽ được đặt ở đầu turn user kế tiếp sau marker `[Hình [A3] do trợ lý vẽ ở lượt trước]`. Ảnh đã nằm trong window không gắn lại dạng JIT. Tổng ảnh/prompt ≤ `CONTEXT_MAX_PROMPT_IMAGES` (ảnh hiện tại + window + JIT; vượt → bỏ ảnh window cũ nhất trước) | Helper chung `src/modules/ai/domain/helpers/historyRender.helper.ts`; mọi adapter (Gemini, OpenAI chat + responses, Claude, Grok, OpenRouter, agent). Chỉ có tác dụng khi hội thoại phía server bật. Rollback `CONTEXT_HOT_WINDOW_TURNS=0` |
+| 2 | **Upload ảnh phía server** `POST /api/chat/images` (CHAT_API_TOKEN): body raw `image/*` hoặc JSON `{images:[{data, mimeType?}]}` (≤ `MAX_CHAT_IMAGES`, body ≤ `CHAT_MAX_BODY_MB`). Mime nhận từ magic bytes (PNG/JPEG/GIF/WebP); PNG/JPEG cạnh dài > 2048 px thu về 1568 px (`@napi-rs/canvas`). Lưu `tmp/uploads/<uuid>` qua ObjectStorage, metadata **chỉ trong RAM** (0 query Neon). `/api/chat` và `/api/c4` nhận `imageIds: string[]` (tính vào `MAX_CHAT_IMAGES`; id lạ/hết hạn → 400) | Object bị xoá sau khi trả lời xong; object hết hạn (`CHAT_UPLOAD_TTL_MS`) chỉ được quét khi có upload mới (≤ 1 lần/phút, không timer); `tmp/` còn có lifecycle R2 1 ngày. Không có object storage → 503 |
+| 3 | **Gemini Files API**: `GEMINI_INLINE_IMAGES_MAX_MB` (15) giờ là ngưỡng adapter Gemini direct **upload ảnh qua Files API** (URI cache theo sha256 trong RAM 47 h) thay vì trả 413. 413 (`InlineImagesTooLargeError`) chỉ khi upload lỗi — tới client sẽ thành 502 (lỗi provider sau fallback) | `/api/c4` vẫn giữ guard inline riêng; đường OpenRouter không còn guard kích thước |
+| 4 | **Essay gộp vào aux router**: `IntentRouter.essaySession`; JSON router có thêm block `essay` tuỳ chọn; output cap 1024 token (`ROUTER_AUX_ESSAY_MAX_OUTPUT_TOKENS`, hằng số) chỉ cho phiên essay; timeout = max(`ARTIFACT_RESOLVER_AUX_TIMEOUT_MS`, `ESSAY_ANALYSIS_TIMEOUT_MS`). Skill mới `prompts/skills/routing/essay-analysis.md` (có hằng fallback + test drift) | Essay = 1 aux + 1 write (+ self-check) — đo được `llmCalls = 2` |
+| 5 | **/c4 tạm dừng giữ ảnh qua restart**: ảnh stage ở `tmp/c4-pending/<sessionId>/<n>.<ext>`, key nằm trong `pendingC4.imageKeys` của **cùng** lần ghi state (không thêm write Neon); resume nạp lại khi RAM không còn; xoá khi resume/hết hạn | Trước: resume đi tiếp từ brief text |
+| 6 | **Deadline theo đường**: `CANVAS_DEADLINE_MS` (300000) cho polling Canvas (file Q&A + hội thoại Canvas); `/api/chat` vẫn `CHAT_DEADLINE_MS` 90000; mỗi bước model C4 = min(`C4_CALL_TIMEOUT_MS` 150000, thời gian còn lại của run) | Trước: bước C4 bị kẹp âm thầm ở 90 s |
+| 7 | **Xem trước PlantUML** `POST /api/c4/render` (CHAT_API_TOKEN): `{source, format?:"png"}`, source ≤ 100 000 ký tự, tự bọc `@startuml/@enduml`; 200 `image/png` + `X-Render-Cache: hit\|miss`; 422 `{error, syntaxError, line}`; 502 renderer lỗi; 400/413. Cache LRU trong RAM 100 entry / 32 MB; dùng `C4_PLANTUML_SERVER_URL`; 0 DB/R2 | |
+| 8 | Câu trả lời chat: `@startuml…@enduml` trần được bọc fence ```` ```plantuml ```` (text `done`/đã lưu; delta stream giữ nguyên). Khối PlantUML trong câu trả lời lưu thành artifact `c4_puml` (version +1 khi turn nói về thiết kế đã có). Rule tĩnh mới `DIAGRAM_EDIT_RULE` (trả đủ PlantUML trong 1 fence + danh sách thay đổi; gợi ý `/c4`) | **Hash prompt tĩnh đổi 1 lần** (cache prefix nguội lại 1 lần sau deploy) |
+| 9 | **Fallback Gemini**: bỏ `gemini-2.5-flash-lite` khỏi mặc định `MODEL_FALLBACK_GEMINI` (code + `.env.example`) — Google trả 404 cho key mới | `.env` dev và Render vẫn còn → **sửa tay** |
+| 10 | **Eval**: `npm run eval:cache [-- --label X] [--scenario long]` (`scripts/eval-cache.ts`) → `evals/reports/data/cache-<label>.json`; script eval ghi `timings`/`wallMs` từng case; `eval-prompts.ts` bỏ qua file golden không có `expected_points` (trước crash ở `reference-resolution.jsonl`); `REF_EVAL_OUT=<file>` cho test golden reference-resolution dump kết quả từng case; notebook `evals/reports/eval-report-vi.ipynb` / `eval-report-en.ipynb` + `report_lib.py` | Baseline `evals/results/baseline.json`: QA mean 94%, pass 100%, promptVersion `859067ef360c` |
+
+## Biến môi trường mới / đổi nghĩa
+
+Tất cả có mặc định trong code — chỉ cần đặt khi muốn khác.
+
+| Biến | Mặc định | Ghi chú |
+|---|---|---|
+| `CONTEXT_HOT_WINDOW_TURNS` | `2` | **Mới**. Số cặp user/assistant gần nhất giữ ảnh tại chỗ; `0` = hành vi cũ (rollback) |
+| `CONTEXT_MAX_PROMPT_IMAGES` | `16` | **Mới**. Trần tổng ảnh mỗi prompt (hiện tại + window + JIT) |
+| `CHAT_UPLOAD_TTL_MS` | `3600000` | **Mới**. Ảnh upload phải được dùng trong khoảng này |
+| `CANVAS_DEADLINE_MS` | `300000` | **Mới**. Hạn chót cả chuỗi model cho 1 item polling Canvas |
+| `CHAT_DEADLINE_MS` | `90000` | **Đổi phạm vi**: vẫn áp cho `/api/chat`; polling Canvas chuyển sang `CANVAS_DEADLINE_MS`, mỗi bước C4 dùng deadline riêng |
+| `GEMINI_INLINE_IMAGES_MAX_MB` | `15` | **Đổi nghĩa**: ngưỡng chuyển sang Files API (không còn trả 413 ngay) |
+| `C4_CALL_TIMEOUT_MS` | `150000` | Nay có hiệu lực thật (trước bị kẹp 90 s) |
+| `ESSAY_ANALYSIS_TIMEOUT_MS` | `6000` | Nay là timeout (cùng `ARTIFACT_RESOLVER_AUX_TIMEOUT_MS`, lấy max) của call aux router khi phiên essay |
+| `MODEL_FALLBACK_GEMINI` | `gemini-3.5-flash,gemini-3.1-flash-lite` | Bỏ `gemini-2.5-flash-lite` |
+| `REF_EVAL_OUT` | — | Chỉ test/eval (server không đọc) |
+
+Không có package mới (resize ảnh upload dùng `@napi-rs/canvas` đã có sẵn).
+
+## API
+
+| Endpoint | Thay đổi |
+|---|---|
+| `POST /api/chat/images` | Mới (CHAT_API_TOKEN) → `{images:[{imageId, mimeType, bytes, width?, height?}]}`; 400 (không phải ảnh/rỗng/quá số ảnh), 413 (body quá lớn), 503 (không có token/object storage) |
+| `POST /api/c4/render` | Mới (CHAT_API_TOKEN): PlantUML → PNG; 200/400/413/422/502/503 |
+| `POST /api/chat` | Body thêm `imageIds[]`; ảnh lớn qua Gemini không còn 413 (trừ khi Files API lỗi) |
+| `POST /api/c4` | Body thêm `imageIds[]` |
+
+## Tương thích ngược
+
+- Client cũ: vẫn gửi base64 `images` như trước; không cần `/api/chat/images`. Client mới gặp server cũ (404/405) → tự gửi base64.
+- Rollback bằng env: `CONTEXT_HOT_WINDOW_TURNS=0` (ảnh lịch sử chỉ qua JIT như cũ). Có thể tăng/giảm `CANVAS_DEADLINE_MS`, `CHAT_DEADLINE_MS` độc lập.
+- Không có migration; `pendingC4.imageKeys` là field JSON tuỳ chọn trong `conversations.state`.
+- Render/dev: xoá `gemini-2.5-flash-lite` khỏi `MODEL_FALLBACK_GEMINI` nếu đang đặt tay.
+
+## Kiểm thử
+
+- `tsc` 0 lỗi, `npx vitest run` **88 file / 854 test**, `npm run build` OK.
+- Client: build 0 warning, ProtocolTests 104/104.
+
+---
+
+# Thay đổi: Latency, Prompt Registry, Artifact Resolver, C4 agent flow, Essay Mode, chi phí Neon (08/11/2026)
+
+> Trạng thái: **chưa commit** (branch `feature/bach-planning-0611-rest`) · Plan: `planning/planning-06112026/05`, `06`, `07`, `08`, `09`, `13 §3.1`, `15`, `16`, `17`, `18`
+> · Client: `cter-interview-cloak-client`, `cter-monitoring-client-ui` cập nhật cùng đợt (tương thích ngược với server cũ). Note 14 (PDF ingestion) **không làm**.
+
+## Vì sao
+
+Gemini có lúc treo > 5 phút (retry 12 lần, không có timeout token đầu, không abort thật); câu trả lời luôn kèm mục
+`## References` dài; system prompt cứng một môn và đổi theo từng turn nên không ăn được KV cache của provider;
+"thiết kế bạn vẽ lúc nãy" không trỏ đúng artifact; `/c4` không hiểu đề dạng ảnh, không review được thiết kế của user;
+câu hỏi tự luận "(N điểm)" thiếu ý; `/health` + cursor poller giữ Neon thức suốt ngày (CU-giờ vượt free tier).
+
+## Thay đổi (behaviour change)
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | **Latency (07)**: `AbortSignal` xuống 5 adapter; timeout tách: token đầu `AI_FIRST_TOKEN_TIMEOUT_MS`, khoảng lặng giữa chunk `AI_IDLE_TIMEOUT_MS`, `AI_TIMEOUT_MS` cho non-stream; **deadline cả chuỗi** `CHAT_DEADLINE_MS` áp cho MỌI request (chat, Canvas file Q&A, C4, aux) | Câu trả lời PDF rất dài bị cắt → tăng `CHAT_DEADLINE_MS` |
+| 2 | Retry chỉ 429/5xx **trước** token đầu; đã có delta → chuyển model (gửi `reset`). Timeout/4xx/rỗng/lỗi mạng → chuyển model ngay. Gemini trả rỗng ném `EmptyProviderResponseError` | `MAX_RETRY_COUNT` mặc định 2 |
+| 3 | **Circuit breaker** theo model: `AI_CIRCUIT_FAILURE_THRESHOLD` lỗi (503/504/529/overloaded/timeout) trong `AI_CIRCUIT_WINDOW_MS` → bỏ qua model `AI_CIRCUIT_COOLDOWN_MS`; mọi model đều mở thì vẫn thử | Trạng thái ở `circuit[]` của `/api/ai-usage` |
+| 4 | Gemini adapter chuyển sang **`@google/genai`** (thinkingConfig, maxOutputTokens, không retry trong SDK, abortSignal); `@google/generative-ai` chỉ còn cho embedding (không đổi vector). OpenAI: reasoning effort (o-series/gpt-5*/gpt-6*/codex), service tier, `max_output_tokens`, `prompt_cache_key` | Embedding câu hỏi: timeout 5 s, 1 retry, LRU 200 |
+| 5 | RAG: `RAG_TOP_K` mặc định 6→8, `RAG_MIN_SCORE` 0.3 (luôn giữ top 2). Agent: fallback single-shot dùng phần còn lại của deadline; tool call trong 1 turn chạy song song | |
+| 6 | `done` (chat) có **`timings`** `{ttftMs, totalMs, attempts[{model,outcome,ms}], inputTokens, outputTokens, cachedTokens, retrievalMs, llmCalls?}`; lưu `messages.tokens_in/out/cached`, `ttft_ms`, `latency_ms`. Ring buffer 1000 lượt trong RAM → `GET /api/metrics/latency` | Agent invocation chưa vào ring buffer |
+| 7 | **References (08)**: prompt không còn đòi `## References` (vẫn cấm bịa nguồn); `stripTrailingReferences` cắt mục References/Sources/Nguồn/Tài liệu tham khảo cuối bài ở mọi đường chat. `sources: [{file, heading, score\|null}]` luôn có (≤ 6 file, dedupe theo file) | Client hiện expander "📚 N nguồn" |
+| 8 | **Ảnh (09)**: `MAX_CHAT_IMAGES` (10, trước hardcode 4), body `CHAT_MAX_BODY_MB` 20, tổng ảnh Gemini > `GEMINI_INLINE_IMAGES_MAX_MB` → **413** kèm gợi ý nén. `/api/c4` cũng 10 ảnh | Files API chưa làm |
+| 9 | **System prompt (06)**: `system-prompt.md` đa môn, bỏ lệnh bắt đọc `diagram-skills.md`, sửa path `software-tesing-ISYS2092-SYS3397`. **Prompt Registry** `prompts/` (core, policies, domains, skills/c4, skills/essay), frontmatter `id/version/owner/description` bắt buộc (thiếu → lỗi khởi động); `promptVersion` = sha256[:12] phần tĩnh. Không có `prompts/` → `system-prompt.md` như cũ | Dockerfile copy `prompts/` + `evals/` → **prod dùng registry sau deploy** |
+| 10 | `messages.prompt_version` = hash prefix tĩnh thực sự gửi cho model (khác `promptVersion` của registry — chỉ phần base) | |
+| 11 | Eval: `npm run eval` (`evals/golden/qa.jsonl`, 8 case), `npm run eval:essay` (`essay.jsonl`, 6 case) → `evals/results/<date>-<promptVersion>.json`, so `baseline.json` | **Chưa chạy, chưa có baseline** |
+| 12 | **KV cache (18)**: bố cục prompt v2 ①②④③⑤⑥⑦ — system tĩnh (base + `CITATION_RULES` + conversation rules) giống hệt byte giữa các hội thoại, summary là turn đầu history, artifact registry ở tin cuối; đo `cachedTokens` ở 3 adapter; OpenAI `prompt_cache_key`; Claude `cache_control` sau cờ `PROMPT_CACHE_CLAUDE` | Rollback `PROMPT_CACHE_LAYOUT=v1`. Bước 5 (hot window ảnh) chưa làm; OpenRouter chưa gửi cache key |
+| 13 | **Artifact Resolver (17)**: `refArtifactIds` từ UI > alias gõ tay (`[A7]`) > rule chấm điểm (kind/level/owner/entity fuzzy bỏ dấu/thời gian; `ARTIFACT_RESOLVER_MIN_SCORE`, `_MARGIN`) > aux (chỉ khi mơ hồ, mode `rules+aux`) > mơ hồ: chèn 2 ứng viên + hỏi lại 1 câu. "Hình/sơ đồ bạn vẽ" → `c4_png`; JIT cắt spec theo level được hỏi; model mở đầu "Dựa trên [A7] …" | `ARTIFACT_RESOLVER_MODE=off` = hành vi cũ |
+| 14 | Ghim kind thiết kế (`CONTEXT_PINNED_KINDS`, ≤ 60) ngoài giới hạn 40 artifact, vẫn 1 round-trip. `design_note` cho thiết kế trả lời trong chat thường (heuristic trong cùng transaction). Agent có tool `list_artifacts`, `get_artifact(id, part, level)` khi hội thoại có artifact | |
+| 15 | `done` của chat và c4 có **`artifacts: [{id, alias, kind, label, level?}]`**; message lưu `resolved_refs {ids, source: ui\|rule\|aux\|ambiguous\|none, scores}` | Client: nút "↩ Hỏi về cái này" |
+| 16 | **C4 agent flow (05)**: module `src/modules/routing` — Intent Router rule trước (chỉ đọc ≤ 200 ký tự / 12 từ đầu) rồi aux 1 lần/request `{intent, confidence, refs[]}` (dùng chung làm AuxResolver cho chat). Workflow Route → Extract (`ProblemBrief`, 1 call vision) → Gap analysis (≤ 3 câu hỏi) → pause ở `conversations.state.pendingC4` (TTL 15 phút, sống qua restart) → Generate/Revise → Render → Repair → Critic → Review → Record | Intent: `qa`, `c4_generate`, `c4_review`, `c4_generate_and_review`, `c4_revise` |
+| 17 | Revise: bản mới có `parent_artifact_id` + `version+1`. Review: thiết kế của user (ảnh → spec) hoặc spec resolver chọn, RAG rubric, khung cố định, artifact `design_review`. Ảnh đề giờ tới extract/architect/drafter/repair. Skill C4 đọc từ registry (+6 skill mới) | Resume sau restart mất ảnh request (đi tiếp từ brief text) |
+| 18 | **Essay Mode (15)**: `/essay [strict] [Nđ]` hoặc `mode: "essay"` luôn chạy; `ESSAY_MODE_ENABLED` chỉ bật tự nhận diện. Phân tích (aux) → multi-query mỗi aspect + RRF + rerank → 1 call viết `<outline>` + `<essay>` theo rubric môn → kiểm id trích dẫn bằng code → self-check (strict / `ESSAY_SELF_CHECK`). ≤ 3 LLM call; stream chỉ phần `<essay>`. `done.essay` = `{outline, aspects, targetWords, coverage, strict, wordCount, droppedCitations, trigger, subject?, domain?}` | Cần Pinecone; không kết hợp agent |
+| 19 | **Hybrid search** BM25 (`minisearch` 7.2.0) trong RAM cho mọi mode: build sau RAG warmup từ object storage, cập nhật theo chữ ký manifest RAM, 0 query Neon; RRF k=60 | `HYBRID_SEARCH_ENABLED=false` = chỉ vector |
+| 20 | **Neon (13 §3.1)**: `GET /ping` (không phụ thuộc gì), `HEARTBEAT_PATH` /health → **/ping**, `render.yaml healthCheckPath: /ping`; `/health` đọc vault stats từ RAM (`vault: "loading"` tới khi load xong). `CachedPollCursorRepository`: đọc 1 lần mỗi (job, account), ghi gom ≤ 1 batch / `POLL_CURSOR_FLUSH_MS`, flush khi SIGTERM/SIGINT (≤ 10 s) | Crash → mất tối đa 15 phút cursor (dedupe downstream) |
+| 21 | **Monitoring (16)**: `countingSqlClient` đếm mọi query Neon; endpoint mới (ADMIN_TOKEN) — xem mục API | Poll được vì chỉ đọc RAM |
+| 22 | Refactor: interface trong `index.ts` của ai/agent/retrieval tách ra `interfaces/`; `extractJsonObject` sang `src/shared/text` | |
+
+## Biến môi trường mới
+
+Tất cả có mặc định trong code — chỉ cần đặt khi muốn khác.
+
+| Biến | Mặc định | Ghi chú |
+|---|---|---|
+| `MAX_RETRY_COUNT` | `2` | **Hạ** nếu `.env`/Render đang 12 |
+| `AI_FIRST_TOKEN_TIMEOUT_MS`, `AI_IDLE_TIMEOUT_MS`, `CHAT_DEADLINE_MS` | `15000`, `20000`, `90000` | 07 |
+| `AI_CIRCUIT_FAILURE_THRESHOLD`, `AI_CIRCUIT_WINDOW_MS`, `AI_CIRCUIT_COOLDOWN_MS` | `3`, `60000`, `120000` | 07 |
+| `AI_MAX_OUTPUT_TOKENS` | `8192` | |
+| `GEMINI_THINKING_LEVEL` | `minimal` | |
+| `OPENAI_REASONING_EFFORT`, `OPENAI_SERVICE_TIER` | `low`, trống | |
+| `RAG_TOP_K`, `RAG_MIN_SCORE` | `8` (trước 6; render.yaml 20→8), `0.3` | |
+| `OPENAI_PROMPT_CACHE_KEY`, `PROMPT_CACHE_CLAUDE`, `PROMPT_CACHE_LAYOUT` | `conversation`, `false`, `v2` | 18 |
+| `MAX_CHAT_IMAGES`, `CHAT_MAX_BODY_MB`, `GEMINI_INLINE_IMAGES_MAX_MB` | `10`, `20`, `15` | 09 |
+| `PROMPT_REGISTRY_ENABLED`, `PROMPTS_DIR` | bật nếu có `prompts/core/system.md`, `prompts` | 06 |
+| `POLL_CURSOR_FLUSH_MS` | `900000` | 13 |
+| `ARTIFACT_RESOLVER_MODE` | `rules+aux` | `off` \| `rules` \| `rules+aux` |
+| `ARTIFACT_RESOLVER_MIN_SCORE`, `_MARGIN`, `_AUX_TIMEOUT_MS` | `2.5`, `1.0`, `1500` | |
+| `CONTEXT_PINNED_KINDS` | `c4_spec,problem_brief,design_review,design_note` | |
+| `ESSAY_MODE_ENABLED` | `false` | Chỉ bộ tự nhận diện |
+| `ESSAY_MAX_CHUNKS`, `ESSAY_WORDS_PER_POINT`, `ESSAY_SELF_CHECK`, `ESSAY_THINKING_LEVEL` | `12`, `175`, `false`, `low` | |
+| `ESSAY_ANALYSIS_TIMEOUT_MS`, `ESSAY_SELF_CHECK_TIMEOUT_MS` | `6000`, `20000` | |
+| `HYBRID_SEARCH_ENABLED` | `true` | |
+| `HARNESS_URL`, `EVAL_PROVIDER`, `EVAL_MODEL`, `EVAL_JUDGE_PROVIDER`, `EVAL_JUDGE_MODEL` | — | Chỉ script eval (server không đọc) |
+
+Package mới: `@google/genai` ^3.0.0, `minisearch` 7.2.0. Không đổi env C4 (dùng `AUX_*`, `ARTIFACT_RESOLVER_*`).
+
+## API
+
+| Endpoint | Thay đổi |
+|---|---|
+| `GET /ping` | Mới, không auth, text `ok`, 0 query DB — dùng cho Render health check + heartbeat |
+| `GET /health/deep` (ADMIN) | Mới: Neon `SELECT 1`, R2 HEAD 1 key, Pinecone describeIndexStats; 503 nếu 1 check fail. Chỉ gọi theo yêu cầu |
+| `GET /api/metrics/db` (ADMIN) | Mới, RAM: `queriesSinceBoot`, `lastQueryAt/Tag`, `byTag`, `cursors {flushCount, dirty…}` |
+| `GET /api/metrics/latency?window=1h\|24h` (ADMIN) | Mới, RAM: p50/p95 ttft/total, retries, errors, cacheHitRate theo model |
+| `GET /api/ai-usage` | Thêm `circuit[]` |
+| `GET /api/config` (ADMIN) | Mới: cấu hình whitelist, secret chỉ hiện dạng boolean |
+| `GET /api/storage/stats` (ADMIN) | Mới: R2 list (Class A) — chỉ khi bấm |
+| `GET /api/prompts` (ADMIN) | Mới: `{promptVersion, prompts[]}`; 404 khi không có registry |
+| `GET /api/evals` (ADMIN) | Mới: `{evals: [...]}` từ `evals/results` |
+| `POST /api/chat` | Body thêm `refArtifactIds[]`, `mode: "essay"`, câu bắt đầu `/essay`; `done`/JSON thêm `sources`, `timings`, `artifacts`, `essay`; 413 khi ảnh quá lớn |
+| `POST /api/c4` | Body thêm `images` (≤ 10), `description` tuỳ chọn khi có ảnh, `review`, `intent`, `refArtifactIds`. Event mới: `intent`, `brief`, `clarify`, `review_delta`, `review_done`; `done` thêm `intent`, `brief`, `review`, `artifacts`, `criticNotes` (`confirmation` cũ giữ nguyên) |
+| `GET /api/conversations/:id` | `state.pendingC4` (đã lọc); message `resolvedRefs`, `tokensCached`, `intent`, `intentConfidence`; artifact `label`, `level`, `owner`, `parentArtifactId`, `version` |
+| `GET /api/conversations?pending=c4` | Lọc hội thoại C4 đang chờ trả lời; item có `pending[]` |
+
+## Migration
+
+- `007_artifact_references.sql`: `artifacts.label/level/owner/parent_artifact_id (FK SET NULL)/version`, `messages.resolved_refs JSONB`, `messages.tokens_cached`, index `artifacts_conversation_kind_idx`.
+- `008_c4_intent.sql`: `messages.intent TEXT`, `messages.intent_confidence REAL`.
+- Cả hai **SchemaGuard tự áp** lúc khởi động (idempotent, `ADD COLUMN IF NOT EXISTS`, chỉ thêm cột). Có thể chạy tay trước để kiểm.
+
+## Tương thích ngược
+
+- Client cũ: field mới đều tuỳ chọn; `confirmation` của `/api/c4` giữ nguyên; client mới vẫn gom heading References của server cũ.
+- Rollback nhanh bằng env (không cần redeploy code): `PROMPT_REGISTRY_ENABLED=false`, `PROMPT_CACHE_LAYOUT=v1`, `ARTIFACT_RESOLVER_MODE=off`, `HYBRID_SEARCH_ENABLED=false`. Cột 007/008 để nguyên (code cũ bỏ qua).
+- Render: nếu service tạo từ dashboard, đổi tay **Health Check Path** → `/ping` và kiểm `MAX_RETRY_COUNT`/`RAG_TOP_K` không bị override giá trị cũ.
+
+## Kiểm thử
+
+- `tsc` 0 lỗi, `npx vitest run` **80 file / 778 test** (chạy 2 lần), `npm run build` OK. Test puppeteer PDF thêm `hookTimeout` 60 s (sửa flaky).
+- Golden reference resolution (`evals/golden/reference-resolution.jsonl`, 33 case, offline): accuracy 100%, ambiguity recall 100% (rule được tinh chỉnh trên chính bộ này).
+- Smoke live trên dev (Neon dev branch, R2 `cter-dev`, Pinecone dev, Gemini): **21/21**, đã dọn. Turn 2 của chat: cached 2027/4198 token; `/c4` → câu hỏi "hình bạn vẽ" resolve `[A2]` bằng rule, cached 4057 token; `/ping` + `/health` = 0 query DB.
+- **Chưa test live**: clarify → resume, review, revise, essay (vault dev trống), cache OpenAI/Claude, client WPF + monitoring UI với server thật, p95 Gemini trên 20 câu, `npm run eval`.
+
+---
+
 # Thay đổi: Vault lên Cloudflare R2, hội thoại phía server, context engineering (07/11/2026)
 
 > Trạng thái: **chưa commit** · Plan: `planning/planning-06112026/02`, `03`, `04`, `12`, `13 §4` · Prod: `planning/planning-06112026/handoff/01-prod-runbook.md`

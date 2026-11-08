@@ -125,6 +125,29 @@ describe.each(stores)('ConversationStore contract: %s', (_name, make) => {
     expect((await store.load(id, 10, 10))!.state).toEqual({});
   });
 
+  it('008: messages keep the C4 intent; findActive returns state; list filters ?pending', async () => {
+    const waiting = randomUUID();
+    const idle = randomUUID();
+    const intent = { intent: 'c4_review', intentConfidence: 0.75 };
+    await store.recordTurn({
+      conversationId: waiting, title: '/c4', artifacts: [],
+      messages: [
+        { id: randomUUID(), role: MessageRole.USER, kind: MessageKind.C4_REVIEW, text: '/c4 --review', ...intent },
+        { id: randomUUID(), role: MessageRole.ASSISTANT, kind: MessageKind.C4_REVIEW, text: 'ok', ...intent },
+      ],
+    });
+    await store.setState(waiting, ConversationStateKey.PENDING_C4, { id: 's1', step: 'clarify', questions: [{ slot: 'levels' }] }, '/c4');
+    await store.recordTurn(turn(idle, 'q', 'a'));
+
+    const detail = await store.findActive(waiting, 50);
+    expect(detail!.messages.map((m) => [m.intent, m.intentConfidence])).toEqual([['c4_review', 0.75], ['c4_review', 0.75]]);
+    expect(detail!.state).toEqual({ pendingC4: { id: 's1', step: 'clarify', questions: [{ slot: 'levels' }] } });
+    expect((await store.findActive(idle, 50))!.messages[0]).toMatchObject({ intent: null, intentConfidence: null });
+    const pending = await store.list(10, false, ConversationStateKey.PENDING_C4);
+    expect(pending.map((c) => [c.id, c.pending])).toEqual([[waiting, ['pendingC4']]]);
+    expect((await store.list(10, false)).map((c) => c.id).sort()).toEqual([waiting, idle].sort());
+  });
+
   it('findActive returns full message rows (timings, sources)', async () => {
     const id = randomUUID();
     await store.recordTurn(turn(id, 'q', 'a'));

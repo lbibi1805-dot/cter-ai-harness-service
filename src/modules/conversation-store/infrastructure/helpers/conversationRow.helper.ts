@@ -1,5 +1,5 @@
 import { ArtifactKind, MessageKind, MessageRole } from '../../domain/enums/conversation.enums';
-import type { ArtifactDetail, MessageDetail, StoredArtifact, StoredMessage } from '../../domain/interfaces/conversation.interface';
+import type { ArtifactDetail, MessageDetail, ResolvedRefs, StoredArtifact, StoredMessage } from '../../domain/interfaces/conversation.interface';
 
 type Row = Record<string, unknown>;
 
@@ -53,9 +53,13 @@ export function toMessageDetail(row: Row): MessageDetail {
     promptVersion: strOrNull(row.prompt_version),
     tokensIn: numOrNull(row.tokens_in),
     tokensOut: numOrNull(row.tokens_out),
+    tokensCached: numOrNull(row.tokens_cached),
     ttftMs: numOrNull(row.ttft_ms),
     latencyMs: numOrNull(row.latency_ms),
     sources: parseJson(row.sources, null),
+    resolvedRefs: parseJson<ResolvedRefs | null>(row.resolved_refs, null),
+    intent: strOrNull(row.intent),
+    intentConfidence: numOrNull(row.intent_confidence),
     createdAt: toIso(row.created_at),
   };
 }
@@ -72,6 +76,11 @@ export function toStoredArtifact(row: Row): StoredArtifact {
     caption: strOrNull(row.caption),
     ocrText: strOrNull(row.ocr_text),
     dataJson: parseJson(row.data_json, null),
+    label: strOrNull(row.label),
+    level: strOrNull(row.level),
+    owner: (strOrNull(row.owner) as MessageRole | null),
+    parentArtifactId: strOrNull(row.parent_artifact_id),
+    version: Number(row.version ?? 1),
   };
 }
 

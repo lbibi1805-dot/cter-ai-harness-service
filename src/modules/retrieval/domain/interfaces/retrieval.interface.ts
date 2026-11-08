@@ -51,8 +51,12 @@ export interface RetrievalConfig {
   embeddingProvider: EmbeddingProvider;
   vaultPath: string;
   topK: number;
+  /** RAG_MIN_SCORE: vector score below which chunks are dropped (the best MIN_KEPT_CHUNKS always stay); omitted = no filter. */
+  minScore?: number;
   embeddingDelayMs: number;
   embeddingBatchSize: number;
+  /** HYBRID_SEARCH_ENABLED: BM25 in RAM fused with vector hits (default true when omitted). */
+  hybridSearch?: boolean;
 }
 
 export interface EmbeddingKeys {

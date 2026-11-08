@@ -1,0 +1,117 @@
+{
+  "kind": "essay",
+  "date": "2026-11-08",
+  "provider": "gemini",
+  "meanScore": 1,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "E01",
+      "missingTerms": [],
+      "wordCount": 362,
+      "targetWords": 350,
+      "lengthOk": true,
+      "citationsValid": true,
+      "coverage": 1,
+      "missingCitations": [],
+      "score": 1,
+      "pass": true,
+      "judge": {
+        "coverage": 5,
+        "terminology": 5,
+        "structure": 5,
+        "reasoning": 5,
+        "citations": 5,
+        "length": 5
+      },
+      "wallMs": 14894,
+      "timings": {
+        "totalMs": 9738,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 6877
+          }
+        ],
+        "inputTokens": 11781,
+        "outputTokens": 2345,
+        "cachedTokens": 0,
+        "retrievalMs": 1704,
+        "llmCalls": 2
+      }
+    },
+    {
+      "id": "E02",
+      "missingTerms": [],
+      "wordCount": 536,
+      "targetWords": 525,
+      "lengthOk": true,
+      "citationsValid": true,
+      "coverage": 1,
+      "missingCitations": [],
+      "score": 1,
+      "pass": true,
+      "judge": {
+        "coverage": 5,
+        "terminology": 5,
+        "structure": 5,
+        "reasoning": 5,
+        "citations": 5,
+        "length": 5
+      },
+      "wallMs": 14519,
+      "timings": {
+        "totalMs": 10133,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 7350
+          }
+        ],
+        "inputTokens": 15334,
+        "outputTokens": 2179,
+        "cachedTokens": 0,
+        "retrievalMs": 1746,
+        "llmCalls": 2
+      }
+    },
+    {
+      "id": "E03",
+      "missingTerms": [],
+      "wordCount": 414,
+      "targetWords": 350,
+      "lengthOk": true,
+      "citationsValid": true,
+      "coverage": 1,
+      "missingCitations": [],
+      "score": 1,
+      "pass": true,
+      "judge": {
+        "coverage": 5,
+        "terminology": 5,
+        "structure": 5,
+        "reasoning": 5,
+        "citations": 5,
+        "length": 5
+      },
+      "wallMs": 15235,
+      "timings": {
+        "totalMs": 10680,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 6485
+          }
+        ],
+        "inputTokens": 13823,
+        "outputTokens": 1838,
+        "cachedTokens": 0,
+        "retrievalMs": 1987,
+        "llmCalls": 2
+      }
+    }
+  ]
+}

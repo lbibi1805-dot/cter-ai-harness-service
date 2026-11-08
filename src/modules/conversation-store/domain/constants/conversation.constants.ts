@@ -1,3 +1,5 @@
+import { ConversationStateKey } from '../enums/conversation.enums';
+
 /** Key of every object of a conversation; `deletePrefix` of it purges the conversation's files. */
 export function conversationPrefix(conversationId: string): string {
   return `conversations/${conversationId}/`;
@@ -36,3 +38,8 @@ const EXTENSION_BY_MIME: Record<string, string> = {
 export function extensionForMime(mime: string): string {
   return EXTENSION_BY_MIME[mime.toLowerCase()] ?? 'bin';
 }
+
+/** `?pending=` values of GET /api/conversations → the state key they filter on. */
+export const PENDING_FILTERS: Readonly<Record<string, ConversationStateKey>> = {
+  c4: ConversationStateKey.PENDING_C4,
+};

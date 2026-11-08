@@ -4,9 +4,17 @@ import { EmbeddingKeyMissingError } from '../domain/errors/retrieval.errors';
 import type { EmbeddingKeys } from '../domain/interfaces/retrieval.interface';
 import { GeminiEmbeddingAdapter } from './geminiEmbedding.adapter';
 import { OpenAIEmbeddingAdapter } from './openaiEmbedding.adapter';
+import { CachedEmbeddingService } from './cachedEmbedding.adapter';
 
-/** Embeddings always use a direct key (never OpenRouter): the vectors must match the Pinecone index. */
+/**
+ * Embeddings always use a direct key (never OpenRouter): the vectors must match the Pinecone index.
+ * Question vectors are cached in memory (LRU).
+ */
 export function createEmbeddingService(provider: EmbeddingProvider, keys: EmbeddingKeys): EmbeddingService {
+  return new CachedEmbeddingService(createProviderEmbedding(provider, keys));
+}
+
+function createProviderEmbedding(provider: EmbeddingProvider, keys: EmbeddingKeys): EmbeddingService {
   if (provider === EmbeddingProvider.GEMINI) {
     if (!keys.gemini) throw new EmbeddingKeyMissingError(provider, 'GEMINI_API_KEY');
     return new GeminiEmbeddingAdapter(keys.gemini);

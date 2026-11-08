@@ -1,5 +1,11 @@
 import type { CitationPrompt, CitedChunk } from '../domain/interfaces/retrieval.interface';
-import { CITATION_RULES, DOLLAR_WRAPPED_MD_FILE, SOURCE_SEPARATOR, DOLLAR_WRAPPED_FILE_NAME, PERCENT, CONTEXT_OPEN_TAG, CONTEXT_CLOSE_TAG } from './constants/citationPrompt.constants';
+import { CITATION_RULES, DOLLAR_WRAPPED_MD_FILE, SOURCE_SEPARATOR, DOLLAR_WRAPPED_FILE_NAME, PERCENT, CONTEXT_OPEN_TAG, CONTEXT_CLOSE_TAG, TRAILING_REFERENCES_SECTION } from './constants/citationPrompt.constants';
+
+/** Drops a trailing `## References` / `## Sources` / `## Nguồn` / `## Tài liệu tham khảo` section (clients list sources themselves). */
+export function stripTrailingReferences(response: string): string {
+  const stripped = response.replace(TRAILING_REFERENCES_SECTION, '');
+  return stripped === response ? response : stripped.trimEnd();
+}
 
 /** Puts retrieved chunks in front of the question and adds the citation rules to the system prompt. */
 export class CitationPromptBuilder {
@@ -11,9 +17,9 @@ export class CitationPromptBuilder {
     };
   }
 
-  /** Unwraps `$$file.md$$` citations the model was told not to write. */
+  /** Unwraps `$$file.md$$` citations the model was told not to write and drops a trailing References section. */
   cleanResponse(response: string): string {
-    return response
+    return stripTrailingReferences(response)
       .replace(DOLLAR_WRAPPED_MD_FILE, (_, inner: string) => inner.trim())
       .replace(DOLLAR_WRAPPED_FILE_NAME, (_, inner: string) => inner.trim());
   }

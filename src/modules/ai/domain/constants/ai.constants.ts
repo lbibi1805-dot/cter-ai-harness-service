@@ -4,8 +4,8 @@ export const AI_PROVIDERS: readonly AIProvider[] = Object.values(AIProvider);
 
 export const DEFAULT_AI_TIMEOUT_MS = 120_000;
 
-/** Retries per model after the first attempt (TRANSIENT failures). */
-export const DEFAULT_MAX_RETRY_COUNT = 3;
+/** Retries per model after the first attempt (429/5xx before the first token only). */
+export const DEFAULT_MAX_RETRY_COUNT = 2;
 
 /** A rate-limited model gets this many tries before the chain moves on. */
 export const RATE_LIMIT_ATTEMPTS_PER_MODEL = 2;
@@ -34,7 +34,7 @@ export const DEFAULT_DIRECT_MODELS: Readonly<Record<AIProvider, string>> = {
 
 export const DEFAULT_DIRECT_FALLBACKS: Readonly<Record<AIProvider, readonly string[]>> = {
   [AIProvider.CLAUDE]: ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
-  [AIProvider.GEMINI]: ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite'],
+  [AIProvider.GEMINI]: ['gemini-3.5-flash', 'gemini-3.1-flash-lite'],
   [AIProvider.GROK]: ['grok-3', 'grok-4-1-fast-reasoning'],
   [AIProvider.OPENAI]: ['gpt-6-astra', 'gpt-5.3-codex', 'gpt-5', 'o3-mini', 'gpt-4o', 'gpt-4o-mini'],
 };

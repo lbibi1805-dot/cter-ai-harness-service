@@ -15,3 +15,6 @@ export const BUDGET_EXHAUSTED_NOTE = 'Research budget exhausted. Write the final
 
 /** File name marker: `START_<name>_<provider>[_<model>]_agent.<ext>`. */
 export const AGENT_FILE_SUFFIX = '_agent';
+
+/** A single-shot fallback after a failed agent run gets at least this long, even past the request deadline. */
+export const AGENT_FALLBACK_MIN_MS = 20_000;

@@ -62,6 +62,11 @@ export class InMemoryVaultRepository implements VaultRepository {
   }
 
   async stats(): Promise<VaultStats> {
+    return this.currentStats();
+  }
+
+  /** Synchronous, RAM-only stats (the cached repository serves `/health` from it). */
+  currentStats(): VaultStats {
     const visible = this.visible();
     return { total: visible.length, indexed: visible.filter((e) => e.indexed).length };
   }
@@ -166,6 +171,11 @@ export class InMemoryVaultRepository implements VaultRepository {
   peekByDocId(docId: string): VaultEntry | undefined {
     for (const entry of this.files.values()) if (entry.docId === docId) return entry;
     return undefined;
+  }
+
+  /** Synchronous snapshot of every row (live and deleting), for RAM-only consumers (the BM25 corpus). */
+  peekAll(): VaultEntry[] {
+    return [...this.files.values()].map((e) => ({ ...e }));
   }
 
   /** Hook for subclasses that persist (JSON dev fallback). */

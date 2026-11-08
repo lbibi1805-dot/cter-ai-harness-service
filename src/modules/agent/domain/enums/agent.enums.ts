@@ -16,6 +16,9 @@ export enum AgentToolName {
   SEARCH_VAULT = 'search_vault',
   READ_DOCUMENT = 'read_document',
   LIST_FOLDER = 'list_folder',
+  /** Conversation artifacts (note 17 step 8), added per request when the conversation store is on. */
+  LIST_ARTIFACTS = 'list_artifacts',
+  GET_ARTIFACT = 'get_artifact',
 }
 
 /** Why an agent request was answered by the single-shot path instead. */

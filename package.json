@@ -16,12 +16,16 @@
     "vault:reset": "tsx scripts/reset-vault.ts",
     "vault:upload": "tsx scripts/upload-vault.ts",
     "smoke:r2": "tsx scripts/smoke-r2.ts",
-    "vault:export-legacy": "tsx scripts/export-legacy-vault.ts"
+    "vault:export-legacy": "tsx scripts/export-legacy-vault.ts",
+    "eval": "tsx scripts/eval-prompts.ts",
+    "eval:essay": "tsx scripts/eval-essay.ts",
+    "eval:cache": "tsx scripts/eval-cache.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",
     "@aws-sdk/client-s3": "^3.1164.0",
     "@aws-sdk/s3-request-presigner": "^3.1164.0",
+    "@google/genai": "^3.0.0",
     "@google/generative-ai": "^0.24.1",
     "@napi-rs/canvas": "^1.0.0",
     "@neondatabase/serverless": "^1.1.0",
@@ -33,6 +37,7 @@
     "mammoth": "^1.12.0",
     "marked": "^18.0.4",
     "mermaid": "^11.6.0",
+    "minisearch": "^7.2.0",
     "nodemailer": "^8.0.7",
     "openai": "^6.38.0",
     "pdfjs-dist": "^3.11.174",

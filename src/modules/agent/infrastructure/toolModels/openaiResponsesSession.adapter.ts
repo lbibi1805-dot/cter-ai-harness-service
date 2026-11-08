@@ -1,13 +1,12 @@
 import type OpenAI from 'openai';
 import type { ResponseInputItem, ResponseOutputItem } from 'openai/resources/responses/responses';
 import { retryTransient, withTimeout } from '../../../../shared/resilience';
-import { toDataUrl } from '../../../ai/domain/promptContent';
-import { toResponsesHistory } from '../../../ai';
+import { toResponsesHistory, toResponsesUserMessage } from '../../../ai';
 import type { TextDeltaListener } from '../../../ai/domain/interfaces/aiProvider.port';
 import { AGENT_TRANSPORT_ATTEMPTS, ModelTurnKind, type AgentToolDefinition, type ModelTurn, type ToolCallingSession, type ToolOutput, type TurnOptions } from '../../domain';
 import { PromptContent } from '../../../ai/domain/interfaces/promptContent.interface';
 import { ToolModelTimeouts } from '../interfaces/openaiResponsesToolModel.interface';
-import { IMAGE_DETAIL, RESPONSES_COMPLETED_EVENT, RESPONSES_FUNCTION_CALL, RESPONSES_TEXT_DELTA_EVENT } from '../constants/openaiResponsesToolModel.constants';
+import { RESPONSES_COMPLETED_EVENT, RESPONSES_FUNCTION_CALL, RESPONSES_TEXT_DELTA_EVENT } from '../constants/openaiResponsesToolModel.constants';
 import { toolChoiceFor } from '../helpers/openaiResponsesToolModel.helper';
 
 /** A streamed turn, assembled from its delta events (`response.completed` carries the whole response). */
@@ -33,13 +32,7 @@ export class OpenAIResponsesSession implements ToolCallingSession {
     this.input = [
       { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
       ...toResponsesHistory(content.history),
-      {
-        role: 'user',
-        content: [
-          ...(content.textContent ? [{ type: 'input_text' as const, text: content.textContent }] : []),
-          ...content.imageBuffers.map((image) => ({ type: 'input_image' as const, image_url: toDataUrl(image), detail: IMAGE_DETAIL })),
-        ],
-      },
+      toResponsesUserMessage(content),
     ];
     this.tools = tools.map((tool) => ({ type: 'function', name: tool.name, description: tool.description, parameters: tool.parameters, strict: false }));
   }

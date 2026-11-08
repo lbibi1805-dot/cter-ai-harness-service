@@ -9,6 +9,8 @@ export interface ConversationModuleDeps {
   catalog: ModelCatalog;
   state: StateManager;
   answers: Answerer;
+  /** CANVAS_DEADLINE_MS: AI chain budget per request (absent = CHAT_DEADLINE_MS). */
+  deadlineMs?: number;
   /** Test hooks: fake Canvas client, clock. */
   overrides?: Partial<ConversationPollerDeps>;
 }
@@ -17,6 +19,7 @@ export interface ConversationModuleDeps {
 export function createConversationPoller(deps: ConversationModuleDeps): ConversationPoller {
   return new ConversationPoller(deps.catalog, deps.state, deps.answers, {
     createClient: (account) => new ConversationClient(account.url, account.apiKey),
+    ...(deps.deadlineMs !== undefined ? { deadlineMs: deps.deadlineMs } : {}),
     ...deps.overrides,
   });
 }

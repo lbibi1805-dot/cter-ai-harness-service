@@ -5,6 +5,8 @@ export const DEFAULT_POLL_INTERVAL_MS = 60_000;
 export const SYSTEM_PROMPT_FILE = 'system-prompt.md';
 export const KNOWLEDGE_FILE = 'knowledge.md';
 export const DEFAULT_SYSTEM_PROMPT = 'You are a helpful assistant.';
+/** Prompt registry root (PROMPTS_DIR): core/ policies/ domains/ skills/. */
+export const DEFAULT_PROMPTS_DIR = 'prompts';
 
 /** A record stuck in PROCESSING longer than every retry could take (timeout × (retries + margin)) is abandoned. */
 export const STALE_RETRY_MARGIN = 2;

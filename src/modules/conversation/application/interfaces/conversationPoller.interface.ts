@@ -5,6 +5,8 @@ import { PendingConversationRequest } from '../../domain/interfaces/pendingReque
 export interface ConversationPollerDeps {
   createClient: (account: CanvasAccountConfig) => ConversationGateway;
   now?: () => number;
+  /** CANVAS_DEADLINE_MS: the AI chain of one request (absent = the invocation default, CHAT_DEADLINE_MS). */
+  deadlineMs?: number;
 }
 
 export interface CachedSettings {

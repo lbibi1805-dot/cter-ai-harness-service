@@ -9,7 +9,7 @@ import { ChatService } from '../../../../../src/modules/chat/application/chat.se
 import { createChatRoutes } from '../../../../../src/modules/chat/presentation/chat.routes';
 import { AIProvider, ModelCatalog, ProgressStage, type PerProvider } from '../../../../../src/modules/ai';
 import { buildTestAiConfig } from '../../../../support/configFixture';
-import { MAX_CHAT_IMAGES } from '../../../../../src/modules/chat/presentation/constants/chat.constants';
+import { BYTES_PER_MB, DEFAULT_CHAT_LIMITS, DEFAULT_MAX_CHAT_IMAGES } from '../../../../../src/modules/chat/presentation/constants/chat.constants';
 
 const TOKEN = 'chat-secret';
 const DEFAULT_MODELS: PerProvider<string> = { claude: 'claude-sonnet-4-6', gemini: 'gemini-2.0-flash', grok: 'grok-3', openai: 'gpt-6-astra' };
@@ -125,7 +125,10 @@ describe('chat routes', () => {
     [{ provider: 'gemini', images: [{ mimeType: 'text/plain', data: PNG_BASE64 }] }, 'images[0]'],
     [{ provider: 'gemini', question: 'q', history: 'nope' }, 'history must be an array'],
     [{ provider: 'gemini', question: 'q', history: [{ role: 'system', text: 'x' }] }, 'history[0]'],
-    [{ provider: 'gemini', images: Array(MAX_CHAT_IMAGES + 1).fill({ mimeType: 'image/png', data: PNG_BASE64 }) }, 'At most'],
+    [{ provider: 'gemini', question: 'q', refArtifactIds: 'A7' }, 'refArtifactIds must be an array'],
+    [{ provider: 'gemini', question: 'q', refArtifactIds: ['A7', 'drop table'] }, 'refArtifactIds[1]'],
+    [{ provider: 'gemini', question: 'q', refArtifactIds: Array.from({ length: 11 }, (_, i) => `A${i + 1}`) }, 'At most 10 refArtifactIds'],
+    [{ provider: 'gemini', images: Array(DEFAULT_MAX_CHAT_IMAGES + 1).fill({ mimeType: 'image/png', data: PNG_BASE64 }) }, 'At most'],
   ])('400 for invalid body %j', async (payload, message) => {
     const { status, body } = await call('POST', '/api/chat', payload);
     expect(status).toBe(400);
@@ -237,5 +240,56 @@ describe('chat routes — streaming', () => {
 
     const json = await call('POST', '/api/chat', { provider: 'gemini', question: 'q' });
     expect(json.body.text).toBe(normalized);
+  });
+});
+
+describe('chat routes — sources, references, limits, refs', () => {
+  beforeEach(() => build());
+
+  it('always returns sources (without includeTrace) and drops a trailing References section', async () => {
+    answer.mockResolvedValue({ text: 'Mutexes serialize access.\n\n## References\n- os/sync.md', model: 'gemini-2.0-flash', attempts: 1, mode: AnswerMode.SINGLE_SHOT, contexts: [CHUNK] });
+    const { body } = await call('POST', '/api/chat', { provider: 'gemini', question: 'q' });
+    expect(body.text).toBe('Mutexes serialize access.');
+    expect(body.sources).toEqual([{ file: 'os/sync.md', heading: 'Mutex', score: 0.9 }]);
+    expect(body.trace).toBeUndefined();
+  });
+
+  it('returns an empty sources list when nothing was retrieved', async () => {
+    answer.mockResolvedValue({ text: 'hi', model: 'gemini-2.0-flash', attempts: 1, mode: AnswerMode.SINGLE_SHOT, contexts: [] });
+    const { body } = await call('POST', '/api/chat', { provider: 'gemini', question: 'q' });
+    expect(body.sources).toEqual([]);
+  });
+
+  it('reports timings and passes refArtifactIds + token counts to the conversation turn', async () => {
+    const timings = { totalMs: 12, attempts: [], inputTokens: 100, outputTokens: 20, cachedTokens: 64 };
+    answer.mockResolvedValue({ text: 'hi', model: 'gemini-2.0-flash', attempts: 1, mode: AnswerMode.SINGLE_SHOT, contexts: [], timings } as Awaited<ReturnType<Answerer['answer']>>);
+    const finish = vi.fn().mockResolvedValue({ conversationId: 'c1', messageId: 'm1', persisted: true });
+    const begin = vi.fn().mockResolvedValue({ conversationId: 'c1', content: { textContent: 'q', imageBuffers: [] }, finish });
+    const service = new ChatService({ answer }, CATALOG, { enabled: true, agentEnabled: true, isProviderConfigured: () => true, turns: { begin } });
+    router = new Router(createChatRoutes(new ChatController(service)), TOKEN);
+
+    const { body } = await call('POST', '/api/chat', { provider: 'gemini', question: 'q', refArtifactIds: ['a7', 'A7', 'A2'] });
+    expect(begin).toHaveBeenCalledWith(expect.objectContaining({ refArtifactIds: ['A7', 'A2'] }));
+    expect(answer).toHaveBeenCalledWith(expect.objectContaining({ cacheKey: 'c1' }));
+    expect(finish).toHaveBeenCalledWith(expect.objectContaining({ tokensIn: 100, tokensOut: 20, tokensCached: 64 }));
+    expect(body).toMatchObject({ conversationId: 'c1', timings, sources: [] });
+  });
+
+  it('applies the configured MAX_CHAT_IMAGES', async () => {
+    const service = new ChatService({ answer }, CATALOG, { enabled: true, agentEnabled: true, isProviderConfigured: () => true });
+    router = new Router(createChatRoutes(new ChatController(service, { ...DEFAULT_CHAT_LIMITS, maxImages: 2 })), TOKEN);
+    const image = { mimeType: 'image/png', data: PNG_BASE64 };
+    expect((await call('POST', '/api/chat', { provider: 'gemini', images: [image, image] })).status).toBe(200);
+    const { status, body } = await call('POST', '/api/chat', { provider: 'gemini', images: [image, image, image] });
+    expect(status).toBe(400);
+    expect(body.error).toContain('At most 2 images');
+  });
+
+  it('Gemini images over the inline budget pass the HTTP layer (the Gemini adapter moves them to the Files API)', async () => {
+    const service = new ChatService({ answer }, CATALOG, { enabled: true, agentEnabled: true, isProviderConfigured: () => true });
+    const limits = { ...DEFAULT_CHAT_LIMITS, geminiInlineImagesMaxBytes: BYTES_PER_MB };
+    router = new Router(createChatRoutes(new ChatController(service, limits)), TOKEN);
+    const big = { mimeType: 'image/jpeg', data: Buffer.alloc(BYTES_PER_MB + 1).toString('base64') };
+    expect((await call('POST', '/api/chat', { provider: 'gemini', images: [big] })).status).toBe(200);
   });
 });

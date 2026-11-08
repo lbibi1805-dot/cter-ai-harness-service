@@ -3,49 +3,56 @@ import {
   ArtifactKind,
   MessageKind,
   MessageRole,
+  ResolvedRefSource,
   type ConversationSnapshot,
   type StoredArtifact,
   type StoredMessage,
 } from '../../conversation-store';
+import { artifactAlias, displayLabel, elementNames, levelsOf, specLevels, systemNameOf, turnOf } from './artifactMetadata';
+import { resolveArtifacts, toResolvedRefs } from './artifactResolver';
+import { MASKED_COMPOUNDS } from './constants/artifactResolver.constants';
 import {
-  ARTIFACT_ALIAS_PATTERN,
+  AMBIGUITY_HEADER,
   ARTIFACT_REFS_HEADING,
   CHARS_PER_TOKEN,
+  COMPACT_ELEMENTS_MAX,
   CONVERSATION_SOURCE_RULE,
   DESIGN_REFERENCE_WORDS,
   IMAGE_IN_HISTORY_LABEL,
   IMAGE_REFERENCE_WORDS,
   JIT_FOOTER,
   JIT_HEADER,
+  JIT_INTRO,
+  JIT_TRUNCATED,
   MEMORY_HEADER,
   OCR_QUERY_MAX_CHARS,
   REFERENCE_PRONOUNS,
   REGISTRY_FOOTER,
   REGISTRY_HEADER,
+  REGISTRY_TEXT_MAX_CHARS,
   REWRITE_MAX_QUESTION_CHARS,
+  HOT_WINDOW_IN_HISTORY_NOTE,
+  HOT_WINDOW_MAX_IMAGES_PER_TURN,
   SUMMARY_HEADER,
+  ambiguityInstruction,
 } from './constants/context.constants';
-import type { AssembleInput, AssembledContext, CompactionPlan, ContextSettings } from './interfaces/context.interface';
+import { ArtifactResolverMode } from './enums/context.enums';
+import { containsWord, maskCompounds } from './helpers/textMatch.helper';
+import type { ResolveResult } from './interfaces/artifactResolver.interface';
+import type { AssembleInput, AssembledContext, CompactionPlan, ContextSettings, HistoryTurnDraft, HotWindowSlot } from './interfaces/context.interface';
+
+export { artifactAlias, turnOf } from './artifactMetadata';
 
 const IMAGE_KINDS = new Set<ArtifactKind>([ArtifactKind.USER_IMAGE, ArtifactKind.C4_PNG]);
-const DESIGN_TEXT_KINDS = new Set<ArtifactKind>([ArtifactKind.C4_SPEC, ArtifactKind.C4_PUML, ArtifactKind.PROBLEM_BRIEF, ArtifactKind.DESIGN_REVIEW]);
+const TEXT_KINDS = new Set<ArtifactKind>([ArtifactKind.C4_SPEC, ArtifactKind.C4_PUML, ArtifactKind.PROBLEM_BRIEF, ArtifactKind.DESIGN_REVIEW, ArtifactKind.DESIGN_NOTE]);
 
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
 }
 
-export function artifactAlias(artifact: Pick<StoredArtifact, 'ordinal'>): string {
-  return `A${artifact.ordinal}`;
-}
-
-/** Turn number of a message: every turn writes a user then an assistant message. */
-export function turnOf(seq: number | null): number | null {
-  return seq === null ? null : Math.ceil(seq / 2);
-}
-
-function mentions(question: string, words: readonly string[]): boolean {
-  const q = ` ${question.toLowerCase()} `;
-  return words.some((w) => q.includes(w));
+/** Whole-word match (NFC, compounds such as "vấn đề" masked): `nó` never matches "nói". */
+export function mentions(question: string, words: readonly string[]): boolean {
+  return containsWord(maskCompounds(question, MASKED_COMPOUNDS), words);
 }
 
 function oneLine(text: string, max: number): string {
@@ -53,96 +60,255 @@ function oneLine(text: string, max: number): string {
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
-/** `[A3] user_image · turn 2 · "Đề bài hệ thống đặt vé"` */
+/** `[A3] user_image · turn 2 · "Đề bài hệ thống đặt vé"`, `[A7] c4_spec · turn 3 · C4 container · Hệ thống đặt vé`. */
 export function registryLine(artifact: StoredArtifact): string {
   const turn = turnOf(artifact.messageSeq);
-  const caption = artifact.caption ? ` · "${oneLine(artifact.caption, 120)}"` : '';
-  return `[${artifactAlias(artifact)}] ${artifact.kind}${turn ? ` · turn ${turn}` : ''}${caption}`;
+  const label = artifact.label && artifact.kind !== ArtifactKind.USER_IMAGE ? ` · ${oneLine(artifact.label, REGISTRY_TEXT_MAX_CHARS)}` : '';
+  const caption = artifact.caption && !label ? ` · "${oneLine(artifact.caption, REGISTRY_TEXT_MAX_CHARS)}"` : '';
+  return `[${artifactAlias(artifact)}] ${artifact.kind}${turn ? ` · turn ${turn}` : ''}${label}${caption}`;
 }
 
-/** Layers ② + ③: the rolling summary and one line per artifact (newest `registryMaxLines`). */
+function isEmpty(snapshot: ConversationSnapshot | null): snapshot is null {
+  return !snapshot || (snapshot.messages.length === 0 && snapshot.artifacts.length === 0 && !snapshot.summary);
+}
+
+/** Layer ② alone (layout V2: first history turn). */
+export function buildSummary(snapshot: ConversationSnapshot | null): string {
+  return snapshot?.summary?.trim() ?? '';
+}
+
+function registryLines(snapshot: ConversationSnapshot, settings: ContextSettings): string[] {
+  const artifacts = snapshot.artifacts.slice(-settings.registryMaxLines);
+  return artifacts.length > 0 ? [REGISTRY_HEADER, ...artifacts.map(registryLine), REGISTRY_FOOTER] : [];
+}
+
+/** Layer ③ alone (layout V2: tail of the last message, before the JIT artifacts). */
+export function buildRegistry(snapshot: ConversationSnapshot | null, settings: ContextSettings): string {
+  if (isEmpty(snapshot)) return '';
+  const lines = registryLines(snapshot, settings);
+  return lines.length > 0 ? [MEMORY_HEADER, ...lines].join('\n') : '';
+}
+
+/** Layout V1 — layers ② + ③ as one system-prompt block (rule, summary, one line per artifact). */
 export function buildMemory(snapshot: ConversationSnapshot | null, settings: ContextSettings): string {
-  if (!snapshot || (snapshot.messages.length === 0 && snapshot.artifacts.length === 0 && !snapshot.summary)) return '';
+  if (isEmpty(snapshot)) return '';
   const parts: string[] = [CONVERSATION_SOURCE_RULE];
   if (snapshot.summary?.trim()) parts.push(SUMMARY_HEADER, snapshot.summary.trim());
-  const artifacts = snapshot.artifacts.slice(-settings.registryMaxLines);
-  if (artifacts.length > 0) parts.push(REGISTRY_HEADER, ...artifacts.map(registryLine), REGISTRY_FOOTER);
-  return parts.length ? [MEMORY_HEADER, ...parts].join('\n') : '';
+  parts.push(...registryLines(snapshot, settings));
+  return [MEMORY_HEADER, ...parts].join('\n');
 }
 
-/** Layer ④: unsummarized messages as text turns; user turns that had images carry their ids and captions. */
-export function buildHistory(snapshot: ConversationSnapshot | null): ConversationTurn[] {
-  if (!snapshot) return [];
-  const imagesByMessage = new Map<string, StoredArtifact[]>();
-  for (const a of snapshot.artifacts) {
-    if (a.kind !== ArtifactKind.USER_IMAGE || !a.messageId) continue;
-    imagesByMessage.set(a.messageId, [...(imagesByMessage.get(a.messageId) ?? []), a]);
+function groupByMessage(artifacts: StoredArtifact[], keep: (a: StoredArtifact) => boolean): Map<string, StoredArtifact[]> {
+  const byMessage = new Map<string, StoredArtifact[]>();
+  for (const a of artifacts) {
+    if (!a.messageId || !keep(a)) continue;
+    byMessage.set(a.messageId, [...(byMessage.get(a.messageId) ?? []), a]);
   }
+  return byMessage;
+}
+
+/**
+ * Layer ④ before images are loaded: the text turns of `buildHistory`, each carrying the image artifacts of its
+ * message (user images on a user turn, C4 PNGs on the assistant turn that drew them) for the hot window.
+ */
+export function buildHistoryDrafts(snapshot: ConversationSnapshot | null): HistoryTurnDraft[] {
+  if (!snapshot) return [];
+  const labelled = groupByMessage(snapshot.artifacts, (a) => a.kind === ArtifactKind.USER_IMAGE);
+  const loadable = groupByMessage(snapshot.artifacts, (a) => !!a.objectKey && (a.kind === ArtifactKind.USER_IMAGE || a.kind === ArtifactKind.C4_PNG));
   const turns = snapshot.messages
     .filter((m) => m.kind !== MessageKind.SUMMARY)
-    .map((m) => {
-      const images = imagesByMessage.get(m.id) ?? [];
-      const labels = images.map((a) => `[${IMAGE_IN_HISTORY_LABEL}: ${artifactAlias(a)}${a.caption ? ` — ${oneLine(a.caption, 120)}` : ''}]`);
+    .map((m): HistoryTurnDraft => {
+      const labels = (labelled.get(m.id) ?? []).map((a) => `[${IMAGE_IN_HISTORY_LABEL}: ${artifactAlias(a)}${a.caption ? ` — ${oneLine(a.caption, REGISTRY_TEXT_MAX_CHARS)}` : ''}]`);
       const text = [m.text, ...labels].filter((s) => s.trim()).join('\n');
-      return { role: m.role === MessageRole.USER ? ConversationRole.USER : ConversationRole.ASSISTANT, text };
+      const isUser = m.role === MessageRole.USER;
+      const images = (loadable.get(m.id) ?? []).filter((a) => (isUser ? a.kind === ArtifactKind.USER_IMAGE : a.kind === ArtifactKind.C4_PNG));
+      return { role: isUser ? ConversationRole.USER : ConversationRole.ASSISTANT, text, ...(images.length ? { images } : {}) };
     });
   return normalizeHistory(turns);
 }
 
-/**
- * Just-in-time artifacts (layer ⑤): images of the last two user turns or the
- * ones the question points at are re-attached; a design question gets the
- * latest C4 spec/PUML inlined. Everything else stays a registry line.
- */
-export function selectJit(snapshot: ConversationSnapshot | null, question: string, settings: ContextSettings): { images: StoredArtifact[]; texts: StoredArtifact[] } {
-  if (!snapshot || snapshot.artifacts.length === 0) return { images: [], texts: [] };
-  const artifacts = snapshot.artifacts;
-  const byAlias = new Map(artifacts.map((a) => [artifactAlias(a), a]));
-  const explicit = [...question.matchAll(ARTIFACT_ALIAS_PATTERN)].map((m) => byAlias.get(`A${m[1]}`)).filter((a): a is StoredArtifact => !!a);
-
-  const userSeqs = snapshot.messages.filter((m) => m.role === MessageRole.USER).map((m) => m.seq);
-  const recentUserSeqs = new Set(userSeqs.slice(-2));
-  const images = artifacts.filter((a) => a.kind === ArtifactKind.USER_IMAGE && a.objectKey);
-  const picked = new Map<string, StoredArtifact>();
-  for (const a of explicit) if (IMAGE_KINDS.has(a.kind) && a.objectKey) picked.set(a.id, a);
-  for (const a of images) if (a.messageSeq !== null && recentUserSeqs.has(a.messageSeq)) picked.set(a.id, a);
-  if (mentions(question, IMAGE_REFERENCE_WORDS)) for (const a of images.slice(-settings.jitMaxImages)) picked.set(a.id, a);
-  const jitImages = [...picked.values()].sort((a, b) => b.ordinal - a.ordinal).slice(0, settings.jitMaxImages).sort((a, b) => a.ordinal - b.ordinal);
-
-  const texts = new Map<string, StoredArtifact>();
-  for (const a of explicit) if (DESIGN_TEXT_KINDS.has(a.kind)) texts.set(a.id, a);
-  if (mentions(question, DESIGN_REFERENCE_WORDS)) {
-    const latestSpec = [...artifacts].reverse().find((a) => a.kind === ArtifactKind.C4_SPEC);
-    if (latestSpec) {
-      texts.set(latestSpec.id, latestSpec);
-      // The PUML drawn in the same turn as that spec.
-      for (const a of artifacts) if (a.kind === ArtifactKind.C4_PUML && a.messageId === latestSpec.messageId) texts.set(a.id, a);
-    }
-  }
-  return { images: jitImages, texts: [...texts.values()].sort((a, b) => a.ordinal - b.ordinal) };
+/** Layer ④: unsummarized messages as text turns; user turns that had images carry their ids and captions. */
+export function buildHistory(snapshot: ConversationSnapshot | null): ConversationTurn[] {
+  return buildHistoryDrafts(snapshot).map(({ role, text }) => ({ role, text }));
 }
 
-function artifactText(artifact: StoredArtifact): string {
+/**
+ * Hot window (note 18 step 5): the image artifacts of the last `turns` user/assistant pairs, per history turn,
+ * in artifact ordinal order, at most HOT_WINDOW_MAX_IMAGES_PER_TURN each. The history ends with an assistant
+ * turn and alternates, so the last 2·K turns are the last K pairs.
+ */
+export function selectHotWindow(drafts: HistoryTurnDraft[], turns: number): HotWindowSlot[] {
+  if (turns <= 0) return [];
+  const slots: HotWindowSlot[] = [];
+  for (let i = Math.max(0, drafts.length - 2 * turns); i < drafts.length; i++) {
+    const artifacts = [...(drafts[i].images ?? [])].sort((a, b) => a.ordinal - b.ordinal).slice(0, HOT_WINDOW_MAX_IMAGES_PER_TURN);
+    if (artifacts.length > 0) slots.push({ turnIndex: i, artifacts });
+  }
+  return slots;
+}
+
+/** Keeps at most `budget` window images: drops the oldest first, the ones the resolver picked last. */
+export function capHotWindow(slots: HotWindowSlot[], budget: number, picked: ReadonlySet<string>): HotWindowSlot[] {
+  const all = slots.flatMap((s) => s.artifacts);
+  if (all.length <= budget) return slots;
+  const dropOrder = [...all].sort((a, b) => Number(picked.has(a.id)) - Number(picked.has(b.id)) || a.ordinal - b.ordinal);
+  const dropped = new Set(dropOrder.slice(0, all.length - Math.max(0, budget)).map((a) => a.id));
+  return slots
+    .map((s) => ({ turnIndex: s.turnIndex, artifacts: s.artifacts.filter((a) => !dropped.has(a.id)) }))
+    .filter((s) => s.artifacts.length > 0);
+}
+
+// ── ⑤ just-in-time artifacts ───────────────────────────────────────────────
+
+/** One inlined text block, in relevance order (the budget cuts the tail first). */
+export interface JitSection {
+  artifact: StoredArtifact;
+  /** Level shown in the heading (spec cut per level). */
+  level?: string;
+  body: string;
+}
+
+export interface JitAmbiguity {
+  choices: StoredArtifact[];
+  /** The default the model answers with meanwhile (newest choice). */
+  fallback: StoredArtifact;
+}
+
+export interface JitSelection {
+  images: StoredArtifact[];
+  sections: JitSection[];
+  ambiguity: JitAmbiguity | null;
+}
+
+const EMPTY_SELECTION: JitSelection = { images: [], sections: [], ambiguity: null };
+
+/** Asked levels first, then the rest, each group in its original order. */
+function byLevelRelevance<T>(items: T[], levelOf: (item: T) => string | undefined, asked: string[]): T[] {
+  const rank = (item: T) => (asked.includes(levelOf(item) ?? '') ? 0 : 1);
+  return items.map((item, i) => ({ item, i })).sort((a, b) => rank(a.item) - rank(b.item) || a.i - b.i).map((x) => x.item);
+}
+
+function textBody(artifact: StoredArtifact): string {
   const data = artifact.dataJson as Record<string, unknown> | null;
   if (artifact.kind === ArtifactKind.C4_PUML && data && typeof data.puml === 'string') return data.puml;
   if (data && typeof data === 'object') return JSON.stringify(data);
   return artifact.ocrText ?? artifact.caption ?? '';
 }
 
-export function buildJitText(images: StoredArtifact[], texts: StoredArtifact[], currentImageCount: number, maxChars: number): string {
-  if (images.length === 0 && texts.length === 0) return '';
-  const lines: string[] = [JIT_HEADER, 'Artifacts of THIS conversation (valid sources for questions about them):'];
+/** A spec cut per level (asked level first) followed by the PUML of the same run (asked level first). */
+function specSections(spec: StoredArtifact, all: StoredArtifact[], asked: string[]): JitSection[] {
+  const levels = specLevels(spec);
+  const data = (spec.dataJson ?? {}) as Record<string, unknown>;
+  const pumls = byLevelRelevance(all.filter((a) => a.kind === ArtifactKind.C4_PUML && a.messageId === spec.messageId), (a) => levelsOf(a)[0], asked);
+  const pumlSections = pumls.map((p) => ({ artifact: p, level: levelsOf(p)[0], body: textBody(p) }));
+  if (levels.length === 0) return [{ artifact: spec, body: textBody(spec) }, ...pumlSections];
+  const ordered = byLevelRelevance(levels, (l) => l.level, asked);
+  const specParts = ordered.map((level, i) => ({
+    artifact: spec,
+    level: level.level,
+    body: JSON.stringify({ systemName: data.systemName, ...(i === 0 && data.requirements ? { requirements: data.requirements } : {}), ...level }),
+  }));
+  const isAsked = (s: JitSection) => !!s.level && asked.includes(s.level);
+  // Relevance order: asked spec levels, their PUML, then the other levels, then the other PUML.
+  return [...specParts.filter(isAsked), ...pumlSections.filter(isAsked), ...specParts.filter((s) => !isAsked(s)), ...pumlSections.filter((s) => !isAsked(s))];
+}
+
+/** The C4 PNGs drawn with a spec (asked level first). */
+function drawnImages(spec: StoredArtifact, all: StoredArtifact[], asked: string[]): StoredArtifact[] {
+  return byLevelRelevance(all.filter((a) => a.kind === ArtifactKind.C4_PNG && a.objectKey && a.messageId === spec.messageId), (a) => levelsOf(a)[0], asked);
+}
+
+function sectionsFor(picked: StoredArtifact[], all: StoredArtifact[], asked: string[]): JitSection[] {
+  const sections: JitSection[] = [];
+  for (const a of picked) {
+    if (a.kind === ArtifactKind.C4_SPEC) sections.push(...specSections(a, all, asked));
+    else if (TEXT_KINDS.has(a.kind)) sections.push({ artifact: a, level: levelsOf(a)[0], body: textBody(a) });
+  }
+  const seen = new Set<string>();
+  return sections.filter((s) => {
+    const key = `${s.artifact.id}:${s.level ?? ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** ARTIFACT_RESOLVER_MODE=off: the 04 rules (latest spec on a design word, latest user images on an image word). */
+function legacyTexts(artifacts: StoredArtifact[], question: string): StoredArtifact[] {
+  if (!mentions(question, DESIGN_REFERENCE_WORDS)) return [];
+  const latestSpec = [...artifacts].reverse().find((a) => a.kind === ArtifactKind.C4_SPEC);
+  return latestSpec ? [latestSpec] : [];
+}
+
+/**
+ * Just-in-time artifacts (layer ⑤): what the resolver picked (spec cut per level, its
+ * PUML, and its PNG when the question is about the drawn picture), the images of the
+ * last two user turns, and — when ambiguous — the choices plus the default's content.
+ */
+export function selectJit(snapshot: ConversationSnapshot | null, question: string, settings: ContextSettings, resolution?: ResolveResult): JitSelection {
+  if (!snapshot || snapshot.artifacts.length === 0) return EMPTY_SELECTION;
+  const artifacts = snapshot.artifacts;
+  const resolved = resolution ?? resolveArtifacts({ question, artifacts, messages: snapshot.messages, settings: settings.resolver });
+  const asked = resolved.signals.levels;
+  const legacy = settings.resolver.mode === ArtifactResolverMode.OFF && resolved.source === ResolvedRefSource.NONE;
+
+  const picked = legacy ? legacyTexts(artifacts, question) : resolved.picked;
+  const images = new Map<string, StoredArtifact>();
+  for (const a of picked) {
+    if (IMAGE_KINDS.has(a.kind) && a.objectKey) images.set(a.id, a);
+    if (a.kind === ArtifactKind.C4_SPEC && (resolved.signals.drawn || resolved.source === ResolvedRefSource.UI)) {
+      for (const png of drawnImages(a, artifacts, asked)) images.set(png.id, png);
+    }
+  }
+  const resolvedImages = [...images.values()];
+  const recentUserSeqs = new Set(snapshot.messages.filter((m) => m.role === MessageRole.USER).map((m) => m.seq).slice(-2));
+  const userImages = artifacts.filter((a) => a.kind === ArtifactKind.USER_IMAGE && a.objectKey);
+  const recent = userImages.filter((a) => a.messageSeq !== null && recentUserSeqs.has(a.messageSeq));
+  const legacyImages = legacy && mentions(question, IMAGE_REFERENCE_WORDS) ? userImages.slice(-settings.jitMaxImages) : [];
+  // Resolved images first (they are what the question is about), then the recent and legacy ones.
+  const chosen = new Map<string, StoredArtifact>();
+  for (const a of [...resolvedImages, ...recent.reverse(), ...[...legacyImages].reverse()]) if (chosen.size < settings.jitMaxImages) chosen.set(a.id, a);
+
+  const ambiguity = resolved.ambiguous && resolved.picked[0]
+    ? { choices: resolved.candidates.map((c) => c.artifact).sort((a, b) => a.ordinal - b.ordinal), fallback: resolved.picked[0] }
+    : null;
+  return {
+    images: [...chosen.values()].sort((a, b) => a.ordinal - b.ordinal),
+    sections: sectionsFor(picked, artifacts, asked),
+    ambiguity,
+  };
+}
+
+function compactLine(artifact: StoredArtifact): string {
+  const turn = turnOf(artifact.messageSeq);
+  const elements = elementNames(artifact).slice(0, COMPACT_ELEMENTS_MAX);
+  const system = systemNameOf(artifact);
+  const label = displayLabel(artifact);
+  return `[${artifactAlias(artifact)}] ${oneLine(label, REGISTRY_TEXT_MAX_CHARS)}${system && !label.includes(system) ? ` (${system})` : ''}${turn ? ` (turn ${turn})` : ''}${elements.length ? ` — ${elements.join(', ')}` : ''}`;
+}
+
+export function buildJitText(selection: JitSelection, currentImageCount: number, maxChars: number, inHistory: StoredArtifact[] = []): string {
+  const { images, sections, ambiguity } = selection;
+  if (images.length === 0 && sections.length === 0 && !ambiguity && inHistory.length === 0) return '';
+  const lines: string[] = [JIT_HEADER, JIT_INTRO];
+  if (ambiguity) {
+    lines.push(AMBIGUITY_HEADER);
+    ambiguity.choices.forEach((a, i) => lines.push(`${i + 1}. ${compactLine(a)}`));
+    const defaultIndex = ambiguity.choices.findIndex((a) => a.id === ambiguity.fallback.id) + 1;
+    const other = ambiguity.choices.find((a) => a.id !== ambiguity.fallback.id) ?? ambiguity.fallback;
+    lines.push(ambiguityInstruction(defaultIndex, artifactAlias(ambiguity.fallback), artifactAlias(other)));
+  }
   if (images.length > 0) {
     lines.push(`Images #${currentImageCount + 1}–#${currentImageCount + images.length} of this message are re-attached from earlier turns:`);
     images.forEach((a, i) => lines.push(`- #${currentImageCount + i + 1} = ${registryLine(a)}`));
   }
+  for (const a of inHistory) lines.push(`- ${registryLine(a)} — ${HOT_WINDOW_IN_HISTORY_NOTE}`);
   let budget = maxChars;
-  for (const a of texts) {
-    const body = artifactText(a);
-    if (!body || budget <= 0) continue;
-    const clipped = body.length > budget ? `${body.slice(0, budget)}\n…[truncated]` : body;
+  for (const s of sections) {
+    if (!s.body || budget <= 0) continue;
+    const clipped = s.body.length > budget ? `${s.body.slice(0, budget)}${JIT_TRUNCATED}` : s.body;
     budget -= clipped.length;
-    lines.push(`--- ${registryLine(a)} ---`, clipped);
+    lines.push(`--- ${registryLine(s.artifact)}${s.level ? ` · level ${s.level}` : ''} ---`, clipped);
   }
   lines.push(JIT_FOOTER);
   return lines.join('\n');
@@ -152,7 +318,7 @@ export function buildJitText(images: StoredArtifact[], texts: StoredArtifact[], 
 export function buildRetrievalHints(input: AssembleInput, jitImages: StoredArtifact[]): string[] {
   return [
     ...input.currentImageNotes.map((n) => n.ocrText || n.caption),
-    ...jitImages.map((a) => a.ocrText || a.caption || ''),
+    ...jitImages.filter((a) => a.kind === ArtifactKind.USER_IMAGE).map((a) => a.ocrText || a.caption || ''),
   ].map((t) => oneLine(t, OCR_QUERY_MAX_CHARS)).filter(Boolean);
 }
 
@@ -164,16 +330,46 @@ export function buildRetrievalQuery(input: AssembleInput, hints: string[]): stri
   return [previous?.text.trim(), question, ...hints].filter((s) => s).join('\n');
 }
 
+/** Rules-only resolution of a question against a snapshot (the turn service may pass an aux-refined one instead). */
+export function resolveForSnapshot(snapshot: ConversationSnapshot | null, question: string, settings: ContextSettings, refIds?: string[]): ResolveResult {
+  return resolveArtifacts({ question, artifacts: snapshot?.artifacts ?? [], messages: snapshot?.messages ?? [], refIds, settings: settings.resolver });
+}
+
+/**
+ * Splits the images of a request between the hot window (in place in history) and the JIT tail: a picked image
+ * already in the window is not re-attached (`inHistory` names it instead); current + window + JIT ≤ maxPromptImages.
+ * Window off (K = 0) → exactly the old JIT images.
+ */
+function placeHotWindow(drafts: HistoryTurnDraft[], jitAll: StoredArtifact[], input: AssembleInput): { slots: HotWindowSlot[]; jitImages: StoredArtifact[]; inHistory: StoredArtifact[] } {
+  const { hotWindowTurns, maxPromptImages } = input.settings;
+  const selected = selectHotWindow(drafts, hotWindowTurns ?? 0);
+  if (selected.length === 0) return { slots: [], jitImages: jitAll, inHistory: [] };
+  const picked = new Set(jitAll.map((a) => a.id));
+  const selectedIds = new Set(selected.flatMap((s) => s.artifacts.map((a) => a.id)));
+  const jitOutside = jitAll.filter((a) => !selectedIds.has(a.id)).length;
+  const slots = capHotWindow(selected, maxPromptImages - input.currentImageCount - jitOutside, picked);
+  const inWindow = new Set(slots.flatMap((s) => s.artifacts.map((a) => a.id)));
+  const jitImages = jitAll.filter((a) => !inWindow.has(a.id)).slice(0, Math.max(0, maxPromptImages - input.currentImageCount - inWindow.size));
+  return { slots, jitImages, inHistory: jitAll.filter((a) => inWindow.has(a.id)) };
+}
+
 export function assembleContext(input: AssembleInput): AssembledContext {
-  const { images, texts } = selectJit(input.snapshot, input.question, input.settings);
-  const hints = buildRetrievalHints(input, images);
+  const resolution = input.resolution ?? resolveForSnapshot(input.snapshot, input.question, input.settings, input.refIds);
+  const selection = selectJit(input.snapshot, input.question, input.settings, resolution);
+  const hints = buildRetrievalHints(input, selection.images);
+  const drafts = buildHistoryDrafts(input.snapshot);
+  const window = placeHotWindow(drafts, selection.images, input);
   return {
-    history: buildHistory(input.snapshot),
+    history: drafts.map(({ role, text }) => ({ role, text })),
     memory: buildMemory(input.snapshot, input.settings),
-    jitText: buildJitText(images, texts, input.currentImageCount, input.settings.jitMaxChars),
-    jitImages: images,
+    summary: buildSummary(input.snapshot),
+    registry: buildRegistry(input.snapshot, input.settings),
+    jitText: buildJitText({ ...selection, images: window.jitImages }, input.currentImageCount, input.settings.jitMaxChars, window.inHistory),
+    jitImages: window.jitImages,
+    hotWindow: window.slots,
     retrievalQuery: buildRetrievalQuery(input, hints),
     retrievalHints: hints,
+    resolvedRefs: input.snapshot ? toResolvedRefs(resolution) : null,
   };
 }
 

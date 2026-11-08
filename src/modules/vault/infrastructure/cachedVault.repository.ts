@@ -44,6 +44,11 @@ export class CachedVaultRepository implements VaultRepository {
     return this.loaded ? this.cache.peekByDocId(docId) : undefined;
   }
 
+  /** Every row from RAM (deleting ones included); null until loaded — never triggers a database read. */
+  peekAll(): VaultEntry[] | null {
+    return this.loaded ? this.cache.peekAll() : null;
+  }
+
   async search(criteria: VaultSearchCriteria): Promise<PagedResult<VaultEntry>> {
     await this.ensureLoaded();
     return this.cache.search(criteria);
@@ -77,6 +82,15 @@ export class CachedVaultRepository implements VaultRepository {
   async stats(): Promise<VaultStats> {
     await this.ensureLoaded();
     return this.cache.stats();
+  }
+
+  /**
+   * Stats from RAM only — never loads the manifest, so `/health` (pinged by
+   * the UI every few seconds) costs zero queries. Null until the startup load
+   * finished. Kept current by the write-through cache (upload, index, delete).
+   */
+  peekStats(): VaultStats | null {
+    return this.loaded ? this.cache.currentStats() : null;
   }
 
   async saveVersion(version: VaultVersion): Promise<VaultEntry> {

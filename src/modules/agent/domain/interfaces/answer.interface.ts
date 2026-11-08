@@ -1,10 +1,13 @@
 import type { AIAnswer, AIRequest } from '../../../ai';
 import type { AgentFallbackReason, AgentStopReason, AnswerMode } from '../enums/agent.enums';
 import { AgentStep, TokenUsage } from './agentRun.interface';
+import type { AgentTool } from './agentTool.interface';
 
 export interface AnswerRequest extends AIRequest {
   /** Defaults to single-shot when absent. */
   mode?: AnswerMode;
+  /** Agent mode only: per-request tools (the conversation's artifact tools). */
+  extraTools?: AgentTool[];
 }
 
 export interface AgentAnswerDetails {

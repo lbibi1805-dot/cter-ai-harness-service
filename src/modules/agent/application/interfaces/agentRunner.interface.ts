@@ -1,5 +1,5 @@
 import type { CitedChunk } from '../../../retrieval/domain/interfaces/retrieval.interface';
-import { type AgentStep, type ToolCallingModel } from '../../domain';
+import { type AgentStep, type AgentTool, type ToolCallingModel } from '../../domain';
 import { PromptContent } from '../../../ai/domain/interfaces/promptContent.interface';
 import type { AnswerStream } from '../../../ai/application/interfaces/aiInvocation.interface';
 
@@ -10,6 +10,8 @@ export interface AgentRunRequest {
   label: string;
   /** Streams the answer text of every turn; a preamble before tool calls is reset. */
   stream?: AnswerStream;
+  /** Per-request tools (e.g. the conversation's list_artifacts / get_artifact), added to the built-in ones. */
+  extraTools?: AgentTool[];
 }
 
 export interface ExecutedTool {

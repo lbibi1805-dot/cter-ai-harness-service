@@ -1,7 +1,7 @@
 import { errorMessage } from '../../../shared/errors';
 import { logger } from '../../../shared/logging/logger';
 import { attempt } from '../../../shared/resilience/attempt';
-import { withJit, withMemory, type AIInvocationService } from '../../ai';
+import { DEFAULT_CHAT_DEADLINE_MS, PromptCacheLayout, placeMemory, withConversationRules, type AIInvocationService } from '../../ai';
 import {
   AgentFallbackReason,
   AnswerMode,
@@ -11,6 +11,7 @@ import {
 } from '../domain';
 import { AgentCapability } from './interfaces/answer.interface';
 import { toAgentAnswer } from './helpers/answer.helper';
+import { AGENT_FALLBACK_MIN_MS } from '../domain/constants/agent.constants';
 
 /**
  * Chooses how to answer. Agent mode is opt-in per request and always falls
@@ -20,6 +21,8 @@ export class AnswerService implements Answerer {
   constructor(
     private readonly singleShot: AIInvocationService,
     private readonly agent: AgentCapability | null,
+    private readonly now: () => number = Date.now,
+    private readonly layout: PromptCacheLayout = PromptCacheLayout.V2,
   ) {}
 
   async answer(request: AnswerRequest): Promise<AnswerResult> {
@@ -31,20 +34,27 @@ export class AnswerService implements Answerer {
     const resolution = await this.agent.createModel(request.provider, request.model);
     if (!resolution.supported) return this.fallback(request, resolution.reason);
 
-    const { runner, systemPrompt } = this.agent;
+    const { runner } = this.agent;
+    // Same layout rules as the single-shot preparer (note 18): V2 keeps the system prompt static.
+    const base = this.layout === PromptCacheLayout.V2 ? withConversationRules(this.agent.systemPrompt) : this.agent.systemPrompt;
+    const placed = placeMemory(base, request.content, this.layout);
+    const startedAt = this.now();
+    const deadlineAt = request.deadlineAt ?? startedAt + Math.max(runner.maxDurationMs, this.singleShot.deadlineMs ?? DEFAULT_CHAT_DEADLINE_MS);
     const run = await attempt(() => runner.run({
       model: resolution.model,
       // Tool models take a plain system prompt + content: fold the context layers in here.
-      systemPrompt: withMemory(systemPrompt, request.content.memory),
-      content: { ...request.content, textContent: withJit(request.content.textContent, request.content.jitContext) },
+      systemPrompt: placed.systemPrompt,
+      content: { ...request.content, textContent: placed.textContent, memory: undefined, jitContext: undefined },
       label: request.label,
       stream: request.stream,
+      extraTools: request.extraTools,
     }));
     if (!run.ok) {
       logger.warn(`[agent] ${request.label} failed (${errorMessage(run.error)}) — falling back to single-shot`);
       // Drop any agent text the client already shows: the single-shot answer replaces it from scratch.
       request.stream?.reset();
-      return this.fallback(request, AgentFallbackReason.AGENT_FAILED);
+      // The fallback gets what is left of the request deadline (never less than AGENT_FALLBACK_MIN_MS), not a fresh one.
+      return this.fallback({ ...request, deadlineAt: Math.max(deadlineAt, this.now() + AGENT_FALLBACK_MIN_MS) }, AgentFallbackReason.AGENT_FAILED);
     }
     return toAgentAnswer(run.value);
   }

@@ -426,7 +426,7 @@
           "Chat"
         ],
         "summary": "Hỏi AI trực tiếp (không qua Canvas)",
-        "description": "Cùng pipeline với chat Canvas ([CFH:REQUEST]): RAG, fallback model, agent mode opt-in. Cần Bearer CHAT_API_TOKEN; không đặt token trên server → 503. Body tối đa 20 MB, tối đa 4 ảnh.",
+        "description": "Cùng pipeline với chat Canvas ([CFH:REQUEST]): RAG, fallback model, agent mode opt-in. Cần Bearer CHAT_API_TOKEN; không đặt token trên server → 503. Body tối đa CHAT_MAX_BODY_MB (20 MB), tối đa MAX_CHAT_IMAGES ảnh (10); tổng ảnh Gemini vượt GEMINI_INLINE_IMAGES_MAX_MB → adapter Gemini upload qua Files API (413 chỉ khi upload lỗi). Ảnh có thể upload trước qua POST /api/chat/images rồi gửi imageIds. Câu hỏi bắt đầu `/essay [strict] [Nđ]` hoặc mode=essay → Essay Mode.",
         "security": [
           {
             "bearerAuth": []
@@ -459,17 +459,19 @@
                     "type": "string",
                     "enum": [
                       "single-shot",
-                      "agent"
+                      "agent",
+                      "essay"
                     ],
-                    "default": "single-shot"
+                    "default": "single-shot",
+                    "description": "essay = Essay Mode (cần Pinecone, không kết hợp agent)"
                   },
                   "question": {
                     "type": "string",
-                    "description": "Bắt buộc nếu không có ảnh"
+                    "description": "Bắt buộc nếu không có ảnh (images hoặc imageIds)"
                   },
                   "images": {
                     "type": "array",
-                    "maxItems": 4,
+                    "maxItems": 10,
                     "items": {
                       "type": "object",
                       "required": [
@@ -520,6 +522,27 @@
                   "stream": {
                     "type": "boolean",
                     "description": "true → trả application/x-ndjson, mỗi dòng một event: {\"type\":\"progress\",\"stage\",\"detail?\"} (chưa có chữ: stage = preparing | answering | agent-tool, detail = tên tool khi agent chạy), {\"type\":\"delta\",\"text\"} (đoạn chữ mới), {\"type\":\"reset\"} (retry/fallback bắt đầu: xoá phần chữ đã hiện), {\"type\":\"done\", ...như response JSON thường}, lỗi giữa chừng → {\"type\":\"error\",\"status\",\"error\"}. Agent mode cũng stream chữ của câu trả lời cuối."
+                  },
+                  "conversationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Hội thoại phía server (CONVERSATION_STORE_ENABLED). Có → server bỏ qua history và tự dựng context"
+                  },
+                  "refArtifactIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "(08/11) Id artifact người dùng chọn bằng \"↩ Hỏi về cái này\"; ưu tiên cao nhất của Artifact Resolver"
+                  },
+                  "imageIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "maxItems": 10,
+                    "description": "(08/11) Upload-first: id trả về từ POST /api/chat/images (trong CHAT_UPLOAD_TTL_MS). Tính chung vào MAX_CHAT_IMAGES với images; id lạ/hết hạn → 400. Server xoá ảnh staging sau khi trả lời xong"
                   }
                 }
               }
@@ -617,6 +640,148 @@
                           }
                         }
                       }
+                    },
+                    "conversationId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "messageId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "persisted": {
+                      "type": "boolean",
+                      "description": "false khi ghi DB lỗi (câu trả lời vẫn trả về)"
+                    },
+                    "sources": {
+                      "type": "array",
+                      "description": "(08/11) Nguồn vault đã dùng, tối đa 6 file, dedupe theo file. Thay cho mục `## References` trong text (đã bị cắt)",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "file": {
+                            "type": "string"
+                          },
+                          "heading": {
+                            "type": "string"
+                          },
+                          "score": {
+                            "type": "number",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    },
+                    "timings": {
+                      "type": "object",
+                      "description": "(08/11) Thời gian và token của lượt trả lời",
+                      "properties": {
+                        "ttftMs": {
+                          "type": "integer"
+                        },
+                        "totalMs": {
+                          "type": "integer"
+                        },
+                        "attempts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "model": {
+                                "type": "string"
+                              },
+                              "outcome": {
+                                "type": "string"
+                              },
+                              "ms": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "inputTokens": {
+                          "type": "integer"
+                        },
+                        "outputTokens": {
+                          "type": "integer"
+                        },
+                        "cachedTokens": {
+                          "type": "integer",
+                          "description": "Token prompt lấy từ KV cache của provider"
+                        },
+                        "retrievalMs": {
+                          "type": "integer"
+                        },
+                        "llmCalls": {
+                          "type": "integer",
+                          "description": "Essay Mode: số call LLM (≤ 3)"
+                        }
+                      }
+                    },
+                    "artifacts": {
+                      "type": "array",
+                      "description": "Artifact tạo/được dùng trong turn (chip \"↩ Hỏi về cái này\"). Chỉ có khi hội thoại phía server bật",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "alias": {
+                            "type": "string",
+                            "example": "[A7]"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "example": "c4_spec"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "level": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "essay": {
+                      "type": "object",
+                      "description": "(08/11) Chỉ có ở Essay Mode",
+                      "properties": {
+                        "outline": {
+                          "type": "string"
+                        },
+                        "aspects": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "targetWords": {
+                          "type": "integer"
+                        },
+                        "coverage": {
+                          "type": "object"
+                        },
+                        "strict": {
+                          "type": "boolean"
+                        },
+                        "wordCount": {
+                          "type": "integer"
+                        },
+                        "droppedCitations": {
+                          "type": "integer"
+                        },
+                        "trigger": {
+                          "type": "string"
+                        },
+                        "subject": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": "string"
+                        }
+                      }
                     }
                   }
                 }
@@ -637,6 +802,118 @@
           },
           "503": {
             "description": "CHAT_API_TOKEN chưa đặt trên server"
+          }
+        }
+      }
+    },
+    "/api/chat/images": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Upload ảnh trước (upload-first) → imageId",
+        "description": "Lưu tối đa MAX_CHAT_IMAGES ảnh vào object storage (tmp/uploads/<imageId>); mime xác định từ magic bytes (PNG/JPEG/GIF/WebP); PNG/JPEG cạnh dài > 2048 px được thu về 1568 px. Metadata chỉ trong RAM (không chạm Neon). Gửi imageIds trong POST /api/chat hoặc /api/c4 trong CHAT_UPLOAD_TTL_MS (mặc định 1 giờ). Ảnh đã dùng bị xoá sau khi trả lời; ảnh hết hạn được quét khi có upload mới (≤ 1 lần/phút), prefix tmp/ còn có lifecycle R2 1 ngày. Body tối đa CHAT_MAX_BODY_MB.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "images"
+                ],
+                "properties": {
+                  "images": {
+                    "type": "array",
+                    "maxItems": 10,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "string",
+                          "description": "Base64 hoặc data URL"
+                        },
+                        "mimeType": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "image/*": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              },
+              "description": "Một ảnh, body raw"
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã lưu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "images": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "imageId",
+                          "mimeType",
+                          "bytes"
+                        ],
+                        "properties": {
+                          "imageId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "mimeType": {
+                            "type": "string",
+                            "example": "image/png"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "description": "Kích thước đã lưu (sau khi thu nhỏ phía server, nếu có)"
+                          },
+                          "width": {
+                            "type": "integer"
+                          },
+                          "height": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Không phải ảnh PNG/JPEG/GIF/WebP, body rỗng hoặc quá MAX_CHAT_IMAGES ảnh"
+          },
+          "401": {
+            "description": "Thiếu hoặc sai CHAT_API_TOKEN"
+          },
+          "413": {
+            "description": "Body vượt CHAT_MAX_BODY_MB"
+          },
+          "503": {
+            "description": "CHAT_API_TOKEN chưa đặt, hoặc server không có object storage"
           }
         }
       }
@@ -778,7 +1055,7 @@
           "Chat"
         ],
         "summary": "C4 Sketcher: đề bài → C4 diagrams (PNG) trong < 5 phút",
-        "description": "Pipeline nhiều agent: Architect (checklist yêu cầu + mọi diagram) → validator (coverage, tối giản, luật C4, đủ actor/hệ thống ngoài) → render PlantUML → Repair (chỉ cấp lỗi) → Critic (xem ảnh) → render lại. Rule từ vault (RAG) được đưa vào mọi agent. Hết C4_DEADLINE_MS thì trả ảnh tốt nhất đã có. Cần CHAT_API_TOKEN; không đặt token → 503. Human in the loop: khi đề mơ hồ, Architect trả tối đa 3 câu hỏi; run tạm dừng (đồng hồ dừng), response có `confirmation { sessionId, clarifications[{question, assumption}], expiresInSec }` và `levels: []`. Tiếp tục bằng POST /api/c4/resume.",
+        "description": "Pipeline nhiều agent: Architect (checklist yêu cầu + mọi diagram) → validator (coverage, tối giản, luật C4, đủ actor/hệ thống ngoài) → render PlantUML → Repair (chỉ cấp lỗi) → Critic (xem ảnh) → render lại. Rule từ vault (RAG) được đưa vào mọi agent. Hết C4_DEADLINE_MS thì trả ảnh tốt nhất đã có. Cần CHAT_API_TOKEN; không đặt token → 503. Human in the loop: khi đề mơ hồ, Architect trả tối đa 3 câu hỏi; run tạm dừng (đồng hồ dừng), response có `confirmation { sessionId, clarifications[{question, assumption}], expiresInSec }` và `levels: []`. Tiếp tục bằng POST /api/c4/resume. (08/11) Intent Router chọn workflow: c4_generate | c4_review | c4_generate_and_review | c4_revise; Extract đề (text + ảnh) thành ProblemBrief, hỏi lại tối đa 3 câu khi thiếu thông tin quan trọng (event `clarify`, phiên lưu ở conversations.state.pendingC4, TTL 15 phút).",
         "security": [
           {
             "bearerAuth": []
@@ -791,8 +1068,7 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "provider",
-                  "description"
+                  "provider"
                 ],
                 "properties": {
                   "provider": {
@@ -811,7 +1087,7 @@
                   "description": {
                     "type": "string",
                     "maxLength": 12000,
-                    "description": "Đề bài / mô tả hệ thống"
+                    "description": "Đề bài / mô tả hệ thống. Tuỳ chọn khi có images"
                   },
                   "levels": {
                     "type": "array",
@@ -832,7 +1108,59 @@
                   },
                   "stream": {
                     "type": "boolean",
-                    "description": "true → application/x-ndjson: {\"type\":\"progress\",\"message\"}, {\"type\":\"analysis\",\"systemName\",\"requirements\",\"clarifications\",\"knowledgeSources\"}, {\"type\":\"level\", ...C4Level} mỗi lần một cấp có ảnh mới, cuối cùng {\"type\":\"done\", ...response}. Lỗi → {\"type\":\"error\"}."
+                    "description": "true → application/x-ndjson: progress, intent {intent, confidence, source}, brief {brief}, clarify {sessionId, summary[], questions[], expiresInSec}, analysis, level (mỗi cấp có ảnh mới), review_delta {text}, review_done {review}, cuối cùng {\"type\":\"done\", ...response}. Lỗi → {\"type\":\"error\"}."
+                  },
+                  "images": {
+                    "type": "array",
+                    "maxItems": 10,
+                    "description": "Ảnh đề / ảnh thiết kế cần review (cùng dạng images của /api/chat)",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "mimeType": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "review": {
+                    "type": "boolean",
+                    "description": "--review: review thiết kế (ảnh của user hoặc spec trong hội thoại)"
+                  },
+                  "intent": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "generate",
+                      "review",
+                      "generate_and_review",
+                      "revise"
+                    ],
+                    "description": "Bỏ trống/auto = Intent Router quyết định"
+                  },
+                  "refArtifactIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "(08/11) Id artifact người dùng chọn bằng \"↩ Hỏi về cái này\"; ưu tiên cao nhất của Artifact Resolver"
+                  },
+                  "conversationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Hội thoại phía server (CONVERSATION_STORE_ENABLED). Có → server bỏ qua history và tự dựng context"
+                  },
+                  "imageIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "maxItems": 10,
+                    "description": "(08/11) Upload-first: id trả về từ POST /api/chat/images (trong CHAT_UPLOAD_TTL_MS). Tính chung vào MAX_CHAT_IMAGES với images; id lạ/hết hạn → 400. Server xoá ảnh staging sau khi trả lời xong"
                   }
                 }
               }
@@ -978,6 +1306,110 @@
                           "type": "integer"
                         }
                       }
+                    },
+                    "conversationId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "messageId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "intent": {
+                      "type": "object",
+                      "properties": {
+                        "intent": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "number"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "explicit",
+                            "flag",
+                            "rule",
+                            "aux",
+                            "default"
+                          ]
+                        }
+                      }
+                    },
+                    "brief": {
+                      "type": "object",
+                      "properties": {
+                        "systemName": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "actors": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "externalSystems": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "levels": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "review": {
+                      "type": "object",
+                      "nullable": true,
+                      "description": "Chỉ intent review",
+                      "properties": {
+                        "markdown": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "artifacts": {
+                      "type": "array",
+                      "description": "Artifact tạo/được dùng trong turn (chip \"↩ Hỏi về cái này\"). Chỉ có khi hội thoại phía server bật",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "alias": {
+                            "type": "string",
+                            "example": "[A7]"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "example": "c4_spec"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "level": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "criticNotes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Nhận xét của Critic dạng câu đọc được"
                     }
                   }
                 }
@@ -1049,6 +1481,108 @@
           },
           "503": {
             "description": "Chưa đặt CHAT_API_TOKEN"
+          }
+        }
+      }
+    },
+    "/api/c4/render": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Xem trước PlantUML: source → PNG",
+        "description": "Dùng cho khối ```plantuml trong câu trả lời chat (sửa sơ đồ C4 trong chat). Source thiếu @startuml/@enduml được bọc tự động. Render qua C4_PLANTUML_SERVER_URL; cache RAM theo sha256 (LRU 100 entry / 32 MB), không chạm DB/R2. Bản sửa đã kiểm tra (validator + critic) vẫn đi qua /api/c4 (lệnh /c4). Cần CHAT_API_TOKEN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "source"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "maxLength": 100000,
+                    "example": "@startuml\nPerson(u, \"User\")\n@enduml"
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "png"
+                    ],
+                    "default": "png"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PNG; header X-Render-Cache: hit|miss",
+            "headers": {
+              "X-Render-Cache": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "hit",
+                    "miss"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body / source không hợp lệ"
+          },
+          "401": {
+            "description": "Thiếu hoặc sai CHAT_API_TOKEN"
+          },
+          "413": {
+            "description": "source dài hơn 100000 ký tự"
+          },
+          "422": {
+            "description": "PlantUML báo lỗi cú pháp",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "syntaxError": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "PlantUML server lỗi / không trả lời"
+          },
+          "503": {
+            "description": "CHAT_API_TOKEN chưa đặt (API tắt)"
           }
         }
       }

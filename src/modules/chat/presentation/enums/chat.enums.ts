@@ -16,4 +16,6 @@ export enum ChatProgressStage {
 export enum ChatApiPath {
   ASK = '/api/chat',
   STATUS = '/api/chat/status',
+  /** Upload-first images: `{ images: [{ imageId, … }] }`, then `imageIds` in /api/chat and /api/c4. */
+  IMAGES = '/api/chat/images',
 }

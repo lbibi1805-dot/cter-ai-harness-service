@@ -33,4 +33,17 @@ export async function indexVaultAndEnableRag({ vault, retrieval, ranking, ai, re
   else logger.info('Document vault indexed — RAG ready');
   const source = { defaultTopK: retrieval.config.topK, createRetriever: retrieval.createRetriever };
   ai.rag.markReady({ retriever: buildSingleShotRetriever(source, ranking, rerankTopN), builder: retrieval.citations });
+  if (retrieval.lexical) await buildLexicalIndex(retrieval.lexical);
+}
+
+/** BM25 in RAM (15 §3.2): one pass over the indexed vault files in object storage, after RAG is live. */
+async function buildLexicalIndex(lexical: NonNullable<RetrievalModule['lexical']>): Promise<void> {
+  const synced = await attempt(() => lexical.sync());
+  if (!synced.ok) {
+    logger.warn(`[bm25] index build failed — vector-only search until the next sync: ${errorMessage(synced.error)}`);
+    return;
+  }
+  const report = synced.value;
+  if (!report) logger.info('[bm25] manifest not loaded — index will build on the next search');
+  else logger.info(`[bm25] hybrid search ready — ${report.chunks} chunks from ${report.documents} files${report.failed ? ` (${report.failed} unreadable)` : ''}`);
 }

@@ -1,32 +1,9 @@
 import { AIInvocationService } from './application/aiInvocation.service';
 import { PromptPreparer } from './application/promptPreparer.service';
-import type { AiConfig } from './domain/interfaces/aiConfig.interface';
-import type { AIAdapterFactory } from './domain/interfaces/aiProvider.port';
 import { ModelCatalog } from './domain/modelCatalog';
 import { ConfiguredAIAdapterFactory } from './infrastructure/aiAdapter.factory';
-import { AIInvocationDeps } from './application/interfaces/aiInvocation.interface';
 import { RagAvailability } from './application/ragAvailability.service';
-
-export interface AiModuleConfig {
-  ai: AiConfig;
-  systemPrompt: string;
-  knowledgeContent: string;
-}
-
-export interface AiModuleDeps extends AIInvocationDeps {
-  /** Test hook; production builds adapters from `config.ai`. */
-  adapters?: AIAdapterFactory;
-}
-
-export interface AiModule {
-  catalog: ModelCatalog;
-  adapters: AIAdapterFactory;
-  /** Present only for the production factory (key validation, OpenRouter client). */
-  configuredAdapters: ConfiguredAIAdapterFactory;
-  /** Flip to "ready" once the vault is indexed; single-shot prompts then use RAG. */
-  rag: RagAvailability;
-  invocation: AIInvocationService;
-}
+import type { AiModule, AiModuleConfig, AiModuleDeps } from './interfaces/aiModule.interface';
 
 /** Wires the AI module: model catalog → adapters → prompt preparation → invocation with fallback. */
 export function createAiModule(config: AiModuleConfig, deps: AiModuleDeps = {}): AiModule {
@@ -34,11 +11,12 @@ export function createAiModule(config: AiModuleConfig, deps: AiModuleDeps = {}):
   const configuredAdapters = new ConfiguredAIAdapterFactory(config.ai);
   const adapters = deps.adapters ?? configuredAdapters;
   const rag = new RagAvailability();
-  const prompts = new PromptPreparer(config.systemPrompt, config.knowledgeContent, rag);
+  const prompts = new PromptPreparer(config.systemPrompt, config.knowledgeContent, rag, config.promptLayout);
   const invocation = new AIInvocationService(config.ai, catalog, prompts, adapters, deps);
-  return { catalog, adapters, configuredAdapters, rag, invocation };
+  return { catalog, adapters, configuredAdapters, rag, invocation, metrics: invocation.metrics, circuit: invocation.circuit };
 }
 
+export type { AiModule, AiModuleConfig, AiModuleDeps } from './interfaces/aiModule.interface';
 export { PromptPreparer } from './application/promptPreparer.service';
 export * from './domain/constants/ai.constants';
 export * from './domain/enums/ai.enums';
@@ -52,9 +30,21 @@ export * from './domain/promptContent';
 export { ConfiguredAIAdapterFactory } from './infrastructure/aiAdapter.factory';
 export { assertCompletion, buildRoutingFields, createOpenRouterClient } from './infrastructure/openrouter/openRouter.client';
 export { OpenRouterModelDirectory } from './infrastructure/openrouter/openRouterModelDirectory';
-export { toChatMessages, toResponsesHistory } from './infrastructure/providers/openaiMessages';
+export { toChatMessages, toResponsesHistory, toResponsesUserMessage } from './infrastructure/providers/openaiMessages';
+export { renderHistory, currentUserParts, allPromptImages } from './domain/helpers/historyRender.helper';
+export * from './domain/enums/historyRender.enums';
+export type { RenderedHistory, RenderedPart, RenderedTurn } from './domain/interfaces/historyRender.interface';
 export { normalizeHistory, retrievalQuery } from './domain/helpers/conversationHistory.helper';
-export { withJit, withMemory } from './domain/helpers/promptLayers.helper';
+export {
+  withJit,
+  withMemory,
+  placeMemory,
+  withConversationRules,
+  layoutConversationMemory,
+  composeStaticSystemPrompt,
+  summaryTurns,
+} from './domain/helpers/promptLayers.helper';
+export * from './domain/enums/promptLayout.enums';
 export { AIInvocationService } from './application/aiInvocation.service';
 export { RagAvailability } from './application/ragAvailability.service';
 export { DIRECT_ALLOWED_MODELS } from './domain/constants/modelCatalog.constants';
@@ -72,3 +62,12 @@ export type { KeyValidationResult } from './infrastructure/interfaces/aiAdapter.
 export type { RagPipeline } from './application/interfaces/promptPreparer.interface';
 export { getOpenAIApiMode } from './domain/helpers/modelCatalog.helper';
 export { PROVIDER_KEY_ENV } from './infrastructure/constants/aiAdapter.constants';
+export type { AnswerTimings, AttemptTiming } from './domain/interfaces/answerTimings.interface';
+export type { LatencyEntry, LatencyGroupSummary, LatencySummary, Percentiles } from './domain/interfaces/latencyRecorder.interface';
+export type { ModelCircuitState } from './domain/interfaces/modelCircuit.interface';
+export type { AiLatencySettings, ProviderTuning } from './domain/interfaces/latency.interface';
+export * from './domain/enums/latency.enums';
+export * from './domain/constants/latency.constants';
+export { LatencyRecorder } from './application/latencyRecorder.service';
+export { ModelCircuitBreaker } from './application/modelCircuit.service';
+export { resolveLatencySettings, resolveProviderTuning } from './domain/helpers/latency.helper';

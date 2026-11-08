@@ -19,7 +19,7 @@ export class ConversationController {
 
   list = async ({ res, query }: RouteContext): Promise<void> => {
     const limit = Math.min(parseInt(query.limit ?? '', 10) || DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT);
-    sendJson(res, HttpStatus.OK, { conversations: await this.service().list(limit, query.deleted === 'true') });
+    sendJson(res, HttpStatus.OK, { conversations: await this.service().list(limit, query.deleted === 'true', query.pending || undefined) });
   };
 
   /** `GET /api/conversations/:id` or `GET /api/conversations/:id/artifacts/:artifactId` (raw bytes). */

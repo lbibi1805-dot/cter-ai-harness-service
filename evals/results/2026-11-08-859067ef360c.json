@@ -1,0 +1,222 @@
+{
+  "promptVersion": "859067ef360c",
+  "date": "2026-11-08",
+  "provider": "gemini",
+  "meanScore": 0.9392857142857143,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "T01",
+      "coverage": 1,
+      "missingPoints": [],
+      "hasReferencesSection": false,
+      "forbiddenHits": [],
+      "missingCitations": [],
+      "score": 1,
+      "pass": true,
+      "judge": 1,
+      "wallMs": 11766,
+      "timings": {
+        "totalMs": 5997,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 4596
+          }
+        ],
+        "inputTokens": 10507,
+        "outputTokens": 461,
+        "cachedTokens": 4082,
+        "retrievalMs": 1401
+      }
+    },
+    {
+      "id": "T02",
+      "coverage": 1,
+      "missingPoints": [],
+      "hasReferencesSection": false,
+      "forbiddenHits": [],
+      "missingCitations": [],
+      "score": 1,
+      "pass": true,
+      "judge": 1,
+      "wallMs": 10487,
+      "timings": {
+        "totalMs": 4983,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 4511
+          }
+        ],
+        "inputTokens": 11184,
+        "outputTokens": 604,
+        "cachedTokens": 8167,
+        "retrievalMs": 472
+      }
+    },
+    {
+      "id": "T03",
+      "coverage": 1,
+      "missingPoints": [],
+      "hasReferencesSection": false,
+      "forbiddenHits": [],
+      "missingCitations": [],
+      "score": 1,
+      "pass": true,
+      "judge": 1,
+      "wallMs": 15078,
+      "timings": {
+        "totalMs": 6870,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 6628
+          }
+        ],
+        "inputTokens": 10430,
+        "outputTokens": 873,
+        "cachedTokens": 8165,
+        "retrievalMs": 242
+      }
+    },
+    {
+      "id": "T04",
+      "coverage": 1,
+      "missingPoints": [],
+      "hasReferencesSection": false,
+      "forbiddenHits": [],
+      "missingCitations": [],
+      "score": 1,
+      "pass": true,
+      "judge": 1,
+      "wallMs": 10543,
+      "timings": {
+        "totalMs": 6722,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 5333
+          }
+        ],
+        "inputTokens": 10495,
+        "outputTokens": 425,
+        "cachedTokens": 8165,
+        "retrievalMs": 1389
+      }
+    },
+    {
+      "id": "T05",
+      "coverage": 0.8,
+      "missingPoints": [
+        "*n"
+      ],
+      "hasReferencesSection": false,
+      "forbiddenHits": [],
+      "missingCitations": [],
+      "score": 0.8,
+      "pass": true,
+      "judge": 0.9,
+      "wallMs": 4697,
+      "timings": {
+        "totalMs": 3140,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 2857
+          }
+        ],
+        "inputTokens": 9746,
+        "outputTokens": 628,
+        "cachedTokens": 6122,
+        "retrievalMs": 283
+      }
+    },
+    {
+      "id": "T06",
+      "coverage": 0.7142857142857143,
+      "missingPoints": [
+        "uname",
+        "kill"
+      ],
+      "hasReferencesSection": false,
+      "forbiddenHits": [],
+      "missingCitations": [],
+      "score": 0.7142857142857143,
+      "pass": true,
+      "judge": 1,
+      "wallMs": 4995,
+      "timings": {
+        "totalMs": 3247,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 2958
+          }
+        ],
+        "inputTokens": 10794,
+        "outputTokens": 695,
+        "cachedTokens": 8166,
+        "retrievalMs": 289
+      }
+    },
+    {
+      "id": "T07",
+      "coverage": 1,
+      "missingPoints": [],
+      "hasReferencesSection": false,
+      "forbiddenHits": [],
+      "missingCitations": [],
+      "score": 1,
+      "pass": true,
+      "judge": 1,
+      "wallMs": 5555,
+      "timings": {
+        "totalMs": 3814,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 3569
+          }
+        ],
+        "inputTokens": 10748,
+        "outputTokens": 875,
+        "cachedTokens": 8166,
+        "retrievalMs": 245
+      }
+    },
+    {
+      "id": "T09",
+      "coverage": 1,
+      "missingPoints": [],
+      "hasReferencesSection": false,
+      "forbiddenHits": [],
+      "missingCitations": [],
+      "score": 1,
+      "pass": true,
+      "judge": 1,
+      "wallMs": 4974,
+      "timings": {
+        "totalMs": 3294,
+        "attempts": [
+          {
+            "model": "gemini-3.1-flash-lite",
+            "outcome": "ok",
+            "ms": 3052
+          }
+        ],
+        "inputTokens": 10894,
+        "outputTokens": 721,
+        "cachedTokens": 8166,
+        "retrievalMs": 242
+      }
+    }
+  ]
+}

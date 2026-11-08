@@ -1,3 +1,4 @@
+import type { EssaySettings } from '../../modules/essay';
 import type { AiConfig } from '../../modules/ai';
 import type { C4Config } from '../../modules/c4';
 import type { FileQaFolders } from '../../modules/fileqa/domain';
@@ -11,6 +12,8 @@ import { DatabaseSettings } from '../../shared/database/interfaces/database.inte
 import type { ObjectStorageSettings } from '../../shared/storage';
 import type { AIProvider } from '../../modules/ai';
 import type { AuxTimeouts, ContextSettings } from '../../modules/context';
+import type { ChatLimits } from '../../modules/chat';
+import type { PromptRegistry } from '../../modules/prompts';
 
 export interface ContextAppConfig {
   /** CONVERSATION_STORE_ENABLED: server-side conversations + context engineering on /api/chat and /api/c4. */
@@ -32,15 +35,21 @@ export interface HttpConfig {
 }
 
 export interface PromptConfig {
-  /** system-prompt.md */
+  /** Static system prompt (layer ①): the PromptRegistry composition, or system-prompt.md when the registry is off. */
   systemPrompt: string;
   /** knowledge.md, used when RAG is unavailable. */
   knowledgeContent: string;
+  /** Short sha256 of `systemPrompt` (for `messages.prompt_version`, logs, eval result names). */
+  promptVersion?: string;
+  /** Null/absent when PROMPT_REGISTRY_ENABLED=false or `prompts/` is missing; domains and skills are read from it. */
+  registry?: PromptRegistry | null;
 }
 
 export interface PollingConfig {
   intervalMs: number;
   autostart: boolean;
+  /** POLL_CURSOR_FLUSH_MS: Neon poll cursors live in RAM and are flushed at most this often (default 15 min). */
+  cursorFlushMs?: number;
 }
 
 /** Every setting the service reads, grouped by the module that consumes it. */
@@ -50,6 +59,8 @@ export interface AppConfig {
   canvasFolders: FileQaFolders;
   polling: PollingConfig;
   prompts: PromptConfig;
+  /** `/api/chat` limits (MAX_CHAT_IMAGES, CHAT_MAX_BODY_MB, GEMINI_INLINE_IMAGES_MAX_MB); absent = defaults. */
+  chat?: ChatLimits;
   ai: AiConfig;
   /** Null without PINECONE_API_KEY: no RAG, no agent search, vault files are stored but not indexed. */
   retrieval: RetrievalConfig | null;
@@ -62,6 +73,8 @@ export interface AppConfig {
   /** R2 (prod) or a local directory (dev): vault files and conversation artifacts. */
   storage: ObjectStorageSettings;
   context: ContextAppConfig;
+  /** ESSAY_* (note 15): Essay Mode on /api/chat. */
+  essay: EssaySettings;
   gmail: GmailCredentials;
   heartbeat: HeartbeatSettings;
 }

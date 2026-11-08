@@ -53,7 +53,21 @@ describe('POST /api/c4', () => {
     expect((await call(router, { provider: 'gemini' })).status).toBe(400);
     expect((await call(router, { provider: 'gemini', description: 'x', levels: ['deployment'] })).status).toBe(400);
     expect((await call(router, { provider: 'nope', description: 'x' })).status).toBe(400);
+    expect((await call(router, { provider: 'gemini', description: 'x', intent: 'dance' })).status).toBe(400);
+    expect((await call(router, { provider: 'gemini', description: 'x', refArtifactIds: ['nope'] })).status).toBe(400);
     expect(ask).not.toHaveBeenCalled();
+  });
+
+  it('accepts images without a description, the client intent, and answers with intent/brief/criticNotes in done', async () => {
+    const { router, ask } = build();
+    const png = Buffer.from('png').toString('base64');
+    const { status, body } = await call(router, { provider: 'gemini', images: [{ mimeType: 'image/png', data: png }], intent: 'generate', review: false, levels: ['ctx'], fast: true });
+    expect(status).toBe(200);
+    expect(ask.mock.calls[0][0].images).toHaveLength(1);
+    expect(body.intent).toEqual({ intent: 'c4_generate', confidence: 1, source: 'explicit' });
+    expect(body.brief).toMatchObject({ systemName: 'Cinema', levels: ['context'] });
+    expect(body.brief.summary.length).toBeGreaterThanOrEqual(3);
+    expect(body.confirmation).toBeNull();
   });
 
   it('needs the chat token and answers 503 without one', async () => {
@@ -77,6 +91,8 @@ describe('POST /api/c4', () => {
     await router.dispatch(req, res, new URL('/api/c4', 'http://localhost'));
     const types = chunks.join('').trim().split('\n').map((line) => JSON.parse(line).type);
     expect(types[0]).toBe('progress');
+    expect(types.indexOf('intent')).toBeLessThan(types.indexOf('brief'));
+    expect(types.indexOf('brief')).toBeLessThan(types.indexOf('analysis'));
     expect(types).toContain('analysis');
     expect(types).toContain('level');
     expect(types[types.length - 1]).toBe('done');

@@ -4,7 +4,16 @@ export const MS_PER_SECOND = 1000;
 
 export const CONTEXT_LENGTH_PATTERN = /maximum context length|too long|8192|2048/i;
 
-export const DEFAULT_TOP_K = 6;
+export const DEFAULT_TOP_K = 8;
+
+/** RAG_MIN_SCORE: chunks with a vector (cosine) score below it are dropped (07 §3.4). */
+export const DEFAULT_MIN_SCORE = 0.3;
+
+/**
+ * The best chunks kept even when all score below RAG_MIN_SCORE: a low cosine score is not proof of
+ * irrelevance (short questions, cross-language), and an empty context is worse than a weak one.
+ */
+export const MIN_KEPT_CHUNKS = 2;
 
 export const DEFAULT_PINECONE_INDEX = 'canvashelper-kb';
 
@@ -53,6 +62,16 @@ export const DEFAULT_EMBEDDING_BATCH_SIZE: Readonly<Record<EmbeddingProvider, nu
 export const EMBEDDING_MAX_ATTEMPTS = 5;
 
 export const EMBEDDING_BACKOFF = { baseDelayMs: 3000, maxDelayMs: 30_000, factor: 2 } as const;
+
+/** Query embedding (on the answer path): one retry, 5 s per try. Indexing keeps its own retries. */
+export const QUERY_EMBEDDING_TIMEOUT_MS = 5_000;
+
+export const QUERY_EMBEDDING_MAX_RETRIES = 1;
+
+export const QUERY_EMBEDDING_RETRY_DELAY_MS = 250;
+
+/** Question vectors kept in memory (LRU), keyed by the exact text embedded. */
+export const QUERY_VECTOR_CACHE_SIZE = 200;
 
 // ── Pinecone ─────────────────────────────────────────────────────
 export const PINECONE_BATCH_SIZE = 100;

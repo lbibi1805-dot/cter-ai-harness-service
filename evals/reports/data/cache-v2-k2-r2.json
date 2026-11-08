@@ -1,0 +1,65 @@
+{
+  "label": "v2-k2-r2",
+  "scenario": "c4",
+  "date": "2026-11-08T07:50:49.965Z",
+  "provider": "gemini",
+  "layout": null,
+  "hotWindowTurns": 2,
+  "turns": [
+    {
+      "turn": 1,
+      "kind": "chat",
+      "question": "Mình đang làm bài thiết kế hệ thống đặt vé xem phim online: khách đặt vé, thanh toán qua VNPay, nhận vé qua email. Hệ thống cần những thành phần chính nào? Trả lời ngắn.",
+      "ok": true,
+      "wallMs": 4497,
+      "inputTokens": 10962,
+      "cachedTokens": 8166,
+      "outputTokens": 252,
+      "ttftMs": 3527,
+      "totalMs": 4344
+    },
+    {
+      "turn": 2,
+      "kind": "c4",
+      "question": "Hệ thống đặt vé xem phim online: khách hàng đặt vé, thanh toán qua cổng VNPay, nhận vé qua email. Vẽ context.",
+      "ok": true,
+      "wallMs": 8055
+    },
+    {
+      "turn": 3,
+      "kind": "chat",
+      "question": "Trong hình bạn vẽ lúc nãy có những hệ thống ngoài nào?",
+      "ok": true,
+      "wallMs": 6656,
+      "inputTokens": 13316,
+      "cachedTokens": 4079,
+      "outputTokens": 149,
+      "ttftMs": 5824,
+      "totalMs": 6272
+    },
+    {
+      "turn": 4,
+      "kind": "chat",
+      "question": "Nếu thêm gửi SMS nhắc lịch chiếu thì hình đó thay đổi thế nào? 3 câu.",
+      "ok": true,
+      "wallMs": 5751,
+      "inputTokens": 13044,
+      "cachedTokens": 4076,
+      "outputTokens": 107,
+      "ttftMs": 4942,
+      "totalMs": 5341
+    },
+    {
+      "turn": 5,
+      "kind": "chat",
+      "question": "Tóm tắt lại các actor trong hình bằng một bảng.",
+      "ok": true,
+      "wallMs": 6161,
+      "inputTokens": 12633,
+      "cachedTokens": 4074,
+      "outputTokens": 256,
+      "ttftMs": 5126,
+      "totalMs": 5947
+    }
+  ]
+}

@@ -4,7 +4,7 @@ import { ContentType } from '../../../../../src/shared/http/enums/http.enums';
 import { closeBrowser } from '../../../../../src/modules/document/infrastructure/puppeteerPdfRenderer.adapter';
 import { BROWSER_TEST_TIMEOUT_MS } from '../../../../support/timeouts';
 
-vi.setConfig({ testTimeout: BROWSER_TEST_TIMEOUT_MS });
+vi.setConfig({ testTimeout: BROWSER_TEST_TIMEOUT_MS, hookTimeout: BROWSER_TEST_TIMEOUT_MS });
 
 describe('pdfResultRenderer', () => {
   afterAll(async () => {

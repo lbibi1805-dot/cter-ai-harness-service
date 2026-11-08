@@ -7,6 +7,7 @@ import type {
   ConversationSnapshot,
   MessageDetail,
   PendingWorkflow,
+  PinnedArtifactsOptions,
   TurnWrite,
 } from '../domain/interfaces/conversation.interface';
 
@@ -32,7 +33,7 @@ export class InMemoryConversationStore implements ConversationStore {
 
   constructor(private readonly now: () => Date = () => new Date()) {}
 
-  async load(id: string, maxMessages: number, maxArtifacts: number): Promise<ConversationSnapshot | null> {
+  async load(id: string, maxMessages: number, maxArtifacts: number, pinned?: PinnedArtifactsOptions): Promise<ConversationSnapshot | null> {
     const c = this.conversations.get(id);
     if (!c) return null;
     const unsummarized = c.messages.filter((m) => m.seq > c.summaryUptoSeq);
@@ -45,7 +46,7 @@ export class InMemoryConversationStore implements ConversationStore {
       deletedAt: c.deletedAt?.toISOString() ?? null,
       lastSeq: c.messages.at(-1)?.seq ?? 0,
       messages: unsummarized.slice(-maxMessages).map(({ id: mid, seq, role, kind, text }) => ({ id: mid, seq, role, kind, text })),
-      artifacts: c.artifacts.slice(-maxArtifacts).map((a) => ({ ...a, messageSeq: this.seqOf(c, a.messageId) })),
+      artifacts: this.window(c, maxArtifacts, pinned).map((a) => ({ ...a, messageSeq: this.seqOf(c, a.messageId) })),
       artifactCount: c.artifacts.length,
     };
   }
@@ -62,8 +63,9 @@ export class InMemoryConversationStore implements ConversationStore {
       c.messages.push({
         id: m.id, seq: ++seq, role: m.role, kind: m.kind, text: m.text,
         provider: m.provider ?? null, model: m.model ?? null, mode: m.mode ?? null, promptVersion: m.promptVersion ?? null,
-        tokensIn: m.tokensIn ?? null, tokensOut: m.tokensOut ?? null, ttftMs: m.ttftMs ?? null, latencyMs: m.latencyMs ?? null,
-        sources: m.sources ?? null, createdAt: this.now().toISOString(),
+        tokensIn: m.tokensIn ?? null, tokensOut: m.tokensOut ?? null, tokensCached: m.tokensCached ?? null, ttftMs: m.ttftMs ?? null, latencyMs: m.latencyMs ?? null,
+        sources: m.sources ?? null, resolvedRefs: m.resolvedRefs ?? null,
+        intent: m.intent ?? null, intentConfidence: m.intentConfidence ?? null, createdAt: this.now().toISOString(),
       });
     }
     let ordinal = c.artifacts.at(-1)?.ordinal ?? 0;
@@ -72,6 +74,7 @@ export class InMemoryConversationStore implements ConversationStore {
         id: a.id, ordinal: ++ordinal, kind: a.kind, messageId: a.messageId, messageSeq: null,
         objectKey: a.objectKey ?? null, mime: a.mime ?? null, caption: a.caption ?? null, ocrText: a.ocrText ?? null,
         dataJson: a.dataJson ?? null, sha256: a.sha256 ?? null, sizeBytes: a.sizeBytes ?? null, createdAt: this.now().toISOString(),
+        label: a.label ?? null, level: a.level ?? null, owner: a.owner ?? null, parentArtifactId: a.parentArtifactId ?? null, version: a.version ?? 1,
       });
     }
     if (turn.state) {
@@ -86,19 +89,20 @@ export class InMemoryConversationStore implements ConversationStore {
     const c = this.conversations.get(id);
     if (!c || c.deletedAt) return null;
     return {
-      id: c.id, title: c.title, summary: c.summary, summaryUptoSeq: c.summaryUptoSeq,
-      createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString(), deletedAt: null, purgeAfter: null,
+      id: c.id, title: c.title, summary: c.summary, summaryUptoSeq: c.summaryUptoSeq, state: structuredClone(c.state),
+      createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString(), deletedAt: null, purgeAfter: null, pending: Object.keys(c.state),
       messages: c.messages.slice(-maxMessages).map((m) => ({ ...m })),
       artifacts: c.artifacts.map((a) => ({ ...a, messageSeq: this.seqOf(c, a.messageId) })),
     };
   }
 
-  async list(limit: number, deleted: boolean): Promise<ConversationListItem[]> {
+  async list(limit: number, deleted: boolean, pending?: string): Promise<ConversationListItem[]> {
     return [...this.conversations.values()]
       .filter((c) => (deleted ? c.deletedAt !== null : c.deletedAt === null))
+      .filter((c) => !pending || c.state[pending] !== undefined)
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
       .slice(0, limit)
-      .map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt.toISOString(), deletedAt: c.deletedAt?.toISOString() ?? null, purgeAfter: c.purgeAfter?.toISOString() ?? null }));
+      .map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt.toISOString(), deletedAt: c.deletedAt?.toISOString() ?? null, purgeAfter: c.purgeAfter?.toISOString() ?? null, pending: Object.keys(c.state) }));
   }
 
   async softDelete(id: string, purgeAfterDays: number): Promise<boolean> {
@@ -136,8 +140,10 @@ export class InMemoryConversationStore implements ConversationStore {
       for (const a of c.artifacts) {
         const u = updates.find((x) => x.id === a.id);
         if (u) {
-          a.caption = u.caption;
-          a.ocrText = u.ocrText;
+          a.caption = u.caption ?? a.caption;
+          a.ocrText = u.ocrText ?? a.ocrText;
+          a.dataJson = u.dataJson ?? a.dataJson;
+          a.label = u.label ?? a.label;
         }
       }
     }
@@ -167,6 +173,15 @@ export class InMemoryConversationStore implements ConversationStore {
       }
     }
     return null;
+  }
+
+  /** Newest `max` artifacts plus the newest `pinned.max` of the pinned kinds (same rule as the SQL store), by ordinal. */
+  private window(c: MemoryConversation, max: number, pinned?: PinnedArtifactsOptions): ArtifactDetail[] {
+    const keep = new Set(c.artifacts.slice(-max).map((a) => a.id));
+    const kinds = new Set<string>(pinned?.kinds ?? []);
+    const pinnedRows = pinned?.max ? c.artifacts.filter((a) => kinds.has(a.kind)).slice(-pinned.max) : [];
+    for (const a of pinnedRows) keep.add(a.id);
+    return c.artifacts.filter((a) => keep.has(a.id));
   }
 
   private seqOf(c: MemoryConversation, messageId: string | null): number | null {

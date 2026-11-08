@@ -4,7 +4,7 @@ services:
     env: docker
     dockerfilePath: ./Dockerfile
     plan: free
-    healthCheckPath: /health
+    healthCheckPath: /ping   # (13) không chạm DB; /health cũng không query DB nhưng /ping không phụ thuộc gì
     # Full reference: docs/DEPLOYMENT-GUIDE.md §4. `sync: false` = secret, set in the dashboard.
     envVars:
       # ── Required ──
@@ -84,9 +84,51 @@ services:
       - key: POLL_AUTOSTART
         value: "true"
       - key: RAG_TOP_K
-        value: 20
+        value: 8
+      - key: RAG_MIN_SCORE
+        value: 0.3
       - key: AI_TIMEOUT_MS
         value: 120000
+      # ── Latency (07) ──
+      - key: MAX_RETRY_COUNT
+        value: 2
+      - key: AI_FIRST_TOKEN_TIMEOUT_MS
+        value: 15000
+      - key: AI_IDLE_TIMEOUT_MS
+        value: 20000
+      - key: CHAT_DEADLINE_MS
+        value: 90000
+      # Canvas polling (file Q&A + Canvas conversation): long PDF answers need more than the chat deadline
+      - key: CANVAS_DEADLINE_MS
+        value: 300000
+      - key: GEMINI_THINKING_LEVEL
+        value: minimal
+      - key: OPENAI_REASONING_EFFORT
+        value: low
+      - key: OPENAI_PROMPT_CACHE_KEY
+        value: conversation
+      # ── KV cache (18) ──
+      - key: PROMPT_CACHE_LAYOUT
+        value: v2
+      - key: PROMPT_CACHE_CLAUDE
+        value: "false"
+      # Images of the last N user/assistant pairs stay in place in history; 0 = rollback (JIT only)
+      - key: CONTEXT_HOT_WINDOW_TURNS
+        value: 2
+      # ── Chat images (09) ──
+      - key: MAX_CHAT_IMAGES
+        value: 10
+      # ── Artifact Resolver (17) ──
+      - key: ARTIFACT_RESOLVER_MODE
+        value: rules+aux
+      # ── Essay (15) ──
+      - key: HYBRID_SEARCH_ENABLED
+        value: "true"
+      - key: ESSAY_MODE_ENABLED
+        value: "false"
+      # ── Neon cost (13 §3.1) ──
+      - key: POLL_CURSOR_FLUSH_MS
+        value: 900000
       - key: CRON_ENABLED
         value: "true"
       - key: CRON_INTERVAL_MS

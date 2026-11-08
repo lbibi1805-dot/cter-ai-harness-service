@@ -21,3 +21,14 @@ Return only the query text, no quotes, no explanation, same language as the ques
 export const SUMMARY_MESSAGE_MAX_CHARS = 4000;
 
 export const REWRITE_HISTORY_TURNS = 4;
+
+/** Design answered in normal chat → structured design_note (note 17 step 6). */
+export const DESIGN_NOTE_SYSTEM = `You extract the system design described in an assistant's answer, for the conversation's memory.
+Return ONLY a JSON object: {"systemName": "...", "elements": [{"name": "...", "tech": "..."}], "decisions": ["..."]}
+- systemName: the designed system's name as written (e.g. "Hệ thống đặt vé"); empty string if none.
+- elements: the components/containers/services/databases/queues/actors of the design (max 30); "tech" only when stated.
+- decisions: key design decisions with their reason, one short sentence each (max 10), in the answer's language.`;
+
+/** Per-field caps inside a design-note extraction prompt. */
+export const DESIGN_NOTE_QUESTION_MAX_CHARS = 1000;
+export const DESIGN_NOTE_ANSWER_MAX_CHARS = 8000;

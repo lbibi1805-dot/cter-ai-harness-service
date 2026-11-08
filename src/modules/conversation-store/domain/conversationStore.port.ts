@@ -4,6 +4,7 @@ import type {
   ConversationListItem,
   ConversationSnapshot,
   PendingWorkflow,
+  PinnedArtifactsOptions,
   TurnWrite,
 } from './interfaces/conversation.interface';
 
@@ -17,13 +18,17 @@ import type {
  * instead of silently re-creating the conversation.
  */
 export interface ConversationStore {
-  /** Null when the id does not exist (never created, or purged). */
-  load(id: string, maxMessages: number, maxArtifacts: number): Promise<ConversationSnapshot | null>;
+  /**
+   * Null when the id does not exist (never created, or purged). Artifacts = the newest
+   * `maxArtifacts` plus every `pinned` kind (still ONE round-trip).
+   */
+  load(id: string, maxMessages: number, maxArtifacts: number, pinned?: PinnedArtifactsOptions): Promise<ConversationSnapshot | null>;
   /** Creates the conversation when needed, appends messages (seq assigned in SQL) and artifacts. */
   recordTurn(turn: TurnWrite): Promise<void>;
   /** Active conversation with every message and artifact; null when missing or soft-deleted. */
   findActive(id: string, maxMessages: number): Promise<ConversationDetail | null>;
-  list(limit: number, deleted: boolean): Promise<ConversationListItem[]>;
+  /** `pending`: only conversations whose state holds that key (e.g. `pendingC4`). */
+  list(limit: number, deleted: boolean, pending?: string): Promise<ConversationListItem[]>;
   /** Idempotent; false when the id does not exist. */
   softDelete(id: string, purgeAfterDays: number): Promise<boolean>;
   /** False when the id does not exist (already purged). */

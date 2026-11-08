@@ -1,0 +1,82 @@
+{
+  "label": "v2-k0-long",
+  "scenario": "long",
+  "date": "2026-11-08T08:04:24.588Z",
+  "provider": "gemini",
+  "layout": null,
+  "hotWindowTurns": 0,
+  "turns": [
+    {
+      "turn": 1,
+      "kind": "chat",
+      "question": "Giải thích chi tiết (khoảng 400 từ) khái niệm process và thread trong QNX, kèm ví dụ.",
+      "ok": true,
+      "wallMs": 5122,
+      "inputTokens": 9895,
+      "cachedTokens": 4081,
+      "outputTokens": 703,
+      "ttftMs": 2671,
+      "totalMs": 4955
+    },
+    {
+      "turn": 2,
+      "kind": "chat",
+      "question": "Tiếp theo, giải thích chi tiết (khoảng 400 từ) các trạng thái của thread trong QNX và chuyển trạng thái.",
+      "ok": true,
+      "wallMs": 9521,
+      "inputTokens": 11781,
+      "cachedTokens": 4081,
+      "outputTokens": 712,
+      "ttftMs": 6872,
+      "totalMs": 9220
+    },
+    {
+      "turn": 3,
+      "kind": "chat",
+      "question": "Bây giờ giải thích chi tiết (khoảng 400 từ) Native QNX Message Passing: MsgSend, MsgReceive, MsgReply.",
+      "ok": true,
+      "wallMs": 7422,
+      "inputTokens": 12561,
+      "cachedTokens": 4079,
+      "outputTokens": 674,
+      "ttftMs": 4753,
+      "totalMs": 7203
+    },
+    {
+      "turn": 4,
+      "kind": "chat",
+      "question": "So sánh cơ chế đó với POSIX message queue (khoảng 300 từ).",
+      "ok": true,
+      "wallMs": 6669,
+      "inputTokens": 13379,
+      "cachedTokens": 4078,
+      "outputTokens": 738,
+      "ttftMs": 4034,
+      "totalMs": 6465
+    },
+    {
+      "turn": 5,
+      "kind": "chat",
+      "question": "Race condition là gì và mutex giải quyết nó thế nào trong QNX? (khoảng 300 từ)",
+      "ok": true,
+      "wallMs": 13072,
+      "inputTokens": 13735,
+      "cachedTokens": 0,
+      "outputTokens": 550,
+      "ttftMs": 7116,
+      "totalMs": 10338
+    },
+    {
+      "turn": 6,
+      "kind": "chat",
+      "question": "Tóm tắt toàn bộ những gì ta đã trao đổi thành 5 gạch đầu dòng.",
+      "ok": true,
+      "wallMs": 5945,
+      "inputTokens": 14296,
+      "cachedTokens": 6112,
+      "outputTokens": 377,
+      "ttftMs": 4437,
+      "totalMs": 5698
+    }
+  ]
+}

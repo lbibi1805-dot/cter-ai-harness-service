@@ -9,6 +9,7 @@ import {
 } from '../../../../src/modules/context';
 import { ArtifactKind, MessageKind, MessageRole, type ConversationSnapshot, type StoredArtifact, type StoredMessage } from '../../../../src/modules/conversation-store';
 import { PromptPreparer, RagAvailability } from '../../../../src/modules/ai';
+import { PromptCacheLayout } from '../../../../src/modules/ai/domain/enums/promptLayout.enums';
 import { CitationPromptBuilder } from '../../../../src/modules/retrieval';
 
 const S = DEFAULT_CONTEXT_SETTINGS;
@@ -42,7 +43,7 @@ describe('Context Assembler: layers', () => {
 
   it('a new conversation has no memory, no history, the plain question as RAG query', () => {
     const ctx = assembleContext({ snapshot: null, question: 'mutex là gì', currentImageCount: 0, currentImageNotes: [], settings: S });
-    expect(ctx).toEqual({ history: [], memory: '', jitText: '', jitImages: [], retrievalQuery: 'mutex là gì', retrievalHints: [] });
+    expect(ctx).toEqual({ history: [], memory: '', summary: '', registry: '', jitText: '', jitImages: [], hotWindow: [], retrievalQuery: 'mutex là gì', retrievalHints: [], resolvedRefs: null });
   });
 
   it('registry is capped to the newest lines', () => {
@@ -78,7 +79,7 @@ describe('Context Assembler: just-in-time artifacts', () => {
       [msg(1, 'a'), msg(2, 'b'), msg(3, 'c'), msg(4, 'd')],
       [art(1, ArtifactKind.USER_IMAGE, 1), art(2, ArtifactKind.USER_IMAGE, 1), art(3, ArtifactKind.USER_IMAGE, 3), art(4, ArtifactKind.USER_IMAGE, 3)],
     );
-    const ctx = assembleContext({ snapshot: recent, question: 'tiếp', currentImageCount: 0, currentImageNotes: [], settings: S });
+    const ctx = assembleContext({ snapshot: recent, question: 'tiếp', currentImageCount: 0, currentImageNotes: [], settings: { ...S, hotWindowTurns: 0 } });
     expect(ctx.jitImages.map((a) => a.ordinal)).toEqual([2, 3, 4]);
   });
 
@@ -148,12 +149,12 @@ describe('follow-up detection', () => {
   });
 });
 
-describe('PromptPreparer: layer order ① → ⑦', () => {
+describe('PromptPreparer: layout V1 (PROMPT_CACHE_LAYOUT=v1, rollback)', () => {
   it('system prompt (static) → memory; JIT before RAG context before the question', async () => {
     const rag = new RagAvailability();
     const retrieve = async (q: string) => [{ chunkId: 'c', text: `ctx for ${q}`, source: 's.md', heading: 'H', parentHeading: '', tokenCount: 1 }];
     rag.markReady({ retriever: { retrieve }, builder: new CitationPromptBuilder() });
-    const prepared = await new PromptPreparer('STATIC SYSTEM', '', rag).prepare({
+    const prepared = await new PromptPreparer('STATIC SYSTEM', '', rag, PromptCacheLayout.V1).prepare({
       textContent: 'QUESTION', imageBuffers: [], history: [], memory: 'MEMORY', jitContext: 'JIT', retrievalQuery: 'REWRITTEN',
     });
     expect(prepared.systemPrompt.startsWith('STATIC SYSTEM')).toBe(true);
@@ -164,10 +165,70 @@ describe('PromptPreparer: layer order ① → ⑦', () => {
   });
 
   it('the static prefix is byte-identical whatever the memory (cacheable)', async () => {
-    const p = new PromptPreparer('STATIC', 'KB', new RagAvailability());
+    const p = new PromptPreparer('STATIC', 'KB', new RagAvailability(), PromptCacheLayout.V1);
     const a = await p.prepare({ textContent: 'q', imageBuffers: [], memory: 'm1' });
     const b = await p.prepare({ textContent: 'q', imageBuffers: [], memory: 'other memory' });
     expect(a.systemPrompt.slice(0, 6)).toBe(b.systemPrompt.slice(0, 6));
     expect(a.content.textContent).toContain('KB');
+  });
+});
+
+describe('Context Assembler: hot window (note 18 step 5)', () => {
+  const png = (ordinal: number, seq: number) => art(ordinal, ArtifactKind.C4_PNG, seq, { objectKey: `conversations/c/a${ordinal}.png` });
+  // 4 pairs: user images in turns 1 and 3, a C4 PNG drawn by the assistant in turn 4.
+  const messages = [msg(1, 'đề 1'), msg(2, 'ok 1'), msg(3, 'hỏi 2'), msg(4, 'ok 2'), msg(5, 'đề 3'), msg(6, 'ok 3'), msg(7, '/c4 vẽ'), msg(8, 'đã vẽ', MessageKind.C4)];
+  const artifacts = [art(1, ArtifactKind.USER_IMAGE, 1), art(2, ArtifactKind.USER_IMAGE, 5), art(3, ArtifactKind.USER_IMAGE, 5), png(4, 8)];
+  const assemble = (settings: typeof S, question = 'tiếp', current = 0, snapshot = snap(messages, artifacts)) =>
+    assembleContext({ snapshot, question, currentImageCount: current, currentImageNotes: [], settings });
+
+  it('K=2 picks the images of the last 2 pairs only, in place: user images on the user turn, the PNG on the assistant turn', () => {
+    const ctx = assemble({ ...S, hotWindowTurns: 2 });
+    expect(ctx.hotWindow.map((s) => [s.turnIndex, s.artifacts.map((a) => a.ordinal)])).toEqual([[4, [2, 3]], [7, [4]]]);
+    expect(ctx.history[4].text).toContain('đề 3');
+    expect(ctx.history[7].role).toBe('assistant');
+  });
+
+  it('a picked image already in the window is not re-attached in the tail (dedupe by artifact id)', () => {
+    const off = assemble({ ...S, hotWindowTurns: 0 });
+    expect(off.jitImages.map((a) => a.ordinal)).toEqual([2, 3]);           // the last two user turns' images (old rule)
+    const on = assemble({ ...S, hotWindowTurns: 2 });
+    expect(on.jitImages).toEqual([]);
+    expect(on.jitText).toContain('[A2] user_image');
+    expect(on.jitText).toContain('already shown in place');
+    expect(on.jitText).not.toContain('re-attached from earlier turns');
+  });
+
+  it('images outside the window keep the JIT behaviour', () => {
+    const ctx = assemble({ ...S, hotWindowTurns: 1 }, 'ảnh [A1] nói gì?');
+    expect(ctx.hotWindow.map((s) => s.artifacts.map((a) => a.ordinal))).toEqual([[4]]);
+    expect(ctx.jitImages.map((a) => a.ordinal)).toContain(1);
+  });
+
+  it('K=0 is the old output exactly', () => {
+    const off = assemble({ ...S, hotWindowTurns: 0 });
+    expect(off.hotWindow).toEqual([]);
+    const { hotWindow: _ignored, ...rest } = off;
+    const legacy = assemble({ ...S, hotWindowTurns: 0, maxPromptImages: 0 });  // the cap only applies to the window
+    expect({ ...legacy, hotWindow: undefined }).toEqual({ ...rest, hotWindow: undefined });
+    expect(off.history.every((t) => !('images' in t))).toBe(true);
+  });
+
+  it('total images are capped: the oldest window images go first, resolver picks last', () => {
+    const ctx = assemble({ ...S, hotWindowTurns: 2, maxPromptImages: 4 }, 'tiếp', 2);
+    expect(ctx.hotWindow.flatMap((s) => s.artifacts.map((a) => a.ordinal))).toEqual([2, 3]);  // A4 (not picked) dropped… 
+    expect(ctx.jitImages).toEqual([]);
+    const tight = assemble({ ...S, hotWindowTurns: 2, maxPromptImages: 3 }, 'tiếp', 2);
+    expect(tight.hotWindow.flatMap((s) => s.artifacts.map((a) => a.ordinal))).toEqual([3]);
+  });
+
+  it('the turns before the window are byte-identical between turn n and n+1 (cacheable prefix)', () => {
+    const turnN = assemble({ ...S, hotWindowTurns: 2 });
+    const more = [...messages, msg(9, 'tiếp nữa'), msg(10, 'ok 5')];
+    const turnN1 = assemble({ ...S, hotWindowTurns: 2 }, 'tiếp', 0, snap(more, artifacts));
+    const startN = turnN.history.length - 4;
+    expect(JSON.stringify(turnN1.history.slice(0, startN))).toBe(JSON.stringify(turnN.history.slice(0, startN)));
+    expect(turnN.history.slice(0, startN).every((t) => !('images' in t))).toBe(true);
+    // The window slid: turn n's user image pair is now outside it, the drawing is still inside.
+    expect(turnN1.hotWindow.map((s) => s.turnIndex)).toEqual([7]);
   });
 });

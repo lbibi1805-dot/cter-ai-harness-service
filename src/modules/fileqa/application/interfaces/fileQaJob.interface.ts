@@ -7,6 +7,9 @@ export interface FileQaJobDeps {
   extract: ContentExtractor;
   renderer: ResultRenderer;
   sleep?: Sleep;
+  /** CANVAS_DEADLINE_MS: the AI chain of one file (absent = the invocation default, CHAT_DEADLINE_MS). */
+  deadlineMs?: number;
+  now?: () => number;
 }
 
 /** Where results go for one account during one tick. */

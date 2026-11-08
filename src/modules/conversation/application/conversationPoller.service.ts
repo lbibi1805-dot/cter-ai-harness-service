@@ -143,7 +143,10 @@ export class ConversationPoller implements PollJob {
 
     const content = await this.buildContent(request.message, request.question, task.client);
     // AI and reply-post failures throw: the record stays PROCESSING and is retried later.
-    const answer = await this.answers.answer({ provider, model, content, label: key, mode: request.mode });
+    const answer = await this.answers.answer({
+      provider, model, content, label: key, mode: request.mode,
+      ...(this.deps.deadlineMs !== undefined ? { deadlineAt: this.now() + this.deps.deadlineMs } : {}),
+    });
     await task.client.addReply(task.conversationId, buildReply({
       requestId: request.message.id,
       status: ConversationReplyStatus.DONE,

@@ -56,7 +56,7 @@ describe('OpenRouter fallback adapter (real SDK against a fake OpenRouter)', () 
     server.responder = () => ({ text: '# Answer' });
     const reply = await factory.openRouter(AIProvider.CLAUDE)!.process(CONTENT, 'system rules', CLAUDE_PRIMARY);
 
-    expect(reply).toEqual({ text: '# Answer', model: CLAUDE_PRIMARY });
+    expect(reply).toEqual({ text: '# Answer', model: CLAUDE_PRIMARY, usage: { inputTokens: 100, outputTokens: 20, cachedTokens: 0 } });
     const sent = server.requests[0];
     expect(sent.model).toBe(CLAUDE_PRIMARY);
     expect(sent.models).toEqual([CLAUDE_PRIMARY, ...CLAUDE_FALLBACKS]);
@@ -71,7 +71,7 @@ describe('OpenRouter fallback adapter (real SDK against a fake OpenRouter)', () 
   it('reports the model OpenRouter fell back to', async () => {
     server.responder = () => ({ text: 'ok', servedBy: CLAUDE_FALLBACKS[1] });
     await expect(factory.openRouter(AIProvider.CLAUDE)!.process(CONTENT, 'sys', CLAUDE_PRIMARY))
-      .resolves.toEqual({ text: 'ok', model: CLAUDE_FALLBACKS[1] });
+      .resolves.toMatchObject({ text: 'ok', model: CLAUDE_FALLBACKS[1] });
   });
 
   it('keeps `models` within the OpenRouter 3-model limit', () => {

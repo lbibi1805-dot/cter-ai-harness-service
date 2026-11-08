@@ -305,6 +305,12 @@ stateDiagram-v2
     UploadError --> [*]
 ```
 
+> Cập nhật 08/11/2026 (planning-06112026/07): retry **chỉ** cho 429/5xx **trước token đầu** (`MAX_RETRY_COUNT`, mặc định 2);
+> timeout (token đầu `AI_FIRST_TOKEN_TIMEOUT_MS`, khoảng lặng `AI_IDLE_TIMEOUT_MS`, non-stream `AI_TIMEOUT_MS`), 4xx, câu trả lời rỗng,
+> lỗi mạng hoặc lỗi sau khi đã có chữ → chuyển model ngay (stream gửi `reset`). Cả chuỗi direct + OpenRouter bị chặn bởi
+> `CHAT_DEADLINE_MS` (90 s) và mọi lần gọi bị huỷ thật qua `AbortSignal`. Circuit breaker bỏ qua model lỗi liên tục
+> (3 lỗi / 60 s → 120 s). Chi tiết: `CHANGES.md` (08/11/2026).
+
 ## 6. RAG Document Vault Pipeline
 
 ```mermaid
@@ -385,7 +391,7 @@ Câu hỏi ─► Pinecone top 40 (cosine) ─► breadcrumb "file › heading" 
 | Khía cạnh | Chi tiết |
 |---|---|
 | Wiring | `src/index.ts:35,81-82` — `createRerankModule(config.rerank, { pineconeApiKey })` → `ranking.wrap(vectorRetriever, { topN, fallbackTopK, label })` |
-| Single-shot | `candidateCount(RAG_TOP_K)` → 40 candidates → `topN=RERANK_TOP_N` (8) → prompt; fail → cosine top `RAG_TOP_K` (20) |
+| Single-shot | `candidateCount(RAG_TOP_K)` → 40 candidates → `topN=RERANK_TOP_N` (8) → prompt; fail → cosine top `RAG_TOP_K` (8 từ 08/11; trước 20). Từ 08/11 còn lọc `RAG_MIN_SCORE` và trộn BM25 trong RAM (RRF) khi `HYBRID_SEARCH_ENABLED` |
 | Agent `search_vault` | `RagVaultSearcher` fetch 40 → rerank giữ top 10 → tool hiển thị 5 (`SEARCH_RESULTS_SHOWN`) |
 | Văn bản chấm điểm | `breadcrumbOf(chunk)` (path + parentHeading + heading, khử trùng) + chunk text, cắt `maxDocumentChars=1500`; query cắt `maxQueryChars=600` |
 | Giới hạn Pinecone | Tối đa 100 documents/request → `passagesPerChunk = min(3, floor(100/candidates))` |
@@ -485,7 +491,7 @@ PINECONE_API_KEY=pcsk_...
 PINECONE_INDEX=canvas-helper
 EMBEDDING_PROVIDER=gemini
 VAULT_PATH=./documents-vault
-RAG_TOP_K=20  # khi rerank off: số chunk vào prompt; khi rerank on: chỉ dùng khi rerank lỗi (fallback)
+RAG_TOP_K=8   # (08/11, trước 20) khi rerank off: số chunk vào prompt; khi rerank on: chỉ dùng khi rerank lỗi (fallback)
 
 # Rerank (optional, tắt mặc định)
 RERANK_PROVIDER=pinecone  # none = cosine cũ | pinecone = bật rerank (dùng chung PINECONE_API_KEY)

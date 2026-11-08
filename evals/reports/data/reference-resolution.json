@@ -1,0 +1,332 @@
+[
+  {
+    "id": "one-design-container-before",
+    "group": "1 design",
+    "question": "thiết kế container bạn làm trước đó",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A2] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 6
+  },
+  {
+    "id": "one-design-why-postgres",
+    "group": "1 design",
+    "question": "vì sao dùng PostgreSQL trong thiết kế?",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A2] choices=[] images=[] level=context",
+    "source": "rule",
+    "artifacts": 6
+  },
+  {
+    "id": "one-design-alias",
+    "group": "1 design",
+    "question": "giải thích A2 kỹ hơn",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A2] choices=[] images=[] level=context",
+    "source": "rule",
+    "artifacts": 6
+  },
+  {
+    "id": "one-design-exam",
+    "group": "1 design",
+    "question": "đề lúc nãy yêu cầu gì?",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[A1] level=-",
+    "source": "rule",
+    "artifacts": 6
+  },
+  {
+    "id": "system-ticket",
+    "group": "2 hệ thống",
+    "question": "thiết kế hệ thống đặt vé",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 4
+  },
+  {
+    "id": "system-food-kafka",
+    "group": "2 hệ thống",
+    "question": "thiết kế app giao đồ ăn dùng Kafka để làm gì",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A3] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 4
+  },
+  {
+    "id": "system-no-accents",
+    "group": "2 hệ thống",
+    "question": "thiet ke he thong dat ve the nao",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 4
+  },
+  {
+    "id": "version-previous",
+    "group": "Version",
+    "question": "thiết kế bản trước đó",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 4
+  },
+  {
+    "id": "version-latest",
+    "group": "Version",
+    "question": "bản mới nhất của thiết kế",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A3] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 4
+  },
+  {
+    "id": "version-compare",
+    "group": "Version",
+    "question": "thiết kế mới khác gì bản trước?",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1,A3] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 4
+  },
+  {
+    "id": "version-ordinal",
+    "group": "Version",
+    "question": "bản 1 của thiết kế",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 4
+  },
+  {
+    "id": "version-previous-drawing",
+    "group": "Version",
+    "question": "sơ đồ lần trước",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[A2] level=container",
+    "source": "rule",
+    "artifacts": 4
+  },
+  {
+    "id": "wording-drawn-earlier",
+    "group": "Diễn đạt",
+    "question": "hình bạn vẽ hồi nãy có những gì?",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A2] choices=[] images=[A3,A5] level=context",
+    "source": "rule",
+    "artifacts": 6
+  },
+  {
+    "id": "wording-drawing-before",
+    "group": "Diễn đạt",
+    "question": "bản vẽ lúc trước còn thiếu gì?",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A2] choices=[] images=[A3,A5] level=context",
+    "source": "rule",
+    "artifacts": 6
+  },
+  {
+    "id": "wording-the-diagram",
+    "group": "Diễn đạt",
+    "question": "giải thích cái sơ đồ container",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A2] choices=[] images=[A3,A5] level=container",
+    "source": "rule",
+    "artifacts": 6
+  },
+  {
+    "id": "owner-mine",
+    "group": "Owner",
+    "question": "thiết kế của tôi có ổn không?",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[A1] level=-",
+    "source": "rule",
+    "artifacts": 3
+  },
+  {
+    "id": "owner-yours",
+    "group": "Owner",
+    "question": "thiết kế bạn làm có mấy container?",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A2] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 3
+  },
+  {
+    "id": "owner-my-image",
+    "group": "Owner",
+    "question": "ảnh tôi gửi lúc nãy",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[A1] level=-",
+    "source": "rule",
+    "artifacts": 3
+  },
+  {
+    "id": "chat-design-turn",
+    "group": "Chat design",
+    "question": "thiết kế ở turn 2",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[] level=-",
+    "source": "rule",
+    "artifacts": 3
+  },
+  {
+    "id": "chat-design-system",
+    "group": "Chat design",
+    "question": "thiết kế hệ thống chat realtime lúc trước",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[] level=-",
+    "source": "rule",
+    "artifacts": 3
+  },
+  {
+    "id": "chat-design-element",
+    "group": "Chat design",
+    "question": "vì sao dùng Cassandra?",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[] level=-",
+    "source": "rule",
+    "artifacts": 3
+  },
+  {
+    "id": "long-first-design",
+    "group": "Dài",
+    "question": "thiết kế đầu tiên bạn vẽ",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A1] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 66
+  },
+  {
+    "id": "long-system-by-name",
+    "group": "Dài",
+    "question": "thiết kế hệ thống thư viện",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "rule picked=[A4] choices=[] images=[] level=container",
+    "source": "rule",
+    "artifacts": 66
+  },
+  {
+    "id": "ambiguous-two-containers",
+    "group": "Mơ hồ",
+    "question": "thiết kế container",
+    "ambiguousExpected": true,
+    "ok": true,
+    "got": "ambiguous picked=[A3] choices=[A3,A1] images=[] level=container",
+    "source": "ambiguous",
+    "artifacts": 4
+  },
+  {
+    "id": "ambiguous-same-system",
+    "group": "Mơ hồ",
+    "question": "giải thích thiết kế hệ thống đặt vé",
+    "ambiguousExpected": true,
+    "ok": true,
+    "got": "ambiguous picked=[A3] choices=[A3,A1] images=[] level=container",
+    "source": "ambiguous",
+    "artifacts": 4
+  },
+  {
+    "id": "ambiguous-two-images",
+    "group": "Mơ hồ",
+    "question": "ảnh lúc nãy",
+    "ambiguousExpected": true,
+    "ok": true,
+    "got": "ambiguous picked=[A2] choices=[A2,A1] images=[A2] level=-",
+    "source": "ambiguous",
+    "artifacts": 2
+  },
+  {
+    "id": "ambiguous-two-diagrams",
+    "group": "Mơ hồ",
+    "question": "cái sơ đồ container",
+    "ambiguousExpected": true,
+    "ok": true,
+    "got": "ambiguous picked=[A3] choices=[A3,A1] images=[A4] level=container",
+    "source": "ambiguous",
+    "artifacts": 4
+  },
+  {
+    "id": "negative-van-de",
+    "group": "Âm tính",
+    "question": "nói rõ hơn về vấn đề này",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "none picked=[] choices=[] images=[] level=-",
+    "source": "none",
+    "artifacts": 6
+  },
+  {
+    "id": "negative-unrelated",
+    "group": "Âm tính",
+    "question": "mutex là gì",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "none picked=[] choices=[] images=[] level=-",
+    "source": "none",
+    "artifacts": 6
+  },
+  {
+    "id": "negative-pronoun",
+    "group": "Âm tính",
+    "question": "giải thích nó kỹ hơn",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "none picked=[] choices=[] images=[] level=-",
+    "source": "none",
+    "artifacts": 6
+  },
+  {
+    "id": "negative-de-xuat",
+    "group": "Âm tính",
+    "question": "đề xuất cách cải thiện hiệu năng",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "none picked=[] choices=[] images=[] level=-",
+    "source": "none",
+    "artifacts": 6
+  },
+  {
+    "id": "negative-mo-hinh",
+    "group": "Âm tính",
+    "question": "mô hình OSI có mấy tầng?",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "none picked=[] choices=[] images=[] level=-",
+    "source": "none",
+    "artifacts": 6
+  },
+  {
+    "id": "ui-ref",
+    "group": "UI",
+    "question": "giải thích cái này",
+    "ambiguousExpected": false,
+    "ok": true,
+    "got": "ui picked=[A3] choices=[] images=[A4] level=container",
+    "source": "ui",
+    "artifacts": 4
+  }
+]

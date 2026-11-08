@@ -1,10 +1,31 @@
 import { ValidationError } from '../../../../shared/errors';
-import { AI_PROVIDERS, parseAIProvider } from '../../../ai';
-import { C4_LEVEL_ORDER, parseC4Level, type C4Level } from '../../domain';
-import type { C4ArchitectPlan, C4LevelResult, C4ResumeRequest, C4SketchRequest, C4SketchResult } from '../../application/interfaces/c4Sketch.interface';
-import { MAX_DESCRIPTION_CHARS } from '../constants/c4.constants';
-import { parseImages } from '../../../chat/presentation/helpers/chat.helper';
-import type { C4AnalysisDto, C4LevelDto, C4SketchDto } from '../dto/c4.dto';
+import { AI_PROVIDERS, AIProvider, parseAIProvider } from '../../../ai';
+import { assertInlineImageBudget, parseImages, parseRefArtifactIds } from '../../../chat/presentation/helpers/chat.helper';
+import { ClientIntent, CLIENT_INTENTS, RequestIntent, type IntentDecision } from '../../../routing';
+import { briefLevels, briefSummary, C4_LEVEL_ORDER, parseC4Level, type C4Level, type ProblemBrief } from '../../domain';
+import type {
+  C4ArchitectPlan,
+  C4Clarify,
+  C4LevelResult,
+  C4ResumeRequest,
+  C4ReviewResult,
+  C4SketchRequest,
+  C4SketchResult,
+} from '../../application/interfaces/c4Sketch.interface';
+import { C4_GEMINI_INLINE_IMAGES_MAX_BYTES, MAX_DESCRIPTION_CHARS } from '../constants/c4.constants';
+import type { C4AnalysisDto, C4BriefDto, C4ClarifyDto, C4IntentDto, C4LevelDto, C4ReviewDto, C4SketchDto } from '../dto/c4.dto';
+
+const CLIENT_INTENT_VALUES = new Set<string>(Object.values(ClientIntent));
+const REQUEST_INTENT_VALUES = new Set<string>(Object.values(RequestIntent));
+
+/** `intent`: omitted/"auto" = the router decides; client names or the internal intent names. */
+function parseIntent(raw: unknown): RequestIntent | null {
+  if (raw === undefined || raw === null) return null;
+  const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  if (CLIENT_INTENT_VALUES.has(value)) return CLIENT_INTENTS[value as ClientIntent];
+  if (REQUEST_INTENT_VALUES.has(value) && value !== RequestIntent.QA) return value as RequestIntent;
+  throw new ValidationError(`intent must be one of ${[...CLIENT_INTENT_VALUES].join(', ')}`);
+}
 
 /** Shape validation of a `POST /api/c4` body; model rules are checked by C4SketchService. */
 export function toC4SketchRequest(body: unknown): C4SketchRequest {
@@ -16,8 +37,10 @@ export function toC4SketchRequest(body: unknown): C4SketchRequest {
   const provider = parseAIProvider(rawProvider);
   if (!provider) throw new ValidationError(`Provider "${rawProvider}" is not servable (supported: ${AI_PROVIDERS.join(', ')})`);
 
+  const images = parseImages(raw.images);
+  if (provider === AIProvider.GEMINI) assertInlineImageBudget(images, C4_GEMINI_INLINE_IMAGES_MAX_BYTES, provider);
   const description = typeof raw.description === 'string' ? raw.description.trim() : '';
-  if (!description) throw new ValidationError('Missing description (the problem statement)');
+  if (!description && images.length === 0) throw new ValidationError('Missing description (the problem statement) or images of it');
   if (description.length > MAX_DESCRIPTION_CHARS) throw new ValidationError(`description is longer than ${MAX_DESCRIPTION_CHARS} characters`);
 
   const rawLevels = raw.levels ?? [];
@@ -30,6 +53,8 @@ export function toC4SketchRequest(body: unknown): C4SketchRequest {
 
   const model = typeof raw.model === 'string' && raw.model.trim() ? raw.model.trim() : undefined;
   const conversationId = typeof raw.conversationId === 'string' && raw.conversationId.trim() ? raw.conversationId.trim() : undefined;
+  const intent = parseIntent(raw.intent);
+  const refArtifactIds = parseRefArtifactIds(raw.refArtifactIds);
   return {
     provider,
     requestedModel: model,
@@ -37,7 +62,10 @@ export function toC4SketchRequest(body: unknown): C4SketchRequest {
     levels: [...new Set<C4Level>(levels)],
     fast: raw.fast === true,
     stream: raw.stream === true,
-    images: parseImages(raw.images),
+    images,
+    review: raw.review === true,
+    ...(intent ? { intent } : {}),
+    ...(refArtifactIds.length ? { refArtifactIds } : {}),
     ...(conversationId ? { conversationId } : {}),
   };
 }
@@ -51,6 +79,10 @@ export function toC4ResumeRequest(body: unknown): C4ResumeRequest {
   const answers = typeof raw.answers === 'string' ? raw.answers.trim() : '';
   if (answers.length > MAX_DESCRIPTION_CHARS) throw new ValidationError(`answers is longer than ${MAX_DESCRIPTION_CHARS} characters`);
   return { sessionId, answers: answers || undefined, stream: raw.stream === true };
+}
+
+function secondsUntil(epochMs: number, now: number): number {
+  return Math.max(0, Math.round((epochMs - now) / 1000));
 }
 
 export function toC4SketchDto(result: C4SketchResult, now: number = Date.now()): C4SketchDto {
@@ -69,9 +101,14 @@ export function toC4SketchDto(result: C4SketchResult, now: number = Date.now()):
       ? {
           sessionId: result.confirmation.sessionId,
           clarifications: result.confirmation.clarifications,
-          expiresInSec: Math.max(0, Math.round((result.confirmation.expiresAt - now) / 1000)),
+          expiresInSec: secondsUntil(result.confirmation.expiresAt, now),
         }
       : null,
+    ...(result.intent ? { intent: toC4IntentDto(result.intent) } : {}),
+    ...(result.brief ? { brief: toC4BriefDto(result.brief) } : {}),
+    ...(result.review !== undefined ? { review: result.review ? { markdown: result.review.markdown } : null } : {}),
+    ...(result.artifacts?.length ? { artifacts: result.artifacts } : {}),
+    ...(result.criticNotes?.length ? { criticNotes: result.criticNotes } : {}),
   };
 }
 
@@ -92,4 +129,26 @@ export function toC4LevelDto(level: C4LevelResult): C4LevelDto {
 
 export function toC4AnalysisDto(plan: C4ArchitectPlan, knowledgeSources: string[]): C4AnalysisDto {
   return { systemName: plan.systemName, requirements: plan.requirements, clarifications: plan.clarifications, knowledgeSources };
+}
+
+export function toC4IntentDto(decision: IntentDecision): C4IntentDto {
+  return { intent: decision.intent, confidence: Math.round(decision.confidence * 100) / 100, source: decision.source };
+}
+
+export function toC4BriefDto(brief: ProblemBrief): C4BriefDto {
+  return {
+    systemName: brief.systemName.value,
+    summary: briefSummary(brief),
+    actors: brief.actors.value,
+    externalSystems: brief.externalSystems.value,
+    levels: briefLevels(brief),
+  };
+}
+
+export function toC4ClarifyDto(clarify: C4Clarify, now: number = Date.now()): C4ClarifyDto {
+  return { sessionId: clarify.sessionId, summary: clarify.summary, questions: clarify.questions, expiresInSec: secondsUntil(clarify.expiresAt, now) };
+}
+
+export function toC4ReviewDto(review: C4ReviewResult): C4ReviewDto {
+  return { markdown: review.markdown, ...(review.artifactId ? { artifactId: review.artifactId } : {}), ...(review.alias ? { alias: review.alias } : {}) };
 }

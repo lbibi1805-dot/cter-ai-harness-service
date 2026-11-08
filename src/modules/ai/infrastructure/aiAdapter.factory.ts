@@ -78,13 +78,15 @@ export class ConfiguredAIAdapterFactory implements AIAdapterFactory {
     if (!key) return null;
     switch (provider) {
       case AIProvider.CLAUDE:
-        return new ClaudeAdapter(key);
+        return new ClaudeAdapter(key, this.config.tuning);
       case AIProvider.GEMINI:
-        return new GeminiAdapter(key);
+        return new GeminiAdapter(key, this.config.tuning, this.config.timeoutMs, undefined, {
+          ...(this.config.geminiInlineImagesMaxBytes ? { inlineImagesMaxBytes: this.config.geminiInlineImagesMaxBytes } : {}),
+        });
       case AIProvider.GROK:
         return new GrokAdapter(key, this.config.grokBaseUrl);
       case AIProvider.OPENAI:
-        return new OpenAIAdapter(key);
+        return new OpenAIAdapter(key, this.config.tuning);
     }
   }
 }
