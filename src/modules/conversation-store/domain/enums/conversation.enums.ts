@@ -17,6 +17,22 @@ export enum ArtifactKind {
   C4_SPEC = 'c4_spec',
   PROBLEM_BRIEF = 'problem_brief',
   DESIGN_REVIEW = 'design_review',
+  /** A design answered in normal chat (markdown, not /c4): {systemName, elements[], decisions[]}. */
+  DESIGN_NOTE = 'design_note',
+}
+
+/** How the artifact resolver picked the artifacts a question refers to (`messages.resolved_refs.source`). */
+export enum ResolvedRefSource {
+  /** Explicit `refArtifactIds` sent by the client ("↩ Hỏi về cái này"). */
+  UI = 'ui',
+  /** Rule scoring (or a typed alias such as "A7"). */
+  RULE = 'rule',
+  /** The aux model settled what the rules could not. */
+  AUX = 'aux',
+  /** Too close to call: the model was told to ask back with a default. */
+  AMBIGUOUS = 'ambiguous',
+  /** No reference signal in the question. */
+  NONE = 'none',
 }
 
 /** Keys of `conversations.state` (pending workflows). */

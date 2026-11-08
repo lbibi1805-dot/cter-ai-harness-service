@@ -299,12 +299,14 @@ flowchart LR
     VR --> VS["VaultService"]
     VS --> NEON[("Neon")]
     VS --> PC[("Pinecone")]
-    CRON["Cron heartbeat 12 phút"] -->|"GET /health"| API
+    CRON["Cron heartbeat 12 phút"] -->|"GET /ping"| API
 ```
 
 | Endpoint | Method | Auth | Việc |
 |---|---|---|---|
-| `/`, `/health` | GET | — | Trạng thái, số file đã index, polling đang chạy hay dừng |
+| `/`, `/health` | GET | — | Trạng thái, số file đã index (đọc từ RAM, không query DB), polling đang chạy hay dừng |
+| `/ping` | GET | — | (08/11) Text `ok`, không phụ thuộc gì — Render health check + heartbeat |
+| `/health/deep`, `/api/metrics/db`, `/api/metrics/latency`, `/api/config`, `/api/storage/stats`, `/api/prompts`, `/api/evals` | GET | Bearer | (08/11) Monitoring; chỉ `/health/deep` và `/api/storage/stats` chạm Neon/R2/Pinecone. Xem `CHANGES.md` |
 | `/start`, `/stop`, `/api/polling` | GET | — | Bật, tắt, xem trạng thái polling |
 | `/api/logs` | GET / DELETE | DELETE cần Bearer | Log trong bộ nhớ |
 | `/api/cron` | GET / POST | POST cần Bearer | Heartbeat chống ngủ |
@@ -446,7 +448,7 @@ flowchart LR
     end
     RENDER --> Image
     FLY --> Image
-    PING["Ping từ bên ngoài<br/>đề xuất"] -.->|"GET /health"| Image
+    PING["Ping từ bên ngoài<br/>đề xuất"] -.->|"GET /ping"| Image
     Image --> EXTSVC["Canvas · LLM · Pinecone · Neon · Gmail"]
 ```
 

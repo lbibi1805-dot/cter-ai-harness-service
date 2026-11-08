@@ -1,16 +1,12 @@
 import 'dotenv/config';
 import { DEFAULT_CANVAS_FOLDERS } from '../../modules/fileqa/domain';
 import { DEFAULT_HEARTBEAT_INTERVAL_MS } from '../../modules/ops';
+import { DEFAULT_POLL_CURSOR_FLUSH_MS } from '../../modules/polling';
 import { readBoolean, readInt, readList, readOptionalString, readString } from '../../shared/config/env';
-import {
-  DEFAULT_POLL_INTERVAL_MS,
-  DEFAULT_SYSTEM_PROMPT,
-  KNOWLEDGE_FILE,
-  SYSTEM_PROMPT_FILE,
-  DEFAULT_API_PORT,
-} from '../constants/bootstrap.constants';
-import { readProjectFile } from '../helpers/config.helper';
+import { DEFAULT_POLL_INTERVAL_MS, DEFAULT_API_PORT } from '../constants/bootstrap.constants';
 import type { AppConfig } from '../interfaces/appConfig.interface';
+import { readChatConfig } from './readers/chatConfig.reader';
+import { readPromptConfig } from './readers/promptConfig.reader';
 import { readAiConfig } from './readers/aiConfig.reader';
 import { readC4Config } from './readers/c4Config.reader';
 import { readCanvasAccounts } from './readers/canvasAccounts.reader';
@@ -18,6 +14,7 @@ import { readRerankConfig } from './readers/rerankConfig.reader';
 import { readRetrievalConfig } from './readers/retrievalConfig.reader';
 import { readStorageConfig } from './readers/storageConfig.reader';
 import { readContextConfig } from './readers/contextConfig.reader';
+import { readEssayConfig } from './readers/essayConfig.reader';
 import { DEFAULT_AGENT_BUDGET } from '../../modules/agent/domain/constants/agentBudget.constants';
 import { parseStorageProvider } from '../../shared/database/helpers/database.helper';
 
@@ -39,11 +36,10 @@ export function loadConfig(): AppConfig {
     polling: {
       intervalMs: readInt('POLL_INTERVAL_MS', DEFAULT_POLL_INTERVAL_MS),
       autostart: readBoolean('POLL_AUTOSTART', true),
+      cursorFlushMs: readInt('POLL_CURSOR_FLUSH_MS', DEFAULT_POLL_CURSOR_FLUSH_MS),
     },
-    prompts: {
-      systemPrompt: readProjectFile(SYSTEM_PROMPT_FILE) || DEFAULT_SYSTEM_PROMPT,
-      knowledgeContent: readProjectFile(KNOWLEDGE_FILE),
-    },
+    prompts: readPromptConfig(),
+    chat: readChatConfig(),
     ai: readAiConfig(),
     retrieval: readRetrievalConfig(),
     rerank: readRerankConfig(),
@@ -59,6 +55,7 @@ export function loadConfig(): AppConfig {
     },
     storage: readStorageConfig(),
     context: readContextConfig(),
+    essay: readEssayConfig(),
     gmail: { user: readOptionalString('GMAIL_USER'), appPassword: readOptionalString('GMAIL_APP_PASSWORD') },
     heartbeat: {
       enabled: readBoolean('CRON_ENABLED', true),

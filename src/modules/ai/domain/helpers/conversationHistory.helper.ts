@@ -1,31 +1,37 @@
 import { ConversationRole } from '../enums/ai.enums';
 import { ConversationTurn, PromptContent } from '../interfaces/promptContent.interface';
+import type { HistoryLike } from '../interfaces/historyRender.interface';
 import { MAX_HISTORY_CHARS, MAX_HISTORY_TURNS, MAX_HISTORY_TURN_CHARS, TRUNCATED_TURN_SUFFIX } from '../constants/conversation.constants';
 
 /**
  * Makes client-sent history safe for every vendor API: drops empty turns,
  * merges consecutive turns of the same role, starts with a user turn and ends
  * with an assistant turn (the current question follows as the next user turn),
- * then keeps the newest turns within the size limits.
+ * then keeps the newest turns within the size limits. Images (any element type: prompt images,
+ * or the artifacts the context assembler will load) follow their turn and are concatenated on a merge.
  */
-export function normalizeHistory(turns: ConversationTurn[]): ConversationTurn[] {
-  const merged: ConversationTurn[] = [];
+export function normalizeHistory<T extends HistoryLike = ConversationTurn>(turns: T[]): T[] {
+  const merged: T[] = [];
   for (const turn of turns) {
     const text = turn.text.trim();
     if (!text) continue;
     const last = merged[merged.length - 1];
-    if (last?.role === turn.role) last.text = `${last.text}\n\n${text}`;
-    else merged.push({ role: turn.role, text });
+    if (last?.role === turn.role) {
+      last.text = `${last.text}\n\n${text}`;
+      if (turn.images?.length) last.images = [...(last.images ?? []), ...turn.images];
+    } else {
+      merged.push({ role: turn.role, text, ...(turn.images?.length ? { images: [...turn.images] } : {}) } as T);
+    }
   }
   while (merged.length > 0 && merged[merged.length - 1].role !== ConversationRole.ASSISTANT) merged.pop();
 
-  const kept: ConversationTurn[] = [];
+  const kept: T[] = [];
   let chars = 0;
   for (let i = merged.length - 1; i >= 0 && kept.length < MAX_HISTORY_TURNS; i--) {
     const text = truncateTurn(merged[i].text);
     if (chars + text.length > MAX_HISTORY_CHARS) break;
     chars += text.length;
-    kept.unshift({ role: merged[i].role, text });
+    kept.unshift({ ...merged[i], text });
   }
   while (kept.length > 0 && kept[0].role !== ConversationRole.USER) kept.shift();
   return kept;

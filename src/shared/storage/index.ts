@@ -7,3 +7,6 @@ export { R2ObjectStorage } from './r2ObjectStorage.adapter';
 export { LocalDiskObjectStorage } from './localDiskObjectStorage.adapter';
 export { createObjectStorage } from './objectStorage.factory';
 export { probeObjectStorage, type ObjectStorageProbe } from './helpers/objectStorageProbe';
+export { objectStorageStats } from './helpers/objectStorageStats';
+export { STORAGE_STATS_PREFIXES } from './constants/objectStorageStats.constants';
+export type { ObjectStorageStats, PrefixUsage } from './interfaces/objectStorageStats.interface';

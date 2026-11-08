@@ -1,7 +1,8 @@
 import OpenAI from 'openai';
 import { SDK_MAX_RETRIES } from '../../../../shared/resilience/constants/sdk.constants';
-import type { AIAdapter, ProviderReply, TextDeltaListener } from '../../domain/interfaces/aiProvider.port';
-import { streamChatCompletion } from '../helpers/chatCompletionStream.helper';
+import type { AdapterCallOptions, AIAdapter, ProviderReply, TextDeltaListener } from '../../domain/interfaces/aiProvider.port';
+import { streamChatCompletion, withUsage } from '../helpers/chatCompletionStream.helper';
+import { chatCompletionUsage } from '../helpers/usage.helper';
 import { toChatMessages } from './openaiMessages';
 import { PromptContent } from '../../domain/interfaces/promptContent.interface';
 
@@ -17,10 +18,11 @@ export class GrokAdapter implements AIAdapter {
     await this.client.models.list();
   }
 
-  async process(content: PromptContent, systemPrompt: string, model: string, onDelta?: TextDeltaListener): Promise<ProviderReply> {
+  async process(content: PromptContent, systemPrompt: string, model: string, onDelta?: TextDeltaListener, options: AdapterCallOptions = {}): Promise<ProviderReply> {
     const messages = toChatMessages(content, systemPrompt);
-    if (onDelta) return streamChatCompletion(this.client, { model, messages, stream: true }, onDelta);
-    const response = await this.client.chat.completions.create({ model, messages });
-    return { text: response.choices[0]?.message.content ?? '', model };
+    const cap = options.maxOutputTokens ? { max_tokens: options.maxOutputTokens } : {};
+    if (onDelta) return streamChatCompletion(this.client, { model, messages, ...cap, stream: true }, onDelta, options.signal);
+    const response = await this.client.chat.completions.create({ model, messages, ...cap }, { signal: options.signal });
+    return withUsage({ text: response.choices[0]?.message.content ?? '', model }, chatCompletionUsage(response.usage));
   }
 }

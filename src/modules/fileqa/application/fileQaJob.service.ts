@@ -127,7 +127,10 @@ export class FileQAJob implements PollJob {
     }));
     if (!content.ok) return this.fail(task, model, content.error, 0);
 
-    const answer = await attempt(() => this.answers.answer({ provider: parsed.provider, model, content: content.value, label: file.display_name, mode: parsed.mode }));
+    const answer = await attempt(() => this.answers.answer({
+      provider: parsed.provider, model, content: content.value, label: file.display_name, mode: parsed.mode,
+      ...(this.deps.deadlineMs !== undefined ? { deadlineAt: (this.deps.now ?? Date.now)() + this.deps.deadlineMs } : {}),
+    }));
     if (!answer.ok) {
       const failure = answer.error;
       const isInvocationError = failure instanceof AIInvocationError;

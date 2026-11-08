@@ -6,7 +6,8 @@ import { ChatService } from '../../../../src/modules/chat';
 import type { C4Session, C4SketchResult } from '../../../../src/modules/c4/application/interfaces/c4Sketch.interface';
 import { ConversationC4SessionRepository } from '../../../../src/modules/c4/infrastructure/conversationC4Session.repository';
 import { InMemoryC4SessionRepository } from '../../../../src/modules/c4/infrastructure/inMemoryC4Session.repository';
-import { C4Level } from '../../../../src/modules/c4/domain';
+import { BriefSource, C4Level, C4WorkflowStep, emptyBrief } from '../../../../src/modules/c4/domain';
+import { IntentSource, RequestIntent } from '../../../../src/modules/routing';
 import { createContextModule, DEFAULT_CONTEXT_SETTINGS } from '../../../../src/modules/context';
 import { ConversationService, InMemoryConversationStore } from '../../../../src/modules/conversation-store';
 import { FakeObjectStorage } from '../../../support/countingAdapters';
@@ -15,7 +16,11 @@ import { buildTestConfig, buildTestAiConfig } from '../../../support/configFixtu
 const REQUEST = { provider: AIProvider.GEMINI, description: 'Hệ thống đặt vé', levels: [], fast: false, stream: false, images: [] };
 
 function session(conversationId: string | undefined, expiresAt = 10_000): C4Session {
-  return { id: randomUUID(), request: { ...REQUEST, conversationId }, model: 'm', knowledge: [], architect: { systemName: 'Ticketing' }, remainingMs: 1000, activeMs: 5, expiresAt, label: 'c4-x', conversationId };
+  const brief = { ...emptyBrief(), systemName: { value: 'Ticketing', confidence: 0.9, source: BriefSource.IMAGE } };
+  return {
+    id: randomUUID(), step: C4WorkflowStep.CLARIFY, request: { ...REQUEST, conversationId }, model: 'm', knowledge: [], remainingMs: 1000, activeMs: 5, expiresAt, label: 'c4-x', conversationId,
+    intent: { intent: RequestIntent.C4_GENERATE, confidence: 0.9, source: IntentSource.RULE }, intentConfidence: 0.9, brief, systemName: 'Ticketing', summary: [], questions: [],
+  };
 }
 
 describe('C4 sessions survive a restart (conversations.state.pendingC4)', () => {
@@ -28,7 +33,7 @@ describe('C4 sessions survive a restart (conversations.state.pendingC4)', () => 
 
     const afterRestart = new ConversationC4SessionRepository(new InMemoryC4SessionRepository(() => 0), store, () => 0);
     const resumed = await afterRestart.take(s.id);
-    expect(resumed).toMatchObject({ id: s.id, conversationId, architect: { systemName: 'Ticketing' } });
+    expect(resumed).toMatchObject({ id: s.id, conversationId, step: 'clarify', brief: { systemName: { value: 'Ticketing' } } });
     expect(await afterRestart.take(s.id)).toBeUndefined();                    // taken once
   });
 

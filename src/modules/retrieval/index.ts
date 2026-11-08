@@ -1,50 +1,44 @@
-import type { VaultDocumentReader, VaultRepository } from '../vault/domain';
 import { CitationPromptBuilder } from './application/citationPrompt.builder';
 import { KnowledgeIndexer } from './application/knowledgeIndexer.service';
+import { LexicalIndexSync } from './application/lexicalIndexSync.service';
 import { RAGRetriever } from './application/ragRetriever.service';
-import type { EmbeddingService } from './domain/interfaces/embedding.port';
 import type { ChunkGuard, EmbeddingKeys, RetrievalConfig } from './domain/interfaces/retrieval.interface';
-import type { VectorStore } from './domain/interfaces/vectorStore.port';
 import { createEmbeddingService } from './infrastructure/embedding.factory';
 import { PineconeVectorStore } from './infrastructure/pineconeVectorStore.adapter';
+import { MiniSearchLexicalIndex } from './infrastructure/miniSearchLexicalIndex.adapter';
+import { DEFAULT_HYBRID_SEARCH_ENABLED } from './domain/constants/hybridSearch.constants';
+import type { RetrievalModule, RetrievalModuleDeps } from './interfaces/retrievalModule.interface';
 
-export interface RetrievalModule {
-  config: RetrievalConfig;
-  embedder: EmbeddingService;
-  vectorStore: VectorStore;
-  citations: CitationPromptBuilder;
-  /** Vector search returning `topK` chunks (callers widen it when a reranker follows). */
-  createRetriever(topK: number): RAGRetriever;
-  createIndexer(repository: VaultRepository, documents: VaultDocumentReader): KnowledgeIndexer;
-  /** Installs the vault's read-side guard; every retriever created afterwards (and before) applies it. */
-  setChunkGuard(guard: ChunkGuard): void;
-}
-
-export interface RetrievalModuleDeps {
-  /** Test hooks. */
-  embedder?: EmbeddingService;
-  vectorStore?: VectorStore;
-}
+export type { RetrievalModule, RetrievalModuleDeps } from './interfaces/retrievalModule.interface';
 
 /** Wires embeddings + Pinecone. Only built when a Pinecone key is configured. */
 export function createRetrievalModule(config: RetrievalConfig, keys: EmbeddingKeys, deps: RetrievalModuleDeps = {}): RetrievalModule {
   const embedder = deps.embedder ?? createEmbeddingService(config.embeddingProvider, keys);
   const vectorStore = deps.vectorStore ?? new PineconeVectorStore(config.pineconeApiKey, config.pineconeIndex);
   let guard: ChunkGuard = (chunks) => chunks;
+  const lexical = (config.hybridSearch ?? DEFAULT_HYBRID_SEARCH_ENABLED) ? new LexicalIndexSync(new MiniSearchLexicalIndex()) : null;
+  const guarded: ChunkGuard = (chunks) => guard(chunks);
   return {
     config,
     embedder,
     vectorStore,
     citations: new CitationPromptBuilder(),
-    createRetriever: (topK) => new RAGRetriever(vectorStore, embedder, topK, (chunks) => guard(chunks)),
+    createRetriever: (topK) => new RAGRetriever(vectorStore, embedder, topK, guarded, config.minScore, lexical ?? undefined),
     createIndexer: (repository, documents) => new KnowledgeIndexer(config, embedder, repository, vectorStore, documents),
     setChunkGuard: (next) => { guard = next; },
+    guard: guarded,
+    lexical,
   };
 }
 
 export { CitationPromptBuilder } from './application/citationPrompt.builder';
 export { KnowledgeIndexer } from './application/knowledgeIndexer.service';
 export { RAGRetriever } from './application/ragRetriever.service';
+export { LexicalIndexSync } from './application/lexicalIndexSync.service';
+export { MiniSearchLexicalIndex } from './infrastructure/miniSearchLexicalIndex.adapter';
+export { reciprocalRankFusion, stripDiacritics } from './domain/helpers/hybridSearch.helper';
+export * from './domain/constants/hybridSearch.constants';
+export type { LexicalCorpus, LexicalDocumentRef, LexicalSearch, LexicalSearchOptions, LexicalSyncReport } from './domain/interfaces/lexicalSearch.port';
 export { RetrievalQueryService } from './application/retrievalQuery.service';
 export { buildSingleShotRetriever } from './application/singleShotRetriever.factory';
 export type { CandidateReranker, ChunkSource, RerankWrapOptions } from './domain/interfaces/candidateReranker.port';

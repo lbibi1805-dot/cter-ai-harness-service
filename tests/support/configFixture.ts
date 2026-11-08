@@ -1,4 +1,5 @@
 import { DEFAULT_CONTEXT_SETTINGS } from '../../src/modules/context';
+import { DEFAULT_ESSAY_SETTINGS } from '../../src/modules/essay';
 import type { AppConfig } from '../../src/bootstrap/interfaces/appConfig.interface';
 import { StorageProvider } from '../../src/shared/database/enums/database.enums';
 import { AIProvider, OPENROUTER_DEFAULT_BASE_URL, type AiConfig, type PerProvider } from '../../src/modules/ai';
@@ -63,6 +64,7 @@ export function buildTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
       aux: { provider: AIProvider.GEMINI, model: 'gemini-3.1-flash-lite' },
       timeouts: { imageNoteMs: 1_000, imageNoteSyncMs: 1_000, rewriteMs: 1_000, compactMs: 1_000 },
     },
+    essay: { ...DEFAULT_ESSAY_SETTINGS },
     gmail: {},
     heartbeat: { enabled: false, intervalMs: TEST_HEARTBEAT_INTERVAL_MS },
     ...overrides,

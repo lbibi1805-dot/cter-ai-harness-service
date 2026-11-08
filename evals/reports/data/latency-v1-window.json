@@ -1,0 +1,1 @@
+{"window":"1h","windowMs":3600000,"metrics":{"windowMs":3600000,"count":14,"groups":[{"provider":"gemini","model":"gemini-3.1-flash-lite","count":14,"retries":0,"errors":0,"errorsByKind":{},"ttftMs":{"p50":1972,"p95":4356},"totalMs":{"p50":2906,"p95":4908},"inputTokens":133360,"cachedTokens":28531,"outputTokens":6572,"cacheHitRate":0.2139397120575885}]}}

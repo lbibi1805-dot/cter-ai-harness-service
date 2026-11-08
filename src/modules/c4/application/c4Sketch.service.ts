@@ -1,13 +1,32 @@
 import { randomUUID } from 'crypto';
-import { NotFoundError, ServiceDisabledError, TimeoutError, UpstreamError, errorMessage } from '../../../shared/errors';
+import { NotFoundError, ServiceDisabledError, errorMessage } from '../../../shared/errors';
 import { logger } from '../../../shared/logging/logger';
 import { attempt, withTimeout } from '../../../shared/resilience';
 import { UnsupportedModelError, type AIProvider, type PromptImage } from '../../ai';
+import { artifactAlias, auxResolveRequest, DEFAULT_RESOLVER_SETTINGS, displayLabel, resolveArtifactsWithAux, ArtifactResolverMode } from '../../context';
+import { ArtifactKind, type ConversationSnapshot, type StoredArtifact } from '../../conversation-store';
 import type { CitedChunk } from '../../retrieval';
 import {
+  classifyIntent,
+  fallbackIntent,
+  GENERATING_INTENTS,
+  RequestIntent,
+  REVIEWING_INTENTS,
+  type AuxRouterSession,
+  type IntentDecision,
+  type IntentInput,
+} from '../../routing';
+import {
+  analyzeGaps,
+  applyAnswers,
+  briefLevels,
+  briefStatement,
+  briefSummary,
   C4_LEVEL_ORDER,
-  DEFAULT_C4_LEVELS,
+  C4WorkflowStep,
+  isAcceptAll,
   isBoundary,
+  levelsFromText,
   toDiagramSpec,
   validateDiagram,
   type C4DiagramSpec,
@@ -15,49 +34,88 @@ import {
   type C4Requirement,
   type C4Validation,
   type C4ValidationRules,
+  type ProblemBrief,
 } from '../domain';
+import { C4BriefService } from './c4Brief.service';
+import { C4ModelCaller } from './c4ModelCaller';
 import { C4PromptBuilder } from './c4Prompts.builder';
 import { C4PumlBuilder } from './c4Puml.builder';
-import { DESIGN_RULES_QUERY, JSON_RETRY, MAX_KNOWLEDGE_CHUNKS } from './constants/c4Prompts.constants';
-import { C4_SESSION_TTL_MS, C4Notes, C4Progress, KNOWLEDGE_TIMEOUT_MS, MIN_TIME_FOR_RETRY_MS, PNG_MIME_TYPE } from './constants/c4Sketch.constants';
-import { extractJsonObject, sourcesOf, toArchitectPlan, toCritiques, toSpecsByLevel } from './helpers/c4Answer.helper';
+import { C4ReviewService } from './c4Review.service';
+import { DESIGN_RULES_QUERY, MAX_KNOWLEDGE_CHUNKS, REVIEW_RUBRIC_QUERY } from './constants/c4Prompts.constants';
+import {
+  C4_SESSION_TTL_MS,
+  C4FlowProgress,
+  C4Notes,
+  C4Progress,
+  C4Step,
+  CriticNotes,
+  KNOWLEDGE_TIMEOUT_MS,
+  PNG_MIME_TYPE,
+} from './constants/c4Sketch.constants';
+import { sourcesOf, toArchitectPlan, toCritiques, toSpecsByLevel } from './helpers/c4Answer.helper';
 import type {
   C4ArchitectPlan,
+  C4DesignRef,
+  C4DrawInput,
   C4EventSink,
   C4LevelState,
   C4RepairInput,
   C4ResumeRequest,
+  C4Revision,
   C4RunContext,
+  C4Session,
   C4SketchDeps,
   C4SketchRequest,
   C4SketchResult,
   C4SketchSettings,
 } from './interfaces/c4Sketch.interface';
 
+/** Everything the steps after the clarify gate need (first run or resumed). */
+interface RunState {
+  request: C4SketchRequest;
+  brief: ProblemBrief;
+  intent: IntentDecision;
+  design: C4DesignRef | null;
+  knowledge: CitedChunk[];
+  /** The clarify reply (given to the architect verbatim). */
+  answers?: string;
+  activeMsBefore: number;
+  segmentStart: number;
+  /** What the turn records as the user's text, and which images (only the first turn records them). */
+  userText: string;
+  images: PromptImage[];
+  recordBrief: boolean;
+}
+
 /**
- * C4 Sketcher (`POST /api/c4`): problem statement → C4 diagrams as PNG in under five minutes.
+ * C4 agent flow (`POST /api/c4`, note 05): a fixed workflow with gates, not a free agent.
  *
- * One model call per agent, for all requested levels at once: Architect (requirement checklist + every
- * diagram from one shared model) → local validation (coverage, minimality, C4 rules) → PlantUML render →
- * Repair (only broken levels) → Critic (sees every image) → re-render. The user's knowledge base (vault RAG)
- * is retrieved once and given to every agent as design rules. Levels are validated and rendered on their own,
- * so one bad level never blocks the others, and at the deadline each level keeps its best rendered image.
- *
- * Human in the loop: when the architect reports a real ambiguity, the run pauses (clock stopped) and returns
- * its questions; `resume` continues with the user's answers (one more architect call) or with its assumptions.
+ * Intake → Intent Router (rules; one aux call only when undecided, shared with the artifact resolver)
+ * → Extract (problem images + typed text → ProblemBrief, typed text wins) → Gap analysis (ask ≤ 3 slots
+ * with defaults, else go on) → [Clarify: pause in `conversations.state.pendingC4`, clock stopped]
+ * → Generate (architect, or c4_revise from the base spec the resolver picked) → Validate/Render
+ * → Repair → Critique (≤ 1 round, readable notes) → Review (c4_review / c4_generate_and_review)
+ * → Respond (turn recorded: brief, diagrams, review as artifacts).
  */
 export class C4SketchService {
-  private readonly prompts = new C4PromptBuilder();
+  private readonly prompts: C4PromptBuilder;
   private readonly puml: C4PumlBuilder;
   private readonly now: () => number;
+  private readonly calls: C4ModelCaller;
+  private readonly briefs: C4BriefService;
+  private readonly reviewer: C4ReviewService;
   private sequence = 0;
 
   constructor(
     private readonly settings: C4SketchSettings,
     private readonly deps: C4SketchDeps,
   ) {
+    this.prompts = new C4PromptBuilder(deps.skills ?? null);
     this.puml = new C4PumlBuilder(deps.puml);
     this.now = deps.now ?? Date.now;
+    this.calls = new C4ModelCaller(deps.model, this.prompts, settings.callTimeoutMs, this.now);
+    this.briefs = new C4BriefService(this.calls, this.prompts, deps.aux ?? null);
+    this.reviewer = new C4ReviewService(this.calls, this.prompts, deps.conversations);
   }
 
   ensureEnabled(): void {
@@ -68,40 +126,52 @@ export class C4SketchService {
     this.ensureEnabled();
     // With the conversation store, every run belongs to a conversation (a new one when the client sent none).
     const request = this.deps.conversations && !input.conversationId ? { ...input, conversationId: randomUUID() } : input;
-    if (input.conversationId && this.deps.conversations) await this.deps.conversations.open(input.conversationId);
+    const snapshot = input.conversationId && this.deps.conversations ? await this.deps.conversations.open(input.conversationId) : null;
     const { catalog } = this.deps;
     const model = catalog.resolve(request.provider, request.requestedModel);
     if (request.requestedModel !== undefined && !catalog.isAllowed(request.provider, model)) {
       throw new UnsupportedModelError(request.provider, model, catalog.allowedModels(request.provider));
     }
-
     const started = this.now();
-    const levels = this.levelsOf(request);
-    sink?.progress(C4Progress.KNOWLEDGE);
-    const knowledge = await this.retrieveKnowledge(request.description);
-    const ctx = this.context(request.provider, model, knowledge, started, this.settings.deadlineMs, `c4-${started}-${++this.sequence}`, sink);
-    logger.info(`[c4] ${ctx.label} ${levels.join('+')} with ${ctx.provider}/${model}, ${knowledge.length} knowledge chunks`);
+    const label = `c4-${started}-${++this.sequence}`;
 
-    // 1. Architect: checklist + every diagram from one shared model (+ questions when the statement is ambiguous).
-    sink?.progress(C4Progress.ARCHITECT(levels.length));
-    const architect = await attempt(() => this.askJson(ctx, this.prompts.architect(request.description, levels, this.settings.maxElements), request.images, 'architect'));
-    if (!architect.ok) logger.warn(`[c4] ${ctx.label} architect failed: ${errorMessage(architect.error)}`);
-    const plan = toArchitectPlan(architect.ok ? architect.value : undefined, this.settings.maxElements);
-    sink?.analysis(plan, sourcesOf(knowledge));
+    // Intake → Route (rules; aux only when undecided — the same call answers the artifact refs).
+    sink?.progress(C4FlowProgress.ROUTE);
+    const { decision, session } = await this.route(request, snapshot);
+    let intent = decision;
+    sink?.intent?.(intent);
+    const design = this.needsDesign(intent.intent) ? await this.resolveDesign(request, snapshot, session, intent.intent) : null;
 
-    if (architect.ok && plan.clarifications.length > 0) {
-      const activeMs = this.now() - started;
-      const id = randomUUID();
-      const expiresAt = this.now() + C4_SESSION_TTL_MS;
-      await this.deps.sessions.save({ id, request, model, knowledge, architect: architect.value, remainingMs: this.timeLeft(ctx), activeMs, expiresAt, label: ctx.label, conversationId: request.conversationId });
-      logger.info(`[c4] ${ctx.label} paused for ${plan.clarifications.length} clarification(s)`);
-      const paused: C4SketchResult = { ...this.summary(request.provider, model, plan, knowledge), levels: [], elapsedMs: activeMs, deadlineHit: false, confirmation: { sessionId: id, clarifications: plan.clarifications, expiresAt } };
-      return this.recorded(paused, request.description, request, true);
+    // Extract (with the knowledge search in parallel: both only need the request).
+    const reviewing = REVIEWING_INTENTS.includes(intent.intent);
+    sink?.progress(C4FlowProgress.EXTRACT(request.images.length));
+    const extractCtx = this.context(request.provider, model, [], started, this.settings.deadlineMs, label, sink);
+    const [brief, knowledge] = await Promise.all([this.briefs.extract(extractCtx, request), this.retrieveKnowledge(request.description, reviewing)]);
+    sink?.brief?.(brief);
+    logger.info(`[c4] ${label} intent ${intent.intent} (${intent.source} ${intent.confidence}), ${knowledge.length} knowledge chunks, ${request.images.length} image(s)`);
+
+    // Nothing to review (no design sent, none in the conversation): draw first, then review it.
+    if (intent.intent === RequestIntent.C4_REVIEW && !C4ReviewService.hasDesign(brief, request.images, design)) {
+      intent = { intent: RequestIntent.C4_GENERATE_AND_REVIEW, confidence: intent.confidence, source: intent.source, reason: 'nothing to review yet' };
+      sink?.intent?.(intent);
     }
-    return this.recorded(await this.draw(ctx, request, plan, knowledge, 0, started), request.description, request, false);
+    const ctx = this.context(request.provider, model, knowledge, started, this.settings.deadlineMs, label, sink);
+
+    // Gap analysis → Clarify (pause) or go on.
+    const gaps = analyzeGaps(brief, {
+      fast: request.fast,
+      reviewWithDesign: intent.intent === RequestIntent.C4_REVIEW,
+      revise: intent.intent === RequestIntent.C4_REVISE && !!design,
+    });
+    if (gaps.questions.length > 0) return this.pause(ctx, request, model, knowledge, intent, brief, design, gaps.questions, started);
+    logger.info(`[c4] ${label} no questions (${gaps.skipped})`);
+    return this.run(ctx, {
+      request, brief, intent, design, knowledge, activeMsBefore: 0, segmentStart: started,
+      userText: request.description, images: request.images, recordBrief: true,
+    });
   }
 
-  /** Continues a paused run with the clock restarted where it stopped. */
+  /** Continues a paused run with the clock restarted where it stopped; the reply fills the asked slots. */
   async resume(resume: C4ResumeRequest, sink?: C4EventSink): Promise<C4SketchResult> {
     this.ensureEnabled();
     const session = await this.deps.sessions.take(resume.sessionId);
@@ -109,51 +179,230 @@ export class C4SketchService {
 
     const resumedAt = this.now();
     const ctx = this.context(session.request.provider, session.model, session.knowledge, resumedAt, session.remainingMs, session.label, sink);
-    let architect = session.architect;
-    const answers = resume.answers?.trim();
-    if (answers) {
-      sink?.progress(C4Progress.ARCHITECT_ANSWERS);
-      const levels = this.levelsOf(session.request);
-      const again = await attempt(() => this.askJson(ctx, this.prompts.architect(session.request.description, levels, this.settings.maxElements, answers), session.request.images, 'architect-answers'));
-      if (again.ok) architect = again.value;
-      else logger.warn(`[c4] ${ctx.label} architect (answers) failed, keeping the assumptions: ${errorMessage(again.error)}`);
-    }
-    const plan = toArchitectPlan(architect, this.settings.maxElements);
-    sink?.analysis({ ...plan, clarifications: [] }, sourcesOf(session.knowledge));
-    const result = await this.draw(ctx, session.request, { ...plan, clarifications: [] }, session.knowledge, session.activeMs, resumedAt);
-    const request = { ...session.request, conversationId: session.conversationId ?? session.request.conversationId };
-    return this.recorded(result, answers ? answers : '(giữ các giả định)', request, false);
+    const reply = resume.answers?.trim();
+    const acceptAll = isAcceptAll(reply);
+    if (!acceptAll) sink?.progress(C4FlowProgress.ANSWERS);
+    const answers = await this.briefs.parseReply(reply, session.questions);
+    const brief = applyAnswers(session.brief, session.questions, answers);
+    sink?.intent?.(session.intent);
+    sink?.brief?.(brief);
+    return this.run(ctx, {
+      request: { ...session.request, conversationId: session.conversationId ?? session.request.conversationId },
+      brief,
+      intent: session.intent,
+      design: session.design ?? null,
+      knowledge: session.knowledge,
+      ...(acceptAll ? {} : { answers: reply }),
+      activeMsBefore: session.activeMs,
+      segmentStart: resumedAt,
+      userText: acceptAll ? '(giữ mặc định)' : reply!,
+      images: [],
+      recordBrief: !acceptAll,
+    });
+  }
+
+  // ── workflow steps ────────────────────────────────────────────────────────
+
+  private async route(request: C4SketchRequest, snapshot: ConversationSnapshot | null): Promise<{ decision: IntentDecision; session: AuxRouterSession | null }> {
+    const designs = (snapshot?.artifacts ?? []).filter((a) => a.kind === ArtifactKind.C4_SPEC).length;
+    const input: IntentInput = {
+      text: request.description,
+      slash: true,
+      reviewFlag: !!request.review,
+      explicitIntent: request.intent ?? null,
+      imageCount: request.images.length,
+      designCount: designs,
+      refCount: request.refArtifactIds?.length ?? 0,
+    };
+    const router = this.deps.router;
+    const session = router?.session(input) ?? null;
+    if (!router) return { decision: classifyIntent(input) ?? fallbackIntent(input), session };
+    const decision = await router.route(input, session, auxResolveRequest(this.resolveInput(request, snapshot), this.resolverSettings().auxTimeoutMs));
+    return { decision, session };
+  }
+
+  private needsDesign(intent: RequestIntent): boolean {
+    return intent === RequestIntent.C4_REVISE || intent === RequestIntent.C4_REVIEW;
+  }
+
+  private resolverSettings() {
+    return { ...DEFAULT_RESOLVER_SETTINGS, ...this.deps.resolver };
+  }
+
+  private resolveInput(request: C4SketchRequest, snapshot: ConversationSnapshot | null) {
+    return {
+      question: request.description,
+      artifacts: snapshot?.artifacts ?? [],
+      messages: snapshot?.messages ?? [],
+      ...(request.refArtifactIds?.length ? { refIds: request.refArtifactIds } : {}),
+      settings: this.resolverSettings(),
+    };
   }
 
   /**
-   * Writes the turn to the conversation (when one is attached): the user's text and images, the result
-   * summary, and the diagrams as artifacts. Never fails the run.
+   * The design to revise / review (note 17 §3): explicit refs → rules → the request's aux session (same
+   * call as the intent). Not "newest by default": the newest c4_spec is only the fallback when the
+   * resolver finds no reference at all.
    */
-  private async recorded(result: C4SketchResult, userText: string, request: C4SketchRequest, paused: boolean): Promise<C4SketchResult> {
+  private async resolveDesign(request: C4SketchRequest, snapshot: ConversationSnapshot | null, session: AuxRouterSession | null, intent: RequestIntent): Promise<C4DesignRef | null> {
+    const artifacts = snapshot?.artifacts ?? [];
+    if (artifacts.length === 0) return null;
+    const wanted = intent === RequestIntent.C4_REVIEW ? [ArtifactKind.C4_SPEC, ArtifactKind.USER_IMAGE] : [ArtifactKind.C4_SPEC];
+    const settings = this.resolverSettings();
+    const aux = settings.mode === ArtifactResolverMode.RULES_AUX ? session : null;
+    const resolution = await resolveArtifactsWithAux(this.resolveInput(request, snapshot), aux);
+    let pick: StoredArtifact | undefined = resolution.picked.find((a) => wanted.includes(a.kind));
+    // A picked PNG/PUML stands for the spec of the same design.
+    if (!pick) {
+      const sibling = resolution.picked.find((a) => a.kind === ArtifactKind.C4_PNG || a.kind === ArtifactKind.C4_PUML);
+      pick = sibling ? artifacts.find((a) => a.kind === ArtifactKind.C4_SPEC && a.messageId === sibling.messageId) : undefined;
+    }
+    if (!pick && intent === RequestIntent.C4_REVISE) pick = artifacts.filter((a) => a.kind === ArtifactKind.C4_SPEC).at(-1);
+    if (!pick) return null;
+    logger.info(`[c4] design ${artifactAlias(pick)} (${resolution.source}${resolution.ambiguous ? ', ambiguous: newest default' : ''})`);
+    return {
+      artifactId: pick.id, alias: artifactAlias(pick), kind: pick.kind, label: displayLabel(pick), version: pick.version ?? 1,
+      dataJson: pick.dataJson, objectKey: pick.objectKey, mime: pick.mime,
+    };
+  }
+
+  /** Clarify: the brief summary + ≤ 3 questions with defaults; the run waits in pendingC4 (clock stopped). */
+  private async pause(
+    ctx: C4RunContext, request: C4SketchRequest, model: string, knowledge: CitedChunk[], intent: IntentDecision,
+    brief: ProblemBrief, design: C4DesignRef | null, questions: C4Session['questions'], started: number,
+  ): Promise<C4SketchResult> {
+    const activeMs = this.now() - started;
+    const id = randomUUID();
+    const expiresAt = this.now() + C4_SESSION_TTL_MS;
+    const summary = briefSummary(brief);
+    await this.deps.sessions.save({
+      id, step: C4WorkflowStep.CLARIFY, request, model, knowledge, remainingMs: this.calls.timeLeft(ctx), activeMs, expiresAt, label: ctx.label,
+      conversationId: request.conversationId, intent, intentConfidence: intent.confidence, brief, systemName: brief.systemName.value, summary, questions, design,
+    });
+    const clarify = { sessionId: id, summary, questions, expiresAt };
+    ctx.sink?.clarify?.(clarify);
+    logger.info(`[c4] ${ctx.label} paused for ${questions.length} question(s): ${questions.map((q) => q.slot).join(', ')}`);
+    const paused: C4SketchResult = {
+      ...this.summary(ctx.provider, model, brief.systemName.value, [], knowledge),
+      levels: [], elapsedMs: activeMs, deadlineHit: false, intent, brief, clarify,
+      confirmation: { sessionId: id, clarifications: questions.map((q) => ({ question: q.question, assumption: q.default })), expiresAt },
+    };
+    return this.recorded(paused, request, { userText: request.description, images: request.images, paused: true, recordBrief: true });
+  }
+
+  /** After the gate: generate (or revise) and/or review, then record the turn. */
+  private async run(ctx: C4RunContext, state: RunState): Promise<C4SketchResult> {
+    const { request, brief, intent } = state;
+    let result: C4SketchResult = {
+      ...this.summary(ctx.provider, ctx.model, brief.systemName.value, [], state.knowledge),
+      levels: [], elapsedMs: 0, deadlineHit: false,
+    };
+    if (GENERATING_INTENTS.includes(intent.intent)) {
+      const revise = intent.intent === RequestIntent.C4_REVISE && !!state.design && state.design.kind === ArtifactKind.C4_SPEC;
+      result = await this.draw(ctx, { request, brief, answers: state.answers, design: state.design, revise }, state.knowledge, state.activeMsBefore, state.segmentStart);
+    }
+    let review: C4SketchResult['review'];
+    if (REVIEWING_INTENTS.includes(intent.intent)) {
+      const generated = intent.intent === RequestIntent.C4_GENERATE_AND_REVIEW ? result.levels : undefined;
+      const reviewCtx = { ...ctx, deadline: Math.max(ctx.deadline, this.now() + this.settings.callTimeoutMs) };
+      review = await this.reviewer.review(reviewCtx, { brief, typedText: request.description, images: request.images, design: state.design, generated, knowledge: state.knowledge });
+    }
+    const elapsedMs = state.activeMsBefore + this.now() - state.segmentStart;
+    const finished: C4SketchResult = {
+      ...result,
+      systemName: result.systemName || brief.systemName.value,
+      elapsedMs,
+      intent,
+      brief,
+      ...(review !== undefined ? { review } : {}),
+    };
+    const recorded = await this.recorded(finished, request, { userText: state.userText, images: state.images, paused: false, recordBrief: state.recordBrief });
+    if (recorded.review) ctx.sink?.reviewDone?.(recorded.review);
+    return recorded;
+  }
+
+  /**
+   * Writes the turn to the conversation (when one is attached): the user's text and images, the brief,
+   * the diagrams, the review, as artifacts. Never fails the run.
+   */
+  private async recorded(result: C4SketchResult, request: C4SketchRequest, turn: { userText: string; images: PromptImage[]; paused: boolean; recordBrief: boolean }): Promise<C4SketchResult> {
     const recorder = this.deps.conversations;
     if (!recorder || !request.conversationId) return result;
-    const saved = await attempt(() => recorder.record({ conversationId: request.conversationId!, userText, images: request.images, result, paused }));
+    const saved = await attempt(() => recorder.record({ conversationId: request.conversationId!, ...turn, result }));
     if (!saved.ok) {
       logger.warn(`[c4] could not record the run in conversation ${request.conversationId}: ${errorMessage(saved.error)}`);
       return { ...result, conversationId: request.conversationId };
     }
-    return { ...result, conversationId: request.conversationId, messageId: saved.value.messageId };
+    const artifacts = saved.value.artifacts ?? [];
+    const reviewRef = artifacts.find((a) => a.kind === ArtifactKind.DESIGN_REVIEW);
+    return {
+      ...result,
+      conversationId: request.conversationId,
+      messageId: saved.value.messageId,
+      ...(artifacts.length ? { artifacts } : {}),
+      ...(result.review && reviewRef ? { review: { ...result.review, artifactId: reviewRef.id, alias: reviewRef.alias } } : {}),
+    };
   }
 
-  /** Steps after the architect: fallback drafts → validate + render → repair → critic → report. */
-  private async draw(ctx: C4RunContext, request: C4SketchRequest, plan: C4ArchitectPlan, knowledge: CitedChunk[], activeMsBefore: number, segmentStart: number): Promise<C4SketchResult> {
-    const levels = this.levelsOf(request);
+  /** Architect (or revise) → fallback drafts → validate + render → repair → critic → report. */
+  private async draw(ctx: C4RunContext, input: C4DrawInput, knowledge: CitedChunk[], activeMsBefore: number, segmentStart: number): Promise<C4SketchResult> {
+    const { request, brief } = input;
+    const images = this.problemImages(request.images, brief);
+    const statement = briefStatement(brief, request.description);
+    const base = input.revise && input.design ? this.baseSpec(input.design) : null;
+    const levels = this.levelsOf(request, brief, base?.levels);
+    const { maxElements } = this.settings;
+
+    // 1. Architect: checklist + every diagram from one shared model — or the revision of the base design.
+    let revision: C4Revision | undefined;
+    let architectStep: string = C4Step.ARCHITECT;
+    let prompt = this.prompts.architect(statement, levels, maxElements, input.answers);
+    if (base && input.design) {
+      architectStep = C4Step.REVISE;
+      prompt = this.prompts.revise(base.json, request.description, statement, levels, maxElements);
+      revision = { parentArtifactId: input.design.artifactId, version: input.design.version + 1, baseAlias: input.design.alias };
+      ctx.sink?.progress(C4FlowProgress.REVISE(input.design.alias));
+    } else {
+      ctx.sink?.progress(C4Progress.ARCHITECT(levels.length));
+    }
+    const architect = await attempt(() => this.calls.askJson(ctx, prompt, images, architectStep));
+    if (!architect.ok) logger.warn(`[c4] ${ctx.label} ${architectStep} failed: ${errorMessage(architect.error)}`);
+    const plan = toArchitectPlan(architect.ok ? architect.value : undefined, maxElements);
+    if (!plan.systemName) plan.systemName = brief.systemName.value;
+    ctx.sink?.analysis({ ...plan, clarifications: [] }, sourcesOf(knowledge));
+
+    const drawn = await this.drawLevels(ctx, statement, images, levels, plan, !request.fast);
+    const deadlineHit = this.now() >= ctx.deadline;
+    for (const s of drawn.states.values()) {
+      if (s.result.png && deadlineHit) s.result.notes.push(C4Notes.DEADLINE);
+      if (!s.result.png) s.result.error ??= s.problems[0] ?? (deadlineHit ? C4Notes.TIMED_OUT : C4Notes.NO_DIAGRAM);
+    }
+    const elapsedMs = activeMsBefore + this.now() - segmentStart;
+    logger.info(`[c4] ${ctx.label} drawn in ${elapsedMs}ms: ${[...drawn.states].map(([level, s]) => `${level}=${s.result.png ? 'ok' : 'failed'}`).join(', ')}`);
+    return {
+      ...this.summary(ctx.provider, ctx.model, plan.systemName, plan.requirements, knowledge),
+      levels: [...drawn.states.values()].map((s) => s.result),
+      elapsedMs,
+      deadlineHit,
+      ...(drawn.criticNotes.length ? { criticNotes: drawn.criticNotes } : {}),
+      ...(revision && drawn.states.size > 0 && [...drawn.states.values()].some((s) => s.result.png) ? { revision } : {}),
+    };
+  }
+
+  /** Steps 2–4 of a draw: drafts for missing levels, render, one repair call, one critic call. */
+  private async drawLevels(ctx: C4RunContext, statement: string, images: PromptImage[], levels: C4Level[], plan: C4ArchitectPlan, critic: boolean) {
     const { requirements, rules } = plan;
     const drafted = new Map<C4Level, C4DiagramSpec>([...plan.drafted].filter(([level]) => levels.includes(level)));
     const states = new Map<C4Level, C4LevelState>(levels.map((level) => [level, this.newState(level)]));
     const { maxElements } = this.settings;
     const requirementsJson = JSON.stringify(requirements);
+    const criticNotes: string[] = [];
 
-    // 2. Drafter fallback, in parallel, only for levels the architect left out.
+    // 2. Drafter fallback, in parallel, only for levels the architect left out (with the problem images).
     const missing = levels.filter((level) => !drafted.has(level));
     if (missing.length > 0) ctx.sink?.progress(C4Progress.DRAFT(missing.length));
     await Promise.all(missing.map(async (level) => {
-      const draft = await attempt(() => this.askJson(ctx, this.prompts.drafter(level, request.description, requirementsJson, plan.modelJson, maxElements), [], `draft-${level}`));
+      const draft = await attempt(() => this.calls.askJson(ctx, this.prompts.drafter(level, statement, requirementsJson, plan.modelJson, maxElements), images, C4Step.DRAFT(level)));
       if (draft.ok) drafted.set(level, toDiagramSpec(draft.value));
       else states.get(level)!.result.error = errorMessage(draft.error);
     }));
@@ -163,10 +412,10 @@ export class C4SketchService {
     await Promise.all([...drafted].map(([level, spec]) => this.tryAccept(ctx, states.get(level)!, validateDiagram(spec, level, requirements, rules))));
 
     const broken = [...states].filter(([, s]) => s.candidate && s.problems.length > 0);
-    if (broken.length > 0 && this.timeLeft(ctx) > 0) {
+    if (broken.length > 0 && this.calls.timeLeft(ctx) > 0) {
       ctx.sink?.progress(C4Progress.REPAIR(broken.length));
       const input = new Map<C4Level, C4RepairInput>(broken.map(([level, s]) => [level, { specJson: JSON.stringify(s.candidate!.spec), problems: s.problems }]));
-      const repaired = await attempt(() => this.askJson(ctx, this.prompts.repair(input, maxElements), [], 'repair'));
+      const repaired = await attempt(() => this.calls.askJson(ctx, this.prompts.repair(input, maxElements), images, C4Step.REPAIR));
       if (repaired.ok) {
         const specs = toSpecsByLevel(repaired.value.diagrams);
         await Promise.all(broken.map(async ([level, s]) => {
@@ -183,58 +432,55 @@ export class C4SketchService {
 
     // 4. Critic sees every rendered image in one call; a revision must validate no worse and render.
     const rendered = [...states].filter(([, s]) => s.result.png);
-    if (!request.fast && rendered.length > 0) {
+    if (critic && rendered.length > 0) {
       if (this.now() > ctx.criticBy) {
         for (const [, s] of rendered) s.result.notes.push(C4Notes.REVIEW_SKIPPED_LATE);
+        criticNotes.push(CriticNotes.SKIPPED_LATE);
       } else {
         ctx.sink?.progress(C4Progress.CRITIC);
-        await this.review(ctx, rendered, requirements, requirementsJson, rules);
+        criticNotes.push(...await this.critique(ctx, rendered, requirements, requirementsJson, rules));
       }
     }
-
-    // 5. Report.
-    const deadlineHit = this.now() >= ctx.deadline;
-    for (const [, s] of states) {
-      if (s.result.png && deadlineHit) s.result.notes.push(C4Notes.DEADLINE);
-      if (!s.result.png) s.result.error ??= s.problems[0] ?? (deadlineHit ? C4Notes.TIMED_OUT : C4Notes.NO_DIAGRAM);
-    }
-    const elapsedMs = activeMsBefore + this.now() - segmentStart;
-    logger.info(`[c4] ${ctx.label} done in ${elapsedMs}ms: ${[...states].map(([level, s]) => `${level}=${s.result.png ? 'ok' : 'failed'}`).join(', ')}`);
-    return {
-      ...this.summary(ctx.provider, ctx.model, plan, knowledge),
-      levels: [...states.values()].map((s) => s.result),
-      elapsedMs,
-      deadlineHit,
-    };
+    return { states, criticNotes };
   }
 
-  private async review(
+  /** The critic round; returns its findings as readable sentences. */
+  private async critique(
     ctx: C4RunContext,
     rendered: Array<[C4Level, C4LevelState]>,
     requirements: C4Requirement[],
     requirementsJson: string,
     rules: C4ValidationRules,
-  ): Promise<void> {
+  ): Promise<string[]> {
     const specs = new Map(rendered.map(([level, s]) => [level, JSON.stringify(s.candidate!.spec)]));
     const images: PromptImage[] = rendered.map(([, s]) => ({ data: s.result.png!, mimeType: PNG_MIME_TYPE }));
-    const critique = await attempt(() => this.askJson(ctx, this.prompts.critic(specs, requirementsJson, this.settings.maxElements), images, 'critic'));
+    const critique = await attempt(() => this.calls.askJson(ctx, this.prompts.critic(specs, requirementsJson, this.settings.maxElements), images, C4Step.CRITIC));
     if (!critique.ok) {
       logger.warn(`[c4] ${ctx.label} critic failed: ${errorMessage(critique.error)}`);
-      return;
+      return [CriticNotes.FAILED];
     }
     const verdicts = toCritiques(critique.value.levels);
+    const notes = new Map<C4Level, string>();
     await Promise.all(rendered.map(async ([level, s]) => {
       const verdict = verdicts.get(level);
+      const issues = verdict?.issues ?? [];
       if (!verdict?.revise || !verdict.spec) {
         s.result.notes.push(C4Notes.REVIEW_OK);
+        notes.set(level, CriticNotes.OK(level, issues));
         return;
       }
       const validation = validateDiagram(verdict.spec, level, requirements, rules);
-      if (validation.score > s.candidate!.score) s.result.notes.push(C4Notes.REVIEW_REJECTED_WORSE);
-      else if (!(await this.tryAccept(ctx, s, validation, `${C4Notes.REVIEW_FIXED} (${verdict.issues.slice(0, 3).join('; ')})`))) {
+      if (validation.score > s.candidate!.score) {
+        s.result.notes.push(C4Notes.REVIEW_REJECTED_WORSE);
+        notes.set(level, CriticNotes.REJECTED_WORSE(level, issues));
+      } else if (await this.tryAccept(ctx, s, validation, `${C4Notes.REVIEW_FIXED} (${issues.slice(0, 3).join('; ')})`)) {
+        notes.set(level, CriticNotes.FIXED(level, issues));
+      } else {
         s.result.notes.push(C4Notes.REVIEW_REJECTED_RENDER);
+        notes.set(level, CriticNotes.REJECTED_RENDER(level, issues));
       }
     }));
+    return rendered.map(([level]) => notes.get(level)).filter((n): n is string => !!n);
   }
 
   /**
@@ -270,27 +516,6 @@ export class C4SketchService {
     return true;
   }
 
-  /** Asks for a JSON object; an unparseable answer gets one retry when time allows. */
-  private async askJson(ctx: C4RunContext, text: string, images: PromptImage[], step: string): Promise<Record<string, unknown>> {
-    const first = extractJsonObject(await this.ask(ctx, text, images, step));
-    if (first) return first;
-    if (this.timeLeft(ctx) < MIN_TIME_FOR_RETRY_MS) throw new UpstreamError(`${step}: model answer is not JSON`);
-    const second = extractJsonObject(await this.ask(ctx, `${text}\n\n${JSON_RETRY}`, images, `${step}-retry`));
-    if (!second) throw new UpstreamError(`${step}: model answer is not JSON`);
-    return second;
-  }
-
-  private ask(ctx: C4RunContext, text: string, images: PromptImage[], step: string): Promise<string> {
-    const budget = Math.min(this.settings.callTimeoutMs, this.timeLeft(ctx));
-    if (budget <= 0) throw new TimeoutError(`${step}: C4 deadline reached`);
-    const call = this.deps.model.ask({ provider: ctx.provider, model: ctx.model, systemPrompt: ctx.systemPrompt, text, images, label: `${ctx.label}-${step}` });
-    return withTimeout(call, budget, `${ctx.label}-${step}`);
-  }
-
-  private timeLeft(ctx: C4RunContext): number {
-    return ctx.deadline - this.now();
-  }
-
   /** `budgetMs` of machine time from `start`; the critic keeps the same tail it has in a full run. */
   private context(provider: AIProvider, model: string, knowledge: CitedChunk[], start: number, budgetMs: number, label: string, sink?: C4EventSink): C4RunContext {
     const deadline = start + budgetMs;
@@ -305,18 +530,40 @@ export class C4SketchService {
     };
   }
 
-  private levelsOf(request: C4SketchRequest): C4Level[] {
-    return C4_LEVEL_ORDER.filter((level) => (request.levels.length ? request.levels : DEFAULT_C4_LEVELS).includes(level));
+  /** Requested levels, else the base design's levels (+ levels the change names), else the brief's / default. */
+  private levelsOf(request: C4SketchRequest, brief: ProblemBrief, baseLevels?: C4Level[]): C4Level[] {
+    if (request.levels.length > 0) return C4_LEVEL_ORDER.filter((level) => request.levels.includes(level));
+    if (baseLevels?.length) {
+      const named = levelsFromText(request.description);
+      return C4_LEVEL_ORDER.filter((level) => baseLevels.includes(level) || named.includes(level));
+    }
+    return briefLevels(brief);
   }
 
-  private summary(provider: AIProvider, model: string, plan: C4ArchitectPlan, knowledge: CitedChunk[]) {
-    return { provider, model, systemName: plan.systemName, requirements: plan.requirements, knowledgeSources: sourcesOf(knowledge) };
+  /** The base c4_spec's levels and JSON (as the architect wrote it: systemName, requirements, per-level specs). */
+  private baseSpec(design: C4DesignRef): { json: string; levels: C4Level[] } | null {
+    const data = design.dataJson && typeof design.dataJson === 'object' ? (design.dataJson as Record<string, unknown>) : null;
+    const levels = Array.isArray(data?.levels) ? (data!.levels as Array<Record<string, unknown>>) : [];
+    const parsed = levels.map((l) => l.level).filter((l): l is C4Level => typeof l === 'string' && (C4_LEVEL_ORDER as readonly string[]).includes(l));
+    if (!data || parsed.length === 0) return null;
+    return { json: JSON.stringify(data), levels: parsed };
   }
 
-  /** Statement-specific notes plus the user's general design rules; RAG problems only cost the notes. */
-  private async retrieveKnowledge(description: string): Promise<CitedChunk[]> {
+  /** Images of the problem statement only (the user's own design is not a statement page). */
+  private problemImages(images: PromptImage[], brief: ProblemBrief): PromptImage[] {
+    const design = new Set(brief.userDesign.imageIndexes);
+    return images.filter((_, i) => !design.has(i));
+  }
+
+  private summary(provider: AIProvider, model: string, systemName: string, requirements: C4Requirement[], knowledge: CitedChunk[]) {
+    return { provider, model, systemName, requirements, knowledgeSources: sourcesOf(knowledge) };
+  }
+
+  /** Statement notes + the user's design rules (+ the rubric for a review); RAG problems only cost the notes. */
+  private async retrieveKnowledge(description: string, reviewing: boolean): Promise<CitedChunk[]> {
     const search = (query: string) => attempt(() => withTimeout(this.deps.knowledge.search(query), KNOWLEDGE_TIMEOUT_MS, 'c4-knowledge'));
-    const results = await Promise.all([search(description), search(DESIGN_RULES_QUERY)]);
+    const queries = [description.trim(), DESIGN_RULES_QUERY, reviewing ? REVIEW_RUBRIC_QUERY : ''].filter(Boolean);
+    const results = await Promise.all(queries.map(search));
     const chunks = new Map<string, CitedChunk>();
     for (const result of results) {
       if (!result.ok) {
@@ -332,3 +579,4 @@ export class C4SketchService {
     return { result: { level, elementCount: 0, covered: [], missing: [], notes: [] }, problems: [] };
   }
 }
+

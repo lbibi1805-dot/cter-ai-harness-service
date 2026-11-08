@@ -4,17 +4,23 @@ import { attempt } from '../../../shared/resilience/attempt';
 import { extractJsonObject } from '../../c4/application/helpers/c4Answer.helper';
 import type { ConversationTurn, PromptImage } from '../../ai';
 import type { ConversationStore, StoredArtifact, StoredMessage } from '../../conversation-store';
+import { ArtifactKind } from '../../conversation-store';
+import { artifactLabel } from '../domain/artifactMetadata';
 import { ensureArtifactRefs, planCompaction, registryLine } from '../domain/contextAssembler';
+import { parseDesignNote } from '../domain/designNote';
 import type { AuxModel } from '../domain/interfaces/auxModel.port';
-import type { ContextSettings, ImageNote } from '../domain/interfaces/context.interface';
+import type { ContextSettings, DesignNoteData, ImageNote } from '../domain/interfaces/context.interface';
 import {
+  DESIGN_NOTE_ANSWER_MAX_CHARS,
+  DESIGN_NOTE_QUESTION_MAX_CHARS,
+  DESIGN_NOTE_SYSTEM,
   IMAGE_NOTE_SYSTEM,
   REWRITE_HISTORY_TURNS,
   REWRITE_SYSTEM,
   SUMMARY_MESSAGE_MAX_CHARS,
   SUMMARY_SYSTEM,
 } from './constants/contextPrompts.constants';
-import type { AuxTimeouts } from './interfaces/contextJobs.interface';
+import type { AuxTimeouts, DesignNoteJob } from './interfaces/contextJobs.interface';
 
 /**
  * Side jobs done with the aux model: image captions/OCR, follow-up query
@@ -54,6 +60,36 @@ export class ContextJobs {
     if (!this.aux || artifacts.length === 0) return;
     const notes = await this.describeImages(artifacts.map((a) => a.image));
     const updates = artifacts.map((a, i) => ({ id: a.id, caption: notes[i].caption, ocrText: notes[i].ocrText })).filter((u) => u.caption || u.ocrText);
+    if (updates.length > 0) await this.store.enrichArtifacts(updates);
+  }
+
+  /** Structured design of a chat answer (systemName, elements, decisions); null when the aux model is off or fails. */
+  async extractDesignNote(question: string, answer: string): Promise<DesignNoteData | null> {
+    const aux = this.aux;
+    if (!aux) return null;
+    const text = `QUESTION:
+${question.slice(0, DESIGN_NOTE_QUESTION_MAX_CHARS)}
+
+ANSWER:
+${answer.slice(0, DESIGN_NOTE_ANSWER_MAX_CHARS)}`;
+    const reply = await attempt(() => aux.complete({ system: DESIGN_NOTE_SYSTEM, text, label: 'aux-design-note', timeoutMs: this.timeouts.designNoteMs ?? this.timeouts.compactMs }));
+    if (!reply.ok) {
+      logger.warn(`[context] design note extraction failed (${aux.name}): ${errorMessage(reply.error)}`);
+      return null;
+    }
+    return parseDesignNote(extractJsonObject(reply.value));
+  }
+
+  /** Replaces the heuristic data_json of new design notes with the aux extraction (one query, DB still awake). */
+  async enrichDesignNotes(jobs: DesignNoteJob[]): Promise<void> {
+    if (!this.aux || jobs.length === 0) return;
+    const notes = await Promise.all(jobs.map((j) => this.extractDesignNote(j.question, j.answer)));
+    const updates = jobs.flatMap((j, i) => {
+      const note = notes[i];
+      if (!note) return [];
+      const label = artifactLabel({ kind: ArtifactKind.DESIGN_NOTE, systemName: note.systemName || undefined, version: j.version, turn: j.turn });
+      return [{ id: j.id, dataJson: note, label }];
+    });
     if (updates.length > 0) await this.store.enrichArtifacts(updates);
   }
 

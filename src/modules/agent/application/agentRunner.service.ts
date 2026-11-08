@@ -42,7 +42,8 @@ export class AgentRunner {
 
   async run(request: AgentRunRequest): Promise<AgentRunResult> {
     const startedAt = this.now();
-    const definitions = [...this.tools.values()].map(({ name, description, parameters }) => ({ name, description, parameters }));
+    const tools = this.toolsFor(request);
+    const definitions = [...tools.values()].map(({ name, description, parameters }) => ({ name, description, parameters }));
     const session = request.model.startSession(request.systemPrompt, request.content, definitions);
     const progress: RunProgress = { steps: [], sourcesRead: [], contexts: [] };
     let usage = ZERO_USAGE;
@@ -85,27 +86,41 @@ export class AgentRunner {
       if (streamedText) request.stream?.reset();
       if (exhausted !== null) throw new ToolRequestAfterBudgetError(exhausted);
 
-      pendingOutputs = await this.runToolCalls(turn.calls, progress, startedAt, request);
+      pendingOutputs = await this.runToolCalls(turn.calls, progress, startedAt, request, tools);
     }
   }
 
-  private async runToolCalls(calls: ToolCall[], progress: RunProgress, startedAt: number, request: AgentRunRequest): Promise<ToolOutput[]> {
-    const outputs: ToolOutput[] = [];
-    for (const call of calls) {
-      if (this.exhaustedReason(progress.steps.length, startedAt) !== null) {
-        outputs.push({ callId: call.id, output: BUDGET_EXHAUSTED_NOTE });
-        continue;
-      }
+  /**
+   * Runs one turn's tool calls concurrently (every tool is read-only, so independent `search_vault` calls no
+   * longer wait for each other, 07 §3.5). Calls beyond the budget get the "budget exhausted" note. Steps,
+   * sources and outputs keep the order the model asked for.
+   */
+  private async runToolCalls(calls: ToolCall[], progress: RunProgress, startedAt: number, request: AgentRunRequest, tools: Map<string, AgentTool>): Promise<ToolOutput[]> {
+    const outOfTime = this.exhaustedReason(progress.steps.length, startedAt) !== null;
+    const allowed = outOfTime ? 0 : Math.max(0, this.budget.maxToolCalls - progress.steps.length);
+    const firstIndex = progress.steps.length + 1;
+    const runs = calls.map((call, position) => {
+      if (position >= allowed) return null;
       request.stream?.progress?.({ stage: ProgressStage.AGENT_TOOL, detail: call.name });
-      const executed = await this.execute(call, progress.steps.length + 1);
-      progress.steps.push(executed.step);
-      progress.contexts.push(...executed.contexts);
-      for (const source of executed.step.sources) {
+      return this.execute(call, firstIndex + position, tools);
+    });
+    const executed = await Promise.all(runs);
+
+    return calls.map((call, position) => {
+      const result = executed[position];
+      if (!result) return { callId: call.id, output: BUDGET_EXHAUSTED_NOTE };
+      progress.steps.push(result.step);
+      progress.contexts.push(...result.contexts);
+      for (const source of result.step.sources) {
         if (!progress.sourcesRead.includes(source)) progress.sourcesRead.push(source);
       }
-      outputs.push({ callId: call.id, output: executed.output });
-    }
-    return outputs;
+      return { callId: call.id, output: result.output };
+    });
+  }
+
+  /** AGENT_MAX_DURATION_MS: the answer service gives a failed run's single-shot fallback what is left of it. */
+  get maxDurationMs(): number {
+    return this.budget.maxDurationMs;
   }
 
   private exhaustedReason(toolCalls: number, startedAt: number): AgentStopReason | null {
@@ -115,11 +130,11 @@ export class AgentRunner {
   }
 
   /** A failing tool becomes a "Tool error: …" output so the model can correct itself. */
-  private async execute(call: ToolCall, index: number): Promise<ExecutedTool> {
+  private async execute(call: ToolCall, index: number, tools: Map<string, AgentTool>): Promise<ExecutedTool> {
     const started = this.now();
     const parsedArgs = attemptSync(() => parseArguments(call.arguments));
     const args = parsedArgs.ok ? parsedArgs.value : {};
-    const result = await attempt(() => this.invokeTool(call.name, parsedArgs));
+    const result = await attempt(() => this.invokeTool(tools, call.name, parsedArgs));
     const durationMs = this.now() - started;
 
     if (!result.ok) {
@@ -138,9 +153,17 @@ export class AgentRunner {
     };
   }
 
-  private invokeTool(name: string, parsedArgs: Attempt<Record<string, unknown>>): Promise<ToolResult> {
-    const tool = this.tools.get(name);
-    if (!tool) throw new UnknownToolError(name, [...this.tools.keys()]);
+  /** Built-in tools plus the request's own (a per-request tool never replaces a built-in one). */
+  private toolsFor(request: AgentRunRequest): Map<string, AgentTool> {
+    if (!request.extraTools?.length) return this.tools;
+    const tools = new Map(this.tools);
+    for (const tool of request.extraTools) if (!tools.has(tool.name)) tools.set(tool.name, tool);
+    return tools;
+  }
+
+  private invokeTool(tools: Map<string, AgentTool>, name: string, parsedArgs: Attempt<Record<string, unknown>>): Promise<ToolResult> {
+    const tool = tools.get(name);
+    if (!tool) throw new UnknownToolError(name, [...tools.keys()]);
     if (!parsedArgs.ok) throw new InvalidToolArgumentsError(`invalid tool arguments JSON: ${errorMessage(parsedArgs.error)}`);
     return tool.execute(parsedArgs.value);
   }

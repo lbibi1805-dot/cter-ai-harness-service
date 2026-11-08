@@ -13,6 +13,17 @@ export interface RecordedArtifact {
   caption?: string;
   ocrText?: string;
   dataJson?: unknown;
+  /** Readable name; generated from kind/system/level/version/turn when absent. */
+  label?: string;
+  /** C4 level of a PNG/PUML (a spec's levels come from its data_json). */
+  level?: string;
+  /** Design name for the label and the version chain (defaults to `dataJson.systemName`). */
+  systemName?: string;
+  /** Version chain: set by revisions; inferred (same kind + same system) when absent. */
+  parentArtifactId?: string;
+  version?: number;
+  /** design_note only: the turn text the aux model refines into data_json in the background. */
+  designSource?: { question: string; answer: string };
 }
 
 export interface TurnRecordInput {
@@ -22,8 +33,10 @@ export interface TurnRecordInput {
   kind: MessageKind;
   userText: string;
   assistantText: string;
-  assistantMeta?: Partial<Pick<NewMessage, 'provider' | 'model' | 'mode' | 'promptVersion' | 'latencyMs' | 'ttftMs' | 'tokensIn' | 'tokensOut' | 'sources'>>;
+  assistantMeta?: Partial<Pick<NewMessage, 'provider' | 'model' | 'mode' | 'promptVersion' | 'latencyMs' | 'ttftMs' | 'tokensIn' | 'tokensOut' | 'tokensCached' | 'sources' | 'resolvedRefs'>>;
   artifacts: RecordedArtifact[];
   /** Conversation state changes in the same transaction (e.g. clear `pendingC4`). */
   state?: Record<string, unknown | null>;
+  /** Intent router decision (C4 turns): stored on both messages (`messages.intent`, migration 008). */
+  intent?: { intent: string; confidence: number };
 }

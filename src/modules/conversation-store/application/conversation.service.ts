@@ -7,12 +7,13 @@ import {
   conversationPrefix,
   extensionForMime,
   isUuid,
+  PENDING_FILTERS,
   type ConversationDetail,
   type ConversationListItem,
   type ConversationStore,
 } from '../domain';
 import type { ArtifactView, ConversationServiceOptions, ConversationView, StoredObjectRef } from './interfaces/conversationService.interface';
-import { DEFAULT_CONVERSATION_SERVICE_OPTIONS } from './constants/conversationService.constants';
+import { DEFAULT_CONVERSATION_SERVICE_OPTIONS, PENDING_STATE_PUBLIC_FIELDS } from './constants/conversationService.constants';
 
 /**
  * Conversation API use cases (read, list, soft delete, restore, purge) and the
@@ -40,11 +41,15 @@ export class ConversationService {
   async get(id: string): Promise<ConversationView> {
     const detail = await this.requireActive(id);
     const artifacts = await Promise.all(detail.artifacts.map((a) => this.toArtifactView(detail.id, a)));
-    return { ...detail, artifacts };
+    return { ...detail, state: publicState(detail.state), artifacts };
   }
 
-  list(limit: number, deleted: boolean): Promise<ConversationListItem[]> {
-    return this.store.list(limit, deleted);
+  /** `pending`: a `?pending=` value (`c4`); unknown values are a 400. */
+  async list(limit: number, deleted: boolean, pending?: string): Promise<ConversationListItem[]> {
+    if (pending === undefined) return this.store.list(limit, deleted);
+    const key = PENDING_FILTERS[pending];
+    if (!key) throw new ValidationError(`pending must be one of: ${Object.keys(PENDING_FILTERS).join(', ')}`);
+    return this.store.list(limit, deleted, key);
   }
 
   /** Soft delete (idempotent). Objects stay until the purge so a restore gets every image back. */
@@ -124,6 +129,17 @@ export class ConversationService {
     const presigned = url.ok ? url.value : null;
     return { ...artifact, url: presigned ?? `/api/conversations/${conversationId}/artifacts/${artifact.id}` };
   }
+}
+
+/** Pending workflows without their internals: step, questions, expiry. */
+function publicState(state: Record<string, unknown>): Record<string, unknown> {
+  const view: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(state ?? {})) {
+    if (!value || typeof value !== 'object') continue;
+    const pending = value as Record<string, unknown>;
+    view[key] = Object.fromEntries(PENDING_STATE_PUBLIC_FIELDS.filter((f) => pending[f] !== undefined).map((f) => [f, pending[f]]));
+  }
+  return view;
 }
 
 function assertId(id: string): void {

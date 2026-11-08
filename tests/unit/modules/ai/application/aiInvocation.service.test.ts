@@ -4,6 +4,7 @@ import {
   AIInvocationError,
   AIInvocationService,
   AIProvider,
+  AttemptOutcome,
   ModelCatalog,
   ModelRoute,
   PromptPreparer,
@@ -70,7 +71,11 @@ describe('AIInvocationService — direct route', () => {
   it('returns the first successful answer', async () => {
     const { adapter } = scriptedAdapter({ 'g-1': ['# answer'] });
     const { svc } = service(factoryFor(adapter));
-    await expect(svc.answer(ask())).resolves.toEqual({ text: '# answer', model: 'g-1', attempts: 1, contexts: [], route: ModelRoute.DIRECT });
+    const answer = await svc.answer(ask());
+    expect(answer).toMatchObject({ text: '# answer', model: 'g-1', attempts: 1, contexts: [], route: ModelRoute.DIRECT });
+    expect(answer.timings).toMatchObject({ attempts: [{ model: 'g-1', outcome: AttemptOutcome.OK }] });
+    expect(answer.timings?.totalMs).toBeGreaterThanOrEqual(0);
+    expect(answer.timings?.retrievalMs).toBeGreaterThanOrEqual(0);
   });
 
   it('retries transient errors on the same model with exponential backoff', async () => {

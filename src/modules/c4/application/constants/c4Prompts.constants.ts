@@ -1,4 +1,5 @@
 import { C4Level } from '../../domain';
+import { C4SkillId } from '../enums/c4Skill.enums';
 
 /**
  * System prompt for every /api/c4 call (replaces the chat persona and its citation rules, which would ask for
@@ -63,3 +64,90 @@ export const LEVEL_RULES: Readonly<Record<C4Level, string>> = {
 };
 
 export const JSON_RETRY = 'Your previous answer could not be parsed as the requested JSON object. Answer again with the JSON object only.';
+
+export const LEVEL_SKILLS: Readonly<Record<C4Level, C4SkillId>> = {
+  [C4Level.CONTEXT]: C4SkillId.LEVEL_CONTEXT,
+  [C4Level.CONTAINER]: C4SkillId.LEVEL_CONTAINER,
+  [C4Level.COMPONENT]: C4SkillId.LEVEL_COMPONENT,
+  [C4Level.SEQUENCE]: C4SkillId.LEVEL_SEQUENCE,
+};
+
+/** Extraction (note 05 §4): every image + the typed text → one ProblemBrief, typed text kept apart so it can override. */
+export const EXTRACT_INSTRUCTIONS = `
+Read the problem statement of an exam question about software architecture (C4 model). It is given as images (photos
+or screenshots of one or more pages, in order — together they are ONE problem) and/or text typed by the user.
+Some images may instead show the user's OWN design (a diagram they drew); report those in "userDesign" and do not
+read requirements from them.
+
+Return ONE JSON object:
+{ "brief": <brief from everything>, "typed": <brief with ONLY what the typed text states, {} when there is no typed text> }
+where <brief> is:
+{ "systemName": {"value": "…", "confidence": 0.0},
+  "systemBoundary": {"value": "what is inside the system to design", "confidence": 0.0},
+  "actors": {"value": ["…"], "confidence": 0.0},
+  "externalSystems": {"value": ["…"], "confidence": 0.0},
+  "functionalReqs": ["…"], "nonFunctionalReqs": ["…"],
+  "techConstraints": {"value": ["…"], "confidence": 0.0},
+  "levels": {"value": ["context", "container"], "confidence": 0.0},
+  "rubric": [ {"criterion": "…", "weight": 1} ],
+  "userDesign": {"present": false, "imageIndexes": []} }
+Rules: confidence 0..1 = how clearly the statement says it (0 = not stated at all, guessed). "levels" = the C4 levels
+the question asks to draw (context, container, component, sequence); leave [] with confidence 0 when it does not say.
+"externalSystems": [] with a high confidence only when the statement clearly has none. imageIndexes are 0-based.
+Write values in the language of the statement; requirements short (under 15 words each); do not invent requirements.
+`.trim();
+
+/** Reading the user's own design image into specs (review of a user design, note 05 §6). */
+export const DESIGN_READ_INSTRUCTIONS = `
+The attached image(s) show a C4 design drawn by a student. Transcribe it faithfully into specs — do not fix, complete
+or improve it: keep wrong element kinds, missing technology and odd relationships exactly as drawn, so it can be marked.
+Return ONE JSON object: { "systemName": "…", "diagrams": { "<level>": <spec> } } with <level> one of context, container,
+component, sequence (one entry per diagram in the images) and each <spec> in this shape (covers may stay empty):
+`.trim();
+
+/** c4_revise: change a base spec as the user asks (note 05 §2 / 17 §4). */
+export const REVISE_INSTRUCTIONS = `
+Revise an existing C4 design as the user asks. Keep every element, id and relationship that the change does not touch;
+apply exactly the requested change (and only the minimal follow-up edits it needs on other levels to stay consistent).
+`.trim();
+
+/** System prompt of the evaluator: it answers in markdown (the JSON rule of the C4 system prompt does not apply). */
+export const REVIEW_SYSTEM_PROMPT = `
+You are a strict but fair examiner of software architecture (C4 model) answers. You mark a design against the problem
+statement, the marking rubric and the C4 notation rules, and you explain in the language of the problem statement
+(Vietnamese unless the statement is in another language). You answer in markdown only.
+`.trim();
+
+/** The evaluator's fixed frame (note 05 §6). */
+export const REVIEW_INSTRUCTIONS = `
+Evaluate the design below. Use EXACTLY these sections, in this order, with these headings:
+## Tóm tắt nhận xét
+(2-4 sentences: overall verdict and the most important problem)
+## Đánh giá theo tiêu chí
+| Tiêu chí | Điểm | Nhận xét |
+|---|---|---|
+(one row per rubric criterion; score as "x/10"; the rubric comes from the problem, else the knowledge base, else the
+standard C4 rubric: requirement coverage, correct C4 notation per level, consistency between levels, minimality/clarity,
+technology choices)
+## Yêu cầu chưa đáp ứng
+(bullets: requirements of the problem the design does not show; "- Không có" when none)
+## Lỗi ký hiệu C4
+(bullets: wrong element kinds, missing technology on containers/components, unlabeled relationships, mixed levels…)
+## Đề xuất sửa (ưu tiên)
+(numbered list, most important first, each concrete enough to apply)
+Judge only what is in the design; never invent elements it does not have.
+`.trim();
+
+/** Mapping a free-text reply to the clarify questions (aux model, note 05 §5 rule 3). */
+export const CLARIFY_PARSE_INSTRUCTIONS = `
+The user answered clarification questions about a C4 design task in free text. Map the reply to the questions.
+Return ONE JSON object only: {"answers": {"<slot>": "<the user's answer for that slot, short>"}}
+Include only slots the reply actually answers; a slot the reply does not mention is left out (its default is used).
+"ok", "đồng ý", "giữ mặc định" for everything → {"answers": {}}.
+`.trim();
+
+/** Tiny JSON answer of the clarify parser. */
+export const CLARIFY_PARSE_MAX_OUTPUT_TOKENS = 400;
+
+/** Third retrieval query of a review: the marking rubric in the knowledge base. */
+export const REVIEW_RUBRIC_QUERY = 'C4 architecture design marking rubric, grading criteria, common notation mistakes';

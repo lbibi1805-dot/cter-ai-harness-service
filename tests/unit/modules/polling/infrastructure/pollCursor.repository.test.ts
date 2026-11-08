@@ -6,6 +6,8 @@ import { PollJobName } from '../../../../../src/modules/polling/domain';
 import { FilePollCursorRepository } from '../../../../../src/modules/polling/infrastructure/filePollCursor.repository';
 import { NeonPollCursorRepository } from '../../../../../src/modules/polling/infrastructure/neonPollCursor.repository';
 import { NeonSql } from '../../../../../src/shared/database/interfaces/database.interface';
+import { neonSqlClient } from '../../../../../src/shared/database/neonSqlClient';
+import { DbQueryCounter } from '../../../../../src/shared/database/dbQueryCounter';
 import { POLL_CURSOR_SCHEMA_STATEMENTS } from '../../../../../src/modules/polling/infrastructure/constants/pollCursorSchema.constants';
 
 const T1 = new Date('2026-10-01T10:00:00Z');
@@ -47,7 +49,7 @@ describe('NeonPollCursorRepository', () => {
 
   it('creates the table once, then reads with parameters', async () => {
     const { sql, query } = fakeSql([{ cursor_at: '2026-10-01T10:00:00.000Z' }]);
-    const repo = new NeonPollCursorRepository(sql);
+    const repo = new NeonPollCursorRepository(neonSqlClient(sql, new DbQueryCounter()));
     expect(await repo.get(PollJobName.FILE_QA, 3)).toEqual(T1);
     await repo.get(PollJobName.FILE_QA, 3);
     const ddlCalls = query.mock.calls.filter(([text]) => text.startsWith('CREATE TABLE'));
@@ -57,7 +59,7 @@ describe('NeonPollCursorRepository', () => {
 
   it('upserts with GREATEST so concurrent writers cannot move it backwards', async () => {
     const { sql, query } = fakeSql();
-    await new NeonPollCursorRepository(sql).save(PollJobName.FILE_QA, 1, T2);
+    await new NeonPollCursorRepository(neonSqlClient(sql, new DbQueryCounter())).save(PollJobName.FILE_QA, 1, T2);
     const [text, params] = query.mock.calls.at(-1)!;
     expect(text).toContain('GREATEST(poll_cursor.cursor_at, EXCLUDED.cursor_at)');
     expect(params).toEqual([PollJobName.FILE_QA, 1, T2.toISOString()]);

@@ -1,6 +1,6 @@
 import type { AIProvider } from '../../../ai';
-import type { C4Level, C4Requirement } from '../../domain';
-import type { C4Clarification } from '../../application/interfaces/c4Sketch.interface';
+import type { C4Level, C4Requirement, ClarifyQuestion } from '../../domain';
+import type { C4ArtifactRef, C4Clarification } from '../../application/interfaces/c4Sketch.interface';
 
 export interface C4LevelDto {
   level: C4Level;
@@ -16,6 +16,34 @@ export interface C4LevelDto {
   error: string | null;
 }
 
+export interface C4IntentDto {
+  intent: string;
+  confidence: number;
+  source: string;
+}
+
+export interface C4BriefDto {
+  systemName: string;
+  /** 3–5 bullets ("Mình hiểu đề như sau"). */
+  summary: string[];
+  actors: string[];
+  externalSystems: string[];
+  levels: string[];
+}
+
+export interface C4ClarifyDto {
+  sessionId: string;
+  summary: string[];
+  questions: ClarifyQuestion[];
+  expiresInSec: number;
+}
+
+export interface C4ReviewDto {
+  markdown: string;
+  artifactId?: string;
+  alias?: string;
+}
+
 export interface C4SketchDto {
   provider: AIProvider;
   model: string;
@@ -28,8 +56,16 @@ export interface C4SketchDto {
   /** Server-side conversation the run was recorded in (null when none). */
   conversationId: string | null;
   messageId: string | null;
-  /** Human in the loop: the run paused; answer with POST /api/c4/resume { sessionId, answers? }. */
+  /** Human in the loop (old shape, kept for compatibility): answer with POST /api/c4/resume { sessionId, answers? }. */
   confirmation: C4ConfirmationDto | null;
+  intent?: C4IntentDto;
+  brief?: C4BriefDto;
+  /** Review intents only: the review (null when it could not be written). */
+  review?: { markdown: string } | null;
+  /** Artifacts this run created ("↩ Hỏi về cái này" chips). */
+  artifacts?: C4ArtifactRef[];
+  /** The critic's findings as readable sentences. */
+  criticNotes?: string[];
 }
 
 export interface C4ConfirmationDto {

@@ -11,3 +11,9 @@ export const DEFAULT_CONVERSATION_SERVICE_OPTIONS: ConversationServiceOptions = 
   maxMessages: 500,
   now: Date.now,
 };
+
+/**
+ * Fields of a pending workflow shown by GET /api/conversations/:id (monitoring, note 16 §3): the step and
+ * the questions waiting for the user — not the run's internals (knowledge chunks, architect JSON…).
+ */
+export const PENDING_STATE_PUBLIC_FIELDS: readonly string[] = ['id', 'step', 'intent', 'intentConfidence', 'systemName', 'summary', 'questions', 'expiresAt'];

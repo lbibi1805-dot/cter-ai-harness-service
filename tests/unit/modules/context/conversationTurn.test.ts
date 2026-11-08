@@ -62,7 +62,7 @@ describe('chat with server-side memory (notes 03 + 04)', () => {
   }, 60_000); // PGlite boots its WASM on the first query
 
   it('turn 1 image → turn 2 other topic → turn 3 "đề lúc nãy": the image comes back, with its OCR in the RAG query', async () => {
-    const c = makeChat(store);
+    const c = makeChat(store, { ...DEFAULT_CONTEXT_SETTINGS, hotWindowTurns: 0 });
     const t1 = await c.ask('Đây là đề', undefined, [PNG]);
     const id = t1.conversation!.conversationId;
     expect(t1.conversation).toMatchObject({ persisted: true });
@@ -75,7 +75,10 @@ describe('chat with server-side memory (notes 03 + 04)', () => {
       { role: 'user', text: 'Đây là đề\n[ảnh đính kèm: A1 — Đề bài hệ thống đặt vé, 5 NFR]' },
       { role: 'assistant', text: 'answer 1' },
     ]);
-    expect(c.seen[1].memory).toContain('[A1] user_image · turn 1 · "Đề bài hệ thống đặt vé, 5 NFR"');
+    // Layout V2 (default): the registry is in the tail (before the JIT artifacts), never in the system prompt.
+    expect(c.seen[1].memory).toBeUndefined();
+    expect(c.seen[1].jitContext).toContain('## CONVERSATION MEMORY');
+    expect(c.seen[1].jitContext).toContain('[A1] user_image · turn 1 · "Đề bài hệ thống đặt vé, 5 NFR"');
 
     await c.ask('hỏi thêm về lock', id);
     await c.ask('đề lúc nãy yêu cầu gì?', id);
@@ -85,6 +88,23 @@ describe('chat with server-side memory (notes 03 + 04)', () => {
     expect(t4.jitContext).toContain('#1 = [A1] user_image');
     expect(t4.retrievalQuery).toContain('Thiết kế hệ thống đặt vé xem phim');
     expect(t4.history).toHaveLength(6);
+  });
+
+  it('hot window (default K=2): an earlier image is sent in place on its history turn, not re-attached in the tail', async () => {
+    const c = makeChat(store);
+    const id = (await c.ask('Đây là đề', undefined, [PNG])).conversation!.conversationId;
+    await c.ask('mutex là gì', id);
+    const t2 = c.seen[1];
+    expect(t2.history?.[0]).toMatchObject({ role: 'user', images: [{ mimeType: 'image/png', alias: 'A1' }] });
+    expect(t2.history?.[0].images?.[0].data.equals(PNG.data)).toBe(true);
+    expect(t2.imageBuffers).toHaveLength(0);                       // the JIT rule would have re-attached it here
+    expect(t2.jitContext).toContain('already shown in place');
+    // Two more pairs: the image pair slides out of the window and comes back through JIT when asked about.
+    await c.ask('hỏi thêm về lock', id);
+    await c.ask('đề lúc nãy yêu cầu gì?', id);
+    const t4 = c.seen[3];
+    expect(t4.history?.some((turn) => turn.images?.length)).toBe(false);
+    expect(t4.imageBuffers).toHaveLength(1);
   });
 
   it('budget: a turn on an existing conversation = 2 database round-trips (1 read + 1 transaction)', async () => {
@@ -137,8 +157,11 @@ describe('chat with server-side memory (notes 03 + 04)', () => {
 
     await c.ask('câu 5', id);
     const last = c.seen.at(-1)!;
-    expect(last.memory).toContain('### Summary of earlier turns');
-    expect(last.history!.map((t) => t.text)).toEqual(['câu 3', 'answer 3', 'câu 4', 'answer 4']);
+    // Layout V2: the summary is the first history turn (+ a static ack), then the verbatim turns.
+    expect(last.memory).toBeUndefined();
+    expect(last.history![0].role).toBe('user');
+    expect(last.history![0].text.startsWith('[SUMMARY OF EARLIER TURNS]\n🎯 Mục tiêu')).toBe(true);
+    expect(last.history!.slice(1).map((t) => t.text)).toEqual(['Đã nắm phần tóm tắt các turn trước.', 'câu 3', 'answer 3', 'câu 4', 'answer 4']);
     expect(c.aux.calls.filter((call) => call.system.includes('compact'))).toHaveLength(1);
   });
 });

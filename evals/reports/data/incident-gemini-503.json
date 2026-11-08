@@ -1,0 +1,122 @@
+[
+ {
+  "ts": "2026-11-08 07:51:42.087",
+  "kind": "retry_503",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:51:50.006",
+  "kind": "retry_503",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:52:00.816",
+  "kind": "circuit_open",
+  "model": "direct/gemini-3.1-flash-lite"
+ },
+ {
+  "ts": "2026-11-08 07:52:00.816",
+  "kind": "fallback",
+  "model": "gemini-3.1-flash-lite → gemini-3.5-flash"
+ },
+ {
+  "ts": "2026-11-08 07:52:05.961",
+  "kind": "retry_503",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:52:09.312",
+  "kind": "retry_503",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:52:16.051",
+  "kind": "circuit_open",
+  "model": "direct/gemini-3.5-flash"
+ },
+ {
+  "ts": "2026-11-08 07:52:16.051",
+  "kind": "fallback",
+  "model": "gemini-3.5-flash → gemini-2.5-flash-lite"
+ },
+ {
+  "ts": "2026-11-08 07:52:16.370",
+  "kind": "fallback_404",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:52:31.383",
+  "kind": "request_failed_first_token",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:52:33.875",
+  "kind": "fallback_404",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:52:48.890",
+  "kind": "request_failed_first_token",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:52:51.137",
+  "kind": "fallback_404",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:53:06.143",
+  "kind": "circuit_open",
+  "model": "openrouter/google/gemini-3.5-flash"
+ },
+ {
+  "ts": "2026-11-08 07:53:06.143",
+  "kind": "request_failed_first_token",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:53:09.858",
+  "kind": "request_failed_404",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:53:10.759",
+  "kind": "request_failed_404",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:53:11.486",
+  "kind": "request_failed_404",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:53:12.172",
+  "kind": "request_failed_404",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:53:12.834",
+  "kind": "request_failed_404",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:53:13.524",
+  "kind": "request_failed_404",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:54:17.375",
+  "kind": "fallback",
+  "model": "gemini-3.1-flash-lite → gemini-2.5-flash-lite"
+ },
+ {
+  "ts": "2026-11-08 07:54:17.696",
+  "kind": "request_failed_404",
+  "model": null
+ },
+ {
+  "ts": "2026-11-08 07:55:28.303",
+  "kind": "fallback",
+  "model": "gemini-3.1-flash-lite → gemini-3.5-flash"
+ }
+]

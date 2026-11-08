@@ -1,4 +1,13 @@
-import type { ArtifactKind, MessageKind, MessageRole } from '../enums/conversation.enums';
+import type { ArtifactKind, MessageKind, MessageRole, ResolvedRefSource } from '../enums/conversation.enums';
+
+/** What the artifact resolver picked for a question (`messages.resolved_refs`, monitoring/debug). */
+export interface ResolvedRefs {
+  /** Artifact aliases ("A7") the answer was grounded on (the candidates shown, when ambiguous). */
+  ids: string[];
+  source: ResolvedRefSource;
+  /** Rule score per alias (top candidates only). */
+  scores?: Record<string, number>;
+}
 
 export interface StoredMessage {
   id: string;
@@ -16,9 +25,15 @@ export interface MessageDetail extends StoredMessage {
   promptVersion: string | null;
   tokensIn: number | null;
   tokensOut: number | null;
+  /** Prompt tokens served from the provider's prompt cache (note 18). */
+  tokensCached: number | null;
   ttftMs: number | null;
   latencyMs: number | null;
   sources: unknown;
+  resolvedRefs: ResolvedRefs | null;
+  /** Intent router decision of a C4 turn (`c4_generate`, `c4_review`…; migration 008); null for chat. */
+  intent: string | null;
+  intentConfidence: number | null;
   createdAt: string;
 }
 
@@ -36,6 +51,16 @@ export interface StoredArtifact {
   caption: string | null;
   ocrText: string | null;
   dataJson: unknown;
+  /** Short readable name generated on write: `C4 container · Hệ thống đặt vé · v2` (migration 007). */
+  label?: string | null;
+  /** C4 level (`container`), `+`-joined for a multi-level spec; null when not a diagram. */
+  level?: string | null;
+  /** Who produced it: the user (images) or the assistant (C4 output, design notes). */
+  owner?: MessageRole | null;
+  /** Previous version of the same design (version chain; set by revisions). */
+  parentArtifactId?: string | null;
+  /** 1 for a first version. */
+  version?: number;
 }
 
 export interface ArtifactDetail extends StoredArtifact {
@@ -69,12 +94,16 @@ export interface ConversationListItem {
   updatedAt: string;
   deletedAt: string | null;
   purgeAfter: string | null;
+  /** Keys of `conversations.state` holding a pending workflow (`pendingC4` = waiting for the user's answers). */
+  pending: string[];
 }
 
 export interface ConversationDetail extends ConversationListItem {
   createdAt: string;
   summary: string | null;
   summaryUptoSeq: number;
+  /** Pending workflows (`pendingC4`), as stored. */
+  state: Record<string, unknown>;
   messages: MessageDetail[];
   artifacts: ArtifactDetail[];
 }
@@ -90,9 +119,13 @@ export interface NewMessage {
   promptVersion?: string;
   tokensIn?: number;
   tokensOut?: number;
+  tokensCached?: number;
   ttftMs?: number;
   latencyMs?: number;
   sources?: unknown;
+  resolvedRefs?: ResolvedRefs;
+  intent?: string;
+  intentConfidence?: number;
 }
 
 export interface NewArtifact {
@@ -106,6 +139,11 @@ export interface NewArtifact {
   caption?: string;
   ocrText?: string;
   dataJson?: unknown;
+  label?: string;
+  level?: string;
+  owner?: MessageRole;
+  parentArtifactId?: string;
+  version?: number;
 }
 
 /** Everything one turn writes — committed in ONE transaction. */
@@ -119,10 +157,20 @@ export interface TurnWrite {
   state?: Record<string, unknown | null>;
 }
 
+/** Background update of an artifact (aux model output); absent fields keep their value. */
 export interface ArtifactEnrichment {
   id: string;
-  caption: string;
-  ocrText: string;
+  caption?: string;
+  ocrText?: string;
+  dataJson?: unknown;
+  label?: string;
+}
+
+/** Artifacts loaded outside the newest-N window (design kinds: few and small). */
+export interface PinnedArtifactsOptions {
+  kinds: readonly string[];
+  /** Safety cap on pinned rows. */
+  max: number;
 }
 
 export interface PendingWorkflow {

@@ -2,7 +2,7 @@ import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest';
 import { markdownToPdf, closeBrowser } from '../../../../../src/modules/document/infrastructure/puppeteerPdfRenderer.adapter';
 import { BROWSER_TEST_TIMEOUT_MS } from '../../../../support/timeouts';
 
-vi.setConfig({ testTimeout: BROWSER_TEST_TIMEOUT_MS });
+vi.setConfig({ testTimeout: BROWSER_TEST_TIMEOUT_MS, hookTimeout: BROWSER_TEST_TIMEOUT_MS });
 
 describe('markdownToPdf — Mermaid + PDF output', () => {
   beforeAll(() => {

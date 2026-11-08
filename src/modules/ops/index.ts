@@ -28,4 +28,5 @@ export { OpsService } from './application/ops.service';
 export { maskEmail } from './domain/emailMask';
 export * from './domain/constants/ops.constants';
 export type { HeartbeatSettings } from './application/interfaces/heartbeatCron.interface';
-export type { OpsStatusSource } from './application/interfaces/ops.interface';
+export type { OpsStatusSource, DeepProbe, DeepHealthReport, DeepCheckResult } from './application/interfaces/ops.interface';
+export { OpsApiPath, DeepCheckName, DeepCheckStatus, LatencyWindow } from './domain/enums/ops.enums';

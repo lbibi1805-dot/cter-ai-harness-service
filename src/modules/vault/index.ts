@@ -4,6 +4,7 @@ import type { RetrievalModule } from '../retrieval';
 import type { ReconcileReport } from './application/interfaces/vault.interface';
 import { VaultService } from './application/vault.service';
 import { createVaultChunkGuard } from './application/vaultChunkGuard';
+import { createVaultLexicalCorpus } from './application/vaultLexicalCorpus';
 import { VaultIndexingService } from './application/vaultIndexing.service';
 import type { VaultDocumentReader, VaultRepository } from './domain';
 import { CachedVaultRepository } from './infrastructure/cachedVault.repository';
@@ -48,6 +49,7 @@ export function createVaultModule(config: VaultModuleConfig, deps: VaultModuleDe
   const indexing = new VaultIndexingService(retrieval ? () => retrieval.createIndexer(repository, service!.documents) : null);
   service = new VaultService(repository, vectors, storage, indexing);
   retrieval?.setChunkGuard(createVaultChunkGuard(repository));
+  retrieval?.lexical?.setCorpus(createVaultLexicalCorpus(repository, service.documents));
 
   const vaultService = service;
   const reconcile = (): Promise<ReconcileReport> => indexing.runExclusive(async () => {
@@ -62,6 +64,7 @@ export * from './domain';
 export type { ReconcileReport, VaultUploadResult, VaultFileView } from './application/interfaces/vault.interface';
 export { VaultService } from './application/vault.service';
 export { createVaultChunkGuard } from './application/vaultChunkGuard';
+export { createVaultLexicalCorpus } from './application/vaultLexicalCorpus';
 export { FileVaultRepository } from './infrastructure/fileVault.repository';
 export { InMemoryVaultRepository } from './infrastructure/inMemoryVault.repository';
 export { NeonVaultRepository } from './infrastructure/neonVault.repository';

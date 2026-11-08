@@ -1,5 +1,6 @@
 # Hướng dẫn Host & Cấu hình Backend
 
+> Cập nhật 08/11/2026: health check `/ping`, migration 007/008, biến latency/cache/resolver/essay (mục 4.3c), endpoint monitoring, cờ rollback.
 > Cập nhật 10/10/2026: bảng biến môi trường đầy đủ (mục 4), reranker + agent (mục 4.3), checklist và sự cố mới. Danh sách thay đổi code: [`CHANGES.md`](../CHANGES.md).
 
 Tài liệu này hướng dẫn cách chọn dịch vụ hosting và cấu hình để chạy Canvas File Helper trên môi trường production (24/7).
@@ -27,7 +28,7 @@ Backend này **không phải** app serverless. Nó cần:
 | **Oracle Cloud Always Free** ⭐ | 4 vCPU ARM + 24GB RAM, 200GB disk, 10TB egress/tháng, **miễn phí vĩnh viễn** | Tốt nhất. Khó khăn: đăng ký hay báo "out of capacity"; VM bị "idle" 7 ngày có thể bị thu hồi |
 | **GCP Always Free** | e2-micro 1GB RAM, 30GB HDD, **1GB egress/tháng** | Free thật nhưng egress 1GB rất dễ vượt với app gọi API liên tục → dễ phát sinh phí. Budget alert bắt buộc |
 | **Koyeb (free)** | 512MB RAM, không sleep | Không có persistent disk → mất state khi redeploy. Không khuyến nghị |
-| Render (free) — **đang dùng** | 750 giờ/tháng | Sleep sau 15p không có request HTTP. Đang giảm thiểu bằng cron heartbeat (`CRON_ENABLED`, 12 phút) + `POLL_AUTOSTART=true` (dậy là poll lại). Vẫn nên có ping ngoài (vd UptimeRobot → `/health`) |
+| Render (free) — **đang dùng** | 750 giờ/tháng | Sleep sau 15p không có request HTTP. Đang giảm thiểu bằng cron heartbeat (`CRON_ENABLED`, 12 phút) + `POLL_AUTOSTART=true` (dậy là poll lại). Vẫn nên có ping ngoài (vd UptimeRobot → `/ping`, không chạm DB) |
 | Fly.io / Railway | — | Không còn free tier cho user mới (Fly); Railway chỉ ~$1/tháng |
 
 **Lưu ý GCP:** bắt buộc đăng ký thẻ credit card (không thu phí, chỉ xác minh). Chỉ free tại 3 region: `us-west1`, `us-central1`, `us-east1`. Egress vượt 1GB tính ~$0.12/GB. Nên set **Budget Alert** ($1) trong Billing console.
@@ -90,12 +91,14 @@ Nguồn sự thật là `src/bootstrap/config/loadConfig.ts`; bảng dưới li�
 | `API_PORT` | `3000` | `3000` | |
 | `POLL_INTERVAL_MS` | — | `6000` | Một tick thật mất vài giây; dưới ~15 s các tick chạy liền nhau. Khuyến nghị `30000` |
 | `POLL_AUTOSTART` | `true` | *(mặc định)* | `false` → chờ `GET /start` mới poll |
-| `AI_TIMEOUT_MS` | `120000` | `120000` | Timeout mỗi lần gọi model |
-| `MAX_RETRY_COUNT` | — | có | Số lần thử lại file lỗi; cũng quyết định ngưỡng "processing" bị coi là treo |
+| `AI_TIMEOUT_MS` | `120000` | `120000` | Timeout mỗi lần gọi model **không stream** (polling/Canvas). Stream dùng timeout token đầu/khoảng lặng ở 4.3c |
+| `MAX_RETRY_COUNT` | `2` | **`2`** (hạ từ 12) | Số lần retry 429/5xx trước token đầu; cũng là số lần thử lại file lỗi và ngưỡng "processing" bị coi là treo. Giá trị 12 làm Gemini treo > 5 phút |
 | `DEFAULT_MODEL_{OPENAI,GEMINI,CLAUDE,GROK}` | openai: `gpt-6-astra` | gemini/claude/grok có; **openai chưa đặt** | Model khi tên file không ghi model |
 | `MODEL_FALLBACK_{OPENAI,GEMINI,CLAUDE,GROK}` | — | openai, gemini | Chuỗi model dự phòng, ngăn cách bằng dấu phẩy |
 | `GROK_BASE_URL` | `https://api.x.ai/v1` | có | |
-| `RAG_TOP_K` | `6` | `20` | Số chunk lấy từ Pinecone. **Khi bật rerank** chỉ còn là số chunk dùng lúc rerank lỗi |
+| `RAG_TOP_K` | `8` | `8` (trước 20) | Số chunk lấy từ Pinecone. **Khi bật rerank** chỉ còn là số chunk dùng lúc rerank lỗi |
+| `RAG_MIN_SCORE` | `0.3` | mặc định | Bỏ chunk score thấp hơn (luôn giữ top 2) |
+| `HYBRID_SEARCH_ENABLED` | `true` | mặc định | BM25 trong RAM (minisearch) + RRF với vector, mọi mode; 0 query Neon. `false` = chỉ vector |
 | `VAULT_PATH` | — | *(xoá được)* | **Không còn dùng** từ 07/11: vault nằm trên R2, upload qua `POST /api/vault/files` hoặc `npm run vault:upload` |
 | `OBJECT_STORAGE_DIR` | `./data/object-store` | không đặt | Thư mục thay R2 khi chạy local |
 | `CONVERSATION_STORE_ENABLED` | `false` | `true` sau smoke test | Hội thoại phía server + context engineering cho `/api/chat`, `/api/c4` (xem `docs/API_CONVERSATIONS.md`) |
@@ -107,7 +110,8 @@ Nguồn sự thật là `src/bootstrap/config/loadConfig.ts`; bảng dưới li�
 | `CANVAS_EMAIL_<n>` | — | có | Email nhận thông báo cho tài khoản n |
 | `GMAIL_USER`, `GMAIL_APP_PASSWORD` | — | có | Bỏ trống = tắt email |
 | `FRONTEND_URL` (hoặc `ALLOWED_ORIGINS`) | — | có | CORS cho client monitoring, ngăn cách bằng dấu phẩy |
-| `CRON_ENABLED`, `CRON_INTERVAL_MS` | — | `true`, `720000` | Heartbeat chống sleep Render |
+| `CRON_ENABLED`, `CRON_INTERVAL_MS` | — | `true`, `720000` | Heartbeat chống sleep Render — tự ping `/ping` (từ 08/11, trước `/health`), không chạm Neon/R2/Pinecone |
+| `POLL_CURSOR_FLUSH_MS` | `900000` | mặc định | Cursor poller cache trong RAM, ghi Neon tối đa 1 batch / N ms (+ flush khi SIGTERM). Để Neon được ngủ |
 
 ### 4.3 Agent và reranker (mới — **production chưa có các biến này**)
 
@@ -130,14 +134,59 @@ Nguồn sự thật là `src/bootstrap/config/loadConfig.ts`; bảng dưới li�
 
 | Biến | Mặc định | Ghi chú |
 |---|---|---|
-| `C4_PLANTUML_SERVER_URL` | `https://www.plantuml.com/plantuml` | Server render PNG. Server công khai đôi khi rate-limit; có thể self-host `plantuml/plantuml-server` (Docker) rồi trỏ vào |
+| `C4_PLANTUML_SERVER_URL` | `https://www.plantuml.com/plantuml` | Server render PNG (cả `POST /api/c4/render` — xem trước PlantUML trong chat). Server công khai đôi khi rate-limit; có thể self-host `plantuml/plantuml-server` (Docker) rồi trỏ vào |
 | `C4_INCLUDE_BASE` | `https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master` | Nguồn `C4_*.puml` (giống repo c4-plantuml-mcp-server). `stdlib` = bản đóng gói sẵn trong PlantUML, không fetch GitHub |
 | `C4_DEADLINE_MS` | `270000` | Hạn cứng một request (kẹp 60000–290000) để client nhận kết quả < 5 phút |
-| `C4_CALL_TIMEOUT_MS` | `150000` | Trần một lần gọi model (kể cả retry/fallback OpenRouter) |
+| `C4_CALL_TIMEOUT_MS` | `150000` | Trần một bước gọi model (kể cả retry/fallback OpenRouter) = min(giá trị này, thời gian còn lại của `C4_DEADLINE_MS`). Từ 08/11 chiều có hiệu lực thật (trước bị kẹp 90 s bởi `CHAT_DEADLINE_MS`) |
 | `C4_MAX_ELEMENTS` | `12` | Element tối đa mỗi diagram (kẹp 4–30) |
 | `C4_SHOW_LEGEND` | `false` | Thêm `SHOW_LEGEND()` vào diagram |
 
 Dùng chung `CHAT_API_TOKEN` với `/api/chat` (không có token → 503). Rule thiết kế/lưu ý thi: upload file `.md` vào vault; mỗi lần vẽ server tìm trong RAG theo đề bài + truy vấn "C4 design rules" và đưa cho mọi agent.
+
+### 4.3c Latency, prompt, cache, resolver, essay (mới 08/11 — đều có mặc định)
+
+| Biến | Mặc định | Ghi chú |
+|---|---|---|
+| `AI_FIRST_TOKEN_TIMEOUT_MS` | `15000` | Stream: chờ token đầu tối đa, quá → chuyển model |
+| `AI_IDLE_TIMEOUT_MS` | `20000` | Stream: khoảng lặng tối đa giữa 2 chunk |
+| `CHAT_DEADLINE_MS` | `90000` | Hạn chót **cả chuỗi** model (direct + OpenRouter) cho `/api/chat`. Từ 08/11 chiều polling Canvas dùng `CANVAS_DEADLINE_MS`, mỗi bước C4 dùng `C4_CALL_TIMEOUT_MS` |
+| `CANVAS_DEADLINE_MS` | `300000` | Hạn chót cả chuỗi cho 1 item polling Canvas (file Q&A + hội thoại Canvas). Câu trả lời PDF dài bị cắt → tăng |
+| `AI_CIRCUIT_FAILURE_THRESHOLD`, `AI_CIRCUIT_WINDOW_MS`, `AI_CIRCUIT_COOLDOWN_MS` | `3`, `60000`, `120000` | N lỗi 503/504/529/overloaded/timeout trong cửa sổ → bỏ qua model trong cooldown (xem `circuit[]` ở `/api/ai-usage`) |
+| `AI_MAX_OUTPUT_TOKENS` | `8192` | Gemini `maxOutputTokens` / OpenAI `max_output_tokens` |
+| `GEMINI_THINKING_LEVEL` | `minimal` | `minimal\|low\|medium\|high` |
+| `OPENAI_REASONING_EFFORT` | `low` | Chỉ gửi cho o-series/gpt-5*/gpt-6*/codex |
+| `OPENAI_SERVICE_TIER` | trống | `auto\|default\|flex\|priority`; trống = không gửi |
+| `OPENAI_PROMPT_CACHE_KEY` | `conversation` | `conversation\|prompt_version\|off` |
+| `PROMPT_CACHE_CLAUDE` | `false` | `cache_control` cho Claude; chỉ bật khi đo hit rate ≥ 50% |
+| `PROMPT_CACHE_LAYOUT` | `v2` | v2 = system tĩnh (ăn KV cache); `v1` = bố cục cũ (rollback) |
+| `MAX_CHAT_IMAGES` | `10` | Số ảnh tối đa mỗi câu hỏi (`/api/chat`, `/api/c4`) |
+| `CHAT_MAX_BODY_MB` | `20` | Giới hạn body JSON `/api/chat` |
+| `GEMINI_INLINE_IMAGES_MAX_MB` | `15` | Tổng ảnh vượt → adapter Gemini direct upload qua **Files API** (URI cache RAM 47 h); 413 chỉ khi upload lỗi. `/api/c4` vẫn chặn inline riêng |
+| `CHAT_UPLOAD_TTL_MS` | `3600000` | Ảnh upload qua `POST /api/chat/images` (`tmp/uploads/`) phải được dùng trong khoảng này; metadata chỉ trong RAM |
+| `CONTEXT_HOT_WINDOW_TURNS` | `2` | Ảnh của N cặp user/assistant gần nhất nằm tại chỗ trong history (≤ 3 ảnh/turn, ăn KV cache). `0` = hành vi cũ (rollback) |
+| `CONTEXT_MAX_PROMPT_IMAGES` | `16` | Trần tổng ảnh mỗi prompt (hiện tại + window + JIT); vượt → bỏ ảnh window cũ nhất |
+| `PROMPT_REGISTRY_ENABLED` | bật nếu có `prompts/core/system.md` | `false` = dùng `system-prompt.md` như cũ (rollback) |
+| `PROMPTS_DIR` | `prompts` | Thư mục registry (image Docker đã copy `prompts/` + `evals/`) |
+| `ARTIFACT_RESOLVER_MODE` | `rules+aux` | `off` (hành vi cũ) \| `rules` \| `rules+aux` |
+| `ARTIFACT_RESOLVER_MIN_SCORE`, `ARTIFACT_RESOLVER_MARGIN`, `ARTIFACT_RESOLVER_AUX_TIMEOUT_MS` | `2.5`, `1.0`, `1500` | Ngưỡng chọn artifact; aux cũng là Intent Router của `/api/c4` |
+| `CONTEXT_PINNED_KINDS` | `c4_spec,problem_brief,design_review,design_note` | Kind luôn có trong registry (≤ 60) |
+| `ESSAY_MODE_ENABLED` | `false` | Chỉ bật bộ **tự nhận diện** "(N điểm)"; `/essay` và `mode:"essay"` luôn chạy. Cần Pinecone |
+| `ESSAY_MAX_CHUNKS`, `ESSAY_WORDS_PER_POINT` | `12`, `175` | |
+| `ESSAY_SELF_CHECK`, `ESSAY_THINKING_LEVEL` | `false`, `low` | Self-check luôn chạy với `/essay strict` |
+| `ESSAY_ANALYSIS_TIMEOUT_MS`, `ESSAY_SELF_CHECK_TIMEOUT_MS` | `6000`, `20000` | Phân tích đề gộp vào call aux router: timeout = max(`ARTIFACT_RESOLVER_AUX_TIMEOUT_MS`, `ESSAY_ANALYSIS_TIMEOUT_MS`) |
+
+**Rollback không cần deploy:** `PROMPT_REGISTRY_ENABLED=false`, `PROMPT_CACHE_LAYOUT=v1`, `ARTIFACT_RESOLVER_MODE=off`, `HYBRID_SEARCH_ENABLED=false`, `CONTEXT_HOT_WINDOW_TURNS=0`.
+
+**`MODEL_FALLBACK_GEMINI`**: mặc định mới `gemini-3.5-flash,gemini-3.1-flash-lite` — `gemini-2.5-flash-lite` trả 404 cho key mới; nếu Render/`.env` đang đặt tay giá trị cũ thì xoá model này. Cột của migration 007/008 để nguyên (code cũ bỏ qua).
+
+### 4.3d Health check, migration, endpoint vận hành (mới 08/11)
+
+- **Health check Render: `/ping`** (text `ok`, không phụ thuộc gì). `render.yaml` đã đặt `healthCheckPath: /ping`; service tạo từ dashboard phải đổi tay ở **Settings → Health Check Path**. `/health` cũng không query DB (vault stats từ RAM, `vault: "loading"` tới khi load xong).
+- **Migration 007** (`artifact_references`) và **008** (`c4_intent`) được SchemaGuard **tự áp lúc khởi động** (idempotent, `ADD COLUMN IF NOT EXISTS`). Có thể chạy tay `migrations/007_*.sql`, `008_*.sql` trước để kiểm.
+- Endpoint vận hành mới (ADMIN_TOKEN): `GET /health/deep` (Neon + R2 + Pinecone, chỉ gọi khi cần), `/api/metrics/db`, `/api/metrics/latency?window=1h|24h`, `/api/config` (secret chỉ hiện boolean), `/api/storage/stats` (R2 list, tốn Class A), `/api/prompts`, `/api/evals`. Chỉ `/health/deep` và `/api/storage/stats` chạm dịch vụ ngoài.
+- Sau deploy: `/ping`, `/health`, `/health/deep` (1 lần); `/api/metrics/db` sau 30 phút idle **không tăng** (Neon ngủ được).
+- Package mới: `@google/genai`, `minisearch`.
+- Endpoint mới (08/11 chiều, CHAT_API_TOKEN): `POST /api/chat/images` (upload ảnh trước → `imageId`, lưu `tmp/uploads/`, 0 query Neon), `POST /api/c4/render` (PlantUML → PNG, cache RAM, 0 DB/R2). `/api/chat` và `/api/c4` nhận `imageIds[]`. Ảnh `/c4` đang chờ trả lời lưu ở `tmp/c4-pending/` (key nằm trong `pendingC4`, không thêm write Neon); lifecycle `tmp/` 1 ngày (checklist §6) dọn phần sót.
 
 ### 4.3b OpenRouter fallback (mới — tuỳ chọn)
 
@@ -172,6 +221,7 @@ Lỗi OpenRouter: `402` (hết credit) và `401` dừng ngay (FATAL); `403` (mod
 |---|---|
 | `SKIP_BROWSER_TESTS` | Bỏ test cần Chromium |
 | `cter-rag-eval/.env` (`SERVICE_URL`, `CHAT_API_TOKEN`, `JUDGE_*`) | repo đánh giá riêng (`uv run rag-eval …`), gitignored |
+| `HARNESS_URL`, `EVAL_PROVIDER`, `EVAL_MODEL`, `EVAL_JUDGE_PROVIDER`, `EVAL_JUDGE_MODEL` (+ `CHAT_API_TOKEN`) | `npm run eval` / `npm run eval:essay` (golden set trong `evals/golden/`). Chỉ trỏ dev/local |
 
 ### 4.5 Render: cách thêm biến
 
@@ -236,7 +286,9 @@ CMD ["node", "dist/index.js"]
 - [ ] Đã chạy `npm test` và `npm run test:load` xanh
 - [ ] R2: bucket đúng môi trường, token chỉ cho bucket đó, lifecycle rule `tmp/` 1 ngày + abort multipart 1 ngày; `npm run smoke:r2` xanh
 - [ ] Vault đã reset + upload lại sau khi chuyển sang R2 (`planning/planning-06112026/handoff/`), `POST /api/vault/sync` báo `legacyRows: 0`
-- [ ] `knowledge.md` + `system-prompt.md` có mặt (fallback khi RAG không hoạt động)
+- [ ] `knowledge.md` + `system-prompt.md` có mặt (fallback khi RAG không hoạt động); `prompts/` có trong image
+- [ ] Health Check Path = `/ping`; `MAX_RETRY_COUNT=2`, `RAG_TOP_K=8` (không bị dashboard override giá trị cũ)
+- [ ] Đã chạy `npm run eval` trên dev và lưu `evals/results/baseline.json` trước khi tin registry/bố cục v2 trên prod
 - [ ] Build thử local: `npm ci && npm run build && node dist/index.js`
 - [ ] Mở port cần thiết (3000) hoặc bỏ qua nếu chỉ dùng local
 - [ ] Set budget alert (GCP) / billing alarm (AWS) để tránh phí bất ngờ
@@ -254,4 +306,8 @@ CMD ["node", "dist/index.js"]
 | Không thấy log `[rerank] enabled` lúc khởi động | `RERANK_PROVIDER` khác `pinecone` hoặc thiếu `PINECONE_API_KEY` | Sửa biến, restart |
 | Câu trả lời agent ghi "documents were not retrieved" | `AGENT_MIN_TOOL_CALLS=0` | Đặt `1` |
 | Khởi động xong không poll | `POLL_AUTOSTART=false` | Gọi `GET /start` hoặc đặt `true` |
+| Chat trả 413 / 502 khi gửi nhiều ảnh | Body vượt `CHAT_MAX_BODY_MB` (413); hoặc ảnh Gemini vượt `GEMINI_INLINE_IMAGES_MAX_MB` và upload Files API lỗi (tới client thành 502) | Client nén ảnh / dùng `POST /api/chat/images`; xem log lỗi upload Files API |
+| Câu trả lời dài (PDF) bị cắt / lỗi deadline | Canvas file Q&A dùng `CANVAS_DEADLINE_MS` (300 s); chat dùng `CHAT_DEADLINE_MS` (90 s) | Tăng biến tương ứng |
+| Log Gemini 404 cho `gemini-2.5-flash-lite` | Model còn trong `MODEL_FALLBACK_GEMINI` đặt tay | Xoá khỏi biến (Render dashboard / `.env`) |
+| Câu trả lời lạ sau deploy 08/11 | Prompt registry / bố cục v2 / resolver | Rollback bằng cờ ở 4.3c |
 | Workflow `Fly Deploy` (GitHub Actions) fail | Repo không có `fly.toml`; production đang ở Render | Xoá/tắt workflow hoặc thêm `fly.toml` nếu chuyển sang Fly |

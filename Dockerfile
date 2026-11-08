@@ -36,6 +36,8 @@ COPY --from=builder /app/dist ./dist
 RUN --mount=type=bind,target=/tmp/context,source=. \
     mkdir -p /app/data && \
     if [ -f /tmp/context/system-prompt.md ]; then cp /tmp/context/system-prompt.md /app/system-prompt.md; else echo 'You are a helpful assistant.' > /app/system-prompt.md; fi && \
+    if [ -d /tmp/context/prompts ]; then cp -r /tmp/context/prompts /app/prompts; fi && \
+    if [ -d /tmp/context/evals ]; then cp -r /tmp/context/evals /app/evals; fi && \
     if [ -f /tmp/context/knowledge.md ]; then cp /tmp/context/knowledge.md /app/knowledge.md; else touch /app/knowledge.md; fi && \
     if [ -f /tmp/context/.vault-manifest.json ]; then cp /tmp/context/.vault-manifest.json /app/.vault-manifest.json && cp /tmp/context/.vault-manifest.json /app/data/.vault-manifest.json; else echo '{"files":{}}' > /app/.vault-manifest.json && echo '{"files":{}}' > /app/data/.vault-manifest.json; fi
 

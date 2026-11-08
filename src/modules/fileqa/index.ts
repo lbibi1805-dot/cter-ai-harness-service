@@ -14,6 +14,8 @@ export interface FileQaModuleDeps {
   state: StateManager;
   notifier: Notifier;
   answers: Answerer;
+  /** CANVAS_DEADLINE_MS: AI chain budget per file (absent = CHAT_DEADLINE_MS). */
+  deadlineMs?: number;
   /** Test hooks: fake Canvas, extractor or renderer. */
   overrides?: Partial<FileQaJobDeps>;
 }
@@ -24,6 +26,7 @@ export function createFileQaJob(folders: FileQaFolders, deps: FileQaModuleDeps):
     createClient: (account) => new CanvasFilesClient(account.url, account.apiKey),
     extract: extractContent,
     renderer: PDF_RESULT_RENDERER,
+    ...(deps.deadlineMs !== undefined ? { deadlineMs: deps.deadlineMs } : {}),
     ...deps.overrides,
   };
   return new FileQAJob(folders, deps.catalog, deps.state, deps.notifier, deps.answers, jobDeps);

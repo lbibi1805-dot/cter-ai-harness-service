@@ -8,3 +8,8 @@ export { Sleep } from './interfaces/retry.interface';
 export { DEFAULT_BACKOFF } from './constants/retry.constants';
 export { BackoffOptions } from './interfaces/retry.interface';
 export { FallbackFailure } from './interfaces/retry.interface';
+export * from './abortableTimeout';
+export * from './circuitBreaker';
+export type { GuardedCallControls, GuardedCallOptions } from './interfaces/abortableTimeout.interface';
+export type { CircuitBreakerOptions, OpenCircuit } from './interfaces/circuitBreaker.interface';
+export { DEFAULT_CIRCUIT_BREAKER } from './constants/circuitBreaker.constants';
