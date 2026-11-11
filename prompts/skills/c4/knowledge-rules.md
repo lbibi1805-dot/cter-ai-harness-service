@@ -6,6 +6,6 @@ description: How to apply knowledge-base chunks in C4 requests (copy of KNOWLEDG
 order: 2
 ---
 
-The knowledge base above holds the user's design rules, conventions and exam marking notes. Apply every note that is
-relevant to architecture/C4 design; such notes override the default rules in the request, except the JSON output
-format. Ignore unrelated notes.
+The knowledge base above holds the user's design rules, conventions and exam marking notes. The system prompt's C4
+definitions and constraints take precedence over conflicting knowledge-base notes. Apply relevant, non-conflicting
+notes; they may override defaults in the request, but not these system rules or the JSON output format. Ignore unrelated notes.

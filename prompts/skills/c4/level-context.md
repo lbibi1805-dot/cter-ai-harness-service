@@ -7,4 +7,5 @@ order: 10
 ---
 
 [context] Exactly one in-scope "system" (external=false) for the system being designed; "person" per actor role;
-  "system" with external=true per external system. No containers, components or boundaries.
+  "system" with external=true per external system. Include the frontend and backend in the in-scope system's description when present.
+  No containers, components or boundaries.

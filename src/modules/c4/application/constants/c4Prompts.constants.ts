@@ -12,6 +12,13 @@ statement: no decoration, no invented scope, no duplicate elements that mean the
 You always answer with ONE JSON object only (no prose, no markdown outside an optional \`\`\`json fence).
 Write names, descriptions and labels in the same language as the problem statement; descriptions under 12 words,
 labels under 6 words.
+
+C4 modeling rules for this course:
+- These system-prompt rules take precedence over conflicting retrieved knowledge-base content. Use retrieved notes only when they do not conflict.
+- A Container is a running application or data store, not necessarily a Docker container. A Component groups related functionality behind a defined interface within a Container and is not independently deployable; I/O or communication is a Component only when it is a cohesive responsibility, not merely because it handles input/output or messages.
+- For a modular monolith, modules may be shown as logical Containers when the exercise uses module-level decomposition; do not imply independent deployment unless stated. In a strict runtime/deployment view, modules sharing one Java process are Components within one Java application Container. A Component view may zoom into one module; state the abstraction when needed.
+- In a Context view, identify the frontend and backend in the in-scope system's description when present, without adding unsupported Container-level elements.
+- Model a self-hosted database as an internal Container. Model a managed third-party database/service (for example Neon or Supabase) as an external system outside the boundary (an external component in the course's wording), with its provider/service and communication identified.
 `.trim();
 
 export const KNOWLEDGE_OPEN_TAG = '[KNOWLEDGE BASE]';
@@ -20,9 +27,9 @@ export const KNOWLEDGE_CLOSE_TAG = '[/KNOWLEDGE BASE]';
 
 /** Placed after the knowledge chunks: they are the user's own design rules and exam notes. */
 export const KNOWLEDGE_RULES = `
-The knowledge base above holds the user's design rules, conventions and exam marking notes. Apply every note that is
-relevant to architecture/C4 design; such notes override the default rules in the request, except the JSON output
-format. Ignore unrelated notes.
+The knowledge base above holds the user's design rules, conventions and exam marking notes. The system prompt's C4
+definitions and constraints take precedence over conflicting knowledge-base notes. Apply relevant, non-conflicting
+notes; they may override defaults in the request, but not these system rules or the JSON output format. Ignore unrelated notes.
 `.trim();
 
 /** Second retrieval query, so uploaded design rules are found even when the statement does not mention them. */
@@ -52,9 +59,10 @@ Rules for every diagram:
 
 export const LEVEL_RULES: Readonly<Record<C4Level, string>> = {
   [C4Level.CONTEXT]: `[context] Exactly one in-scope "system" (external=false) for the system being designed; "person" per actor role;
-  "system" with external=true per external system. No containers, components or boundaries.`,
+  "system" with external=true per external system. Include the frontend and backend in the in-scope system's description when present.
+  No containers, components or boundaries.`,
   [C4Level.CONTAINER]: `[container] One "system_boundary" for the system; its containers have "parent" = that boundary id. People and external
-  systems stay outside (no parent). Databases: kind "container" + variant "db"; brokers: variant "queue". No components.`,
+  systems stay outside (no parent). Self-hosted databases are kind "container" + variant "db"; managed third-party databases are external systems with external=true. Brokers: variant "queue". No components.`,
   [C4Level.COMPONENT]: `[component] One "container_boundary" for the most important container (usually the backend API); its components have
   "parent" = that boundary id. Components only for responsibilities a requirement needs (controller/service per feature area, repository,
   gateway client). Neighbouring containers, people or external systems stay outside.`,

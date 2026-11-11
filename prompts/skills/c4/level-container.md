@@ -7,4 +7,4 @@ order: 10
 ---
 
 [container] One "system_boundary" for the system; its containers have "parent" = that boundary id. People and external
-  systems stay outside (no parent). Databases: kind "container" + variant "db"; brokers: variant "queue". No components.
+  systems stay outside (no parent). Self-hosted databases are kind "container" + variant "db"; managed third-party databases are external systems with external=true. Brokers: variant "queue". No components.
