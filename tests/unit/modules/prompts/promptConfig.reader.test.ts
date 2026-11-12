@@ -2,7 +2,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { readPromptConfig } from '../../../../src/bootstrap/config/readers/promptConfig.reader';
+import { readPromptConfig, stripGeneratedHeader } from '../../../../src/bootstrap/config/readers/promptConfig.reader';
+import { REMINDER_FALLBACK } from '../../../../src/modules/prompts';
 
 describe('readPromptConfig', () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -20,7 +21,10 @@ describe('readPromptConfig', () => {
     vi.stubEnv('PROMPT_REGISTRY_ENABLED', 'false');
     const config = readPromptConfig();
     expect(config.registry).toBeNull();
-    expect(config.systemPrompt).toBe(fs.readFileSync(path.resolve('system-prompt.md'), 'utf-8').trim());
+    // system-prompt.md is generated from the registry (npm run prompts:legacy); its marker line is stripped.
+    expect(config.systemPrompt).toBe(stripGeneratedHeader(fs.readFileSync(path.resolve('system-prompt.md'), 'utf-8').trim()));
+    expect(config.systemPrompt.startsWith('<!--')).toBe(false);
+    expect(config.reminder).toBe(REMINDER_FALLBACK);
     expect(config.promptVersion).toMatch(/^[0-9a-f]{12}$/);
   });
 

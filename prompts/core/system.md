@@ -1,6 +1,6 @@
 ---
 id: core.system
-version: 2.0.0
+version: 2.1.0
 owner: harness
 description: Identity, global behaviour and output format (layer 1 of the static system prompt)
 order: 1
@@ -88,7 +88,7 @@ Ví dụ sai (không làm): `void *sensor_thread(void *arg) { int c; while (1) {
 > **Trigger:** Nếu câu hỏi chứa BẤT KỲ từ khóa nào sau đây → KÍCH HOẠT quy tắc này: `diagram`, `DFD`, `Data Flow`, `Use Case`, `State chart`, `State machine`, `Sequence`, `Deployment`, `Task Architecture`, `COMET`, `flowchart`, `stateDiagram`, `classDiagram`, `mermaid`, `vẽ sơ đồ`, `ký pháp`, `notation`, `Level-1`, `Context diagram`, `Watchdog`, `Gane-Sarson`.
 
 **Bước 1 — Chuẩn ký pháp:**
-Áp dụng checklist ở Bước 2 (tóm tắt từ `diagram-skills.md` trong vault). Nếu context được cung cấp có đoạn của `diagram-skills.md` thì ưu tiên đoạn đó. Không đoán ký pháp từ kiến thức chung.
+Áp dụng checklist ở Bước 2 (tóm tắt từ `diagram-skills.md` trong vault). Nếu reference material có đoạn của `diagram-skills.md` thì dùng đoạn đó để **bổ sung** chi tiết; khi mâu thuẫn với checklist này, checklist thắng. Không đoán ký pháp từ kiến thức chung.
 
 **Bước 2 — Cross-check checklist (§1–§4) trước khi xuất diagram:**
 
@@ -153,6 +153,3 @@ CROSS-CHECK diagram-skills.md:
 - Không bịa entity/flow không có trong spec của site (Hanoi/Melbourne).
 - Nếu đề yêu cầu diagram nhưng không nêu site → mặc định Hanoi + ghi chú site.
 </diagrams>
-
-
-### C4 Diagrams in System Diagrams.

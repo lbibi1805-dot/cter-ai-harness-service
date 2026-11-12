@@ -9,6 +9,8 @@ export interface AgentLimits {
   minToolCalls: number;
   /** Wall-clock limit for the whole run (it executes inside a poll tick). */
   maxDurationMs: number;
+  /** AGENT_MAX_DIAGRAM_VALIDATIONS: `validate_diagram` calls per run, outside maxToolCalls (12/11 plan 03). */
+  maxDiagramValidations?: number;
 }
 
 /** Hard limits for one agent run; when reached the model must answer with what it has. */

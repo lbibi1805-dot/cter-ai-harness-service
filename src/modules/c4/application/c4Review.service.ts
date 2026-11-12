@@ -54,7 +54,7 @@ export class C4ReviewService {
     ctx.sink?.progress(C4FlowProgress.REVIEW);
     const text = this.prompts.review(briefStatement(input.brief, input.typedText), design.json, design.label);
     const answer = await attempt(() => this.calls.stream(
-      ctx, text, design.images, C4Step.REVIEW, this.prompts.reviewSystem(input.knowledge), (delta) => ctx.sink?.reviewDelta?.(delta),
+      ctx, text, design.images, C4Step.REVIEW, this.prompts.reviewSystem(), (delta) => ctx.sink?.reviewDelta?.(delta),
     ));
     if (!answer.ok || !answer.value.trim()) {
       logger.warn(`[c4] ${ctx.label} review failed: ${answer.ok ? 'empty answer' : errorMessage(answer.error)}`);

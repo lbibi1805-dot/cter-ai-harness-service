@@ -2,8 +2,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { EVAL_BASELINE_FILE, EVAL_RESULT_EXTENSION } from '../domain/constants/goldenEval.constants';
 import type { EvalResultEntry } from '../domain/interfaces/goldenEval.interface';
+import { EvalKind } from '../domain/enums/prompt.enums';
 
 interface StoredRun {
+  /** `rule-compliance` for `npm run eval:rules`; absent = golden QA (`npm run eval`). */
+  kind?: string;
   promptVersion?: string;
   date?: string;
   meanScore?: number;
@@ -32,14 +35,18 @@ export function listEvalResults(resultsDir: string): EvalResultEntry[] {
     if (!file.endsWith(EVAL_RESULT_EXTENSION) || file === EVAL_BASELINE_FILE) continue;
     const run = readRun(resultsDir, file);
     if (!run || typeof run.meanScore !== 'number') continue;
+    const kind = run.kind ?? EvalKind.GOLDEN_QA;
+    // The QA baseline only compares with QA runs (rule-compliance has its own target, 12/11 02 Bước 7).
+    const comparable = kind === EvalKind.GOLDEN_QA ? baselineScore : null;
     rows.push({
       file,
+      kind,
       date: run.date ?? null,
       promptVersion: run.promptVersion ?? null,
       score: run.meanScore,
       passRate: run.passRate ?? null,
-      baseline: baselineScore,
-      delta: baselineScore === null ? null : run.meanScore - baselineScore,
+      baseline: comparable,
+      delta: comparable === null ? null : run.meanScore - comparable,
     });
   }
   return rows.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.file.localeCompare(a.file));

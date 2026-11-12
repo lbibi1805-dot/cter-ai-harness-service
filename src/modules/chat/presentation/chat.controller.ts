@@ -12,6 +12,7 @@ import type { ChatLimits } from './interfaces/chatLimits.interface';
 import { ChatStreamEvent, ChatProgressStage } from './enums/chat.enums';
 import { NdjsonStream } from '../../../shared/http/ndjson';
 import { parseUploadBody } from './helpers/chat.helper';
+import type { PromptTrace } from './interfaces/promptTrace.interface';
 
 /** HTTP adapter for the chat API: parse the request, call ChatService, shape the JSON. */
 export class ChatController {
@@ -20,6 +21,8 @@ export class ChatController {
     private readonly limits: ChatLimits = DEFAULT_CHAT_LIMITS,
     /** Upload-first images (object storage); absent = `imageIds` and `/api/chat/images` answer 503. */
     private readonly uploads: StagedImageService | null = null,
+    /** `trace.prompt` provider (prompt registry); absent = no prompt trace. */
+    private readonly promptTrace?: PromptTrace,
   ) {}
 
   status = async ({ res }: RouteContext): Promise<void> => {
@@ -46,7 +49,7 @@ export class ChatController {
     if (!question.stream) {
       const answer = await this.chat.ask(question);
       this.consume(imageIds);
-      return sendJson(res, HttpStatus.OK, toChatAnswerDto(answer));
+      return sendJson(res, HttpStatus.OK, toChatAnswerDto(answer, this.promptTrace));
     }
 
     // The status line goes out with the first event, so errors before any text still get their HTTP status.
@@ -63,7 +66,7 @@ export class ChatController {
       }),
     });
     this.consume(imageIds);
-    out.end({ type: ChatStreamEvent.DONE, ...toChatAnswerDto(answer) });
+    out.end({ type: ChatStreamEvent.DONE, ...toChatAnswerDto(answer, this.promptTrace) });
   };
 
   /** The turn stored its own copy (user_image artifact): the staged uploads are deleted. A failed answer keeps them for a retry. */

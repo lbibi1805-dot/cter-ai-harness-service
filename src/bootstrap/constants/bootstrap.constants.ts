@@ -5,6 +5,8 @@ export const DEFAULT_POLL_INTERVAL_MS = 60_000;
 export const SYSTEM_PROMPT_FILE = 'system-prompt.md';
 export const KNOWLEDGE_FILE = 'knowledge.md';
 export const DEFAULT_SYSTEM_PROMPT = 'You are a helpful assistant.';
+/** First line of system-prompt.md, written by `npm run prompts:legacy` (stripped before the text reaches a model). */
+export const GENERATED_PROMPT_HEADER = '<!-- GENERATED from prompts/ by `npm run prompts:legacy` — do not edit; change prompts/*.md instead -->';
 /** Prompt registry root (PROMPTS_DIR): core/ policies/ domains/ skills/. */
 export const DEFAULT_PROMPTS_DIR = 'prompts';
 

@@ -6,6 +6,9 @@ import {
   BUDGET_EXHAUSTED_NOTE,
   InvalidToolArgumentsError,
   ModelTurnKind,
+  TOOL_REFERENCE_CLOSE,
+  TOOL_REFERENCE_OPEN,
+  ToolBudgetGroup,
   ToolRequestAfterBudgetError,
   UnknownToolError,
   ZERO_USAGE,
@@ -22,6 +25,10 @@ import { Attempt } from '../../../shared/resilience/interfaces/attempt.interface
 import { ProgressStage } from '../../ai/domain/enums/streamProgress.enums';
 import { AgentRunRequest, RunProgress, ExecutedTool } from './interfaces/agentRunner.interface';
 import { parseArguments } from './helpers/agentRunner.helper';
+
+function groupOf(tools: Map<string, AgentTool>, name: string): ToolBudgetGroup {
+  return tools.get(name)?.budgetGroup ?? ToolBudgetGroup.RESEARCH;
+}
 
 /**
  * The agent loop: model → tool calls → tool outputs → model … until the model
@@ -51,7 +58,8 @@ export class AgentRunner {
     let pendingOutputs: ToolOutput[] = [];
 
     for (;;) {
-      const exhausted = this.exhaustedReason(progress.steps.length, startedAt);
+      const research = this.researchCalls(progress, tools);
+      const exhausted = this.exhaustedReason(research, startedAt);
       let streamedText = false;
       const onDelta = request.stream
         ? (text: string) => {
@@ -64,7 +72,7 @@ export class AgentRunner {
       request.stream?.progress?.({ stage: ProgressStage.ANSWERING });
       const turn = await session.next(pendingOutputs, {
         allowTools: exhausted === null,
-        requireTool: exhausted === null && progress.steps.length < this.budget.minToolCalls,
+        requireTool: exhausted === null && research < this.budget.minToolCalls,
       }, onDelta);
       modelCalls++;
       usage = addUsage(usage, turn.usage);
@@ -92,17 +100,24 @@ export class AgentRunner {
 
   /**
    * Runs one turn's tool calls concurrently (every tool is read-only, so independent `search_vault` calls no
-   * longer wait for each other, 07 §3.5). Calls beyond the budget get the "budget exhausted" note. Steps,
-   * sources and outputs keep the order the model asked for.
+   * longer wait for each other, 07 §3.5). Calls beyond their budget (research: AGENT_MAX_TOOL_CALLS, diagram:
+   * AGENT_MAX_DIAGRAM_VALIDATIONS) get the "budget exhausted" note. Steps, sources and outputs keep the order
+   * the model asked for.
    */
   private async runToolCalls(calls: ToolCall[], progress: RunProgress, startedAt: number, request: AgentRunRequest, tools: Map<string, AgentTool>): Promise<ToolOutput[]> {
-    const outOfTime = this.exhaustedReason(progress.steps.length, startedAt) !== null;
-    const allowed = outOfTime ? 0 : Math.max(0, this.budget.maxToolCalls - progress.steps.length);
-    const firstIndex = progress.steps.length + 1;
-    const runs = calls.map((call, position) => {
-      if (position >= allowed) return null;
+    const research = this.researchCalls(progress, tools);
+    const outOfTime = this.exhaustedReason(research, startedAt) !== null;
+    const left: Record<ToolBudgetGroup, number> = {
+      [ToolBudgetGroup.RESEARCH]: outOfTime ? 0 : Math.max(0, this.budget.maxToolCalls - research),
+      [ToolBudgetGroup.DIAGRAM]: outOfTime ? 0 : Math.max(0, (this.budget.maxDiagramValidations ?? 0) - (progress.steps.length - research)),
+    };
+    let index = progress.steps.length;
+    const runs = calls.map((call) => {
+      const group = groupOf(tools, call.name);
+      if (left[group] <= 0) return null;
+      left[group]--;
       request.stream?.progress?.({ stage: ProgressStage.AGENT_TOOL, detail: call.name });
-      return this.execute(call, firstIndex + position, tools);
+      return this.execute(call, ++index, tools);
     });
     const executed = await Promise.all(runs);
 
@@ -121,6 +136,11 @@ export class AgentRunner {
   /** AGENT_MAX_DURATION_MS: the answer service gives a failed run's single-shot fallback what is left of it. */
   get maxDurationMs(): number {
     return this.budget.maxDurationMs;
+  }
+
+  /** Steps that count against AGENT_MAX_TOOL_CALLS (everything except diagram validations). */
+  private researchCalls(progress: RunProgress, tools: Map<string, AgentTool>): number {
+    return progress.steps.filter((step) => groupOf(tools, step.tool) === ToolBudgetGroup.RESEARCH).length;
   }
 
   private exhaustedReason(toolCalls: number, startedAt: number): AgentStopReason | null {
@@ -145,7 +165,8 @@ export class AgentRunner {
         contexts: [],
       };
     }
-    const output = truncateToolOutput(result.value.content, this.budget.maxToolResultChars);
+    const truncated = truncateToolOutput(result.value.content, this.budget.maxToolResultChars);
+    const output = tools.get(call.name)?.referenceMaterial ? `${TOOL_REFERENCE_OPEN}\n${truncated}\n${TOOL_REFERENCE_CLOSE}` : truncated;
     return {
       output,
       step: { index, tool: call.name, args, sources: result.value.sources, resultChars: output.length, durationMs },

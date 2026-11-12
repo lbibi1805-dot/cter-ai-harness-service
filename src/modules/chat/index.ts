@@ -1,3 +1,4 @@
+import type { PromptTrace } from './presentation/interfaces/promptTrace.interface';
 import { Router } from '../../shared/http/router';
 import { logger } from '../../shared/logging/logger';
 import type { Answerer } from '../agent/domain';
@@ -38,6 +39,8 @@ export interface ChatModuleDeps {
   /** Test hook: image downscaler (default `@napi-rs/canvas`). */
   resizer?: ImageResizer | null;
   now?: () => number;
+  /** `trace.prompt` (12/11 02 Bước 6): prompt composition of a path; absent = no prompt trace. */
+  promptTrace?: PromptTrace;
 }
 
 export interface ChatModule {
@@ -68,7 +71,7 @@ export function createChatModule(config: ChatModuleConfig, deps: ChatModuleDeps)
         ttlMs: limits.uploadTtlMs, maxEntries: STAGED_IMAGES_MAX_ENTRIES, now: deps.now ?? Date.now,
       })
     : null;
-  const controller = new ChatController(service, limits, uploads);
+  const controller = new ChatController(service, limits, uploads, deps.promptTrace);
   return { router: new Router(createChatRoutes(controller), config.chatApiToken), enabled, uploads };
 }
 
@@ -87,3 +90,4 @@ export { DEFAULT_CHAT_UPLOAD_TTL_MS, STAGED_IMAGE_PREFIX } from './application/c
 export type { ImageResizer, StagedImageDto } from './application/interfaces/stagedImages.interface';
 export { CHAT_OPENAPI_PATHS } from './presentation/constants/chatOpenApi.constants';
 export type { ChatTurns, ChatTurnInput, ChatTurnOutcome, ChatTurnRecord, PreparedChatTurn } from './application/interfaces/chatTurns.interface';
+export type { PromptTrace, PromptTraceEntry } from './presentation/interfaces/promptTrace.interface';

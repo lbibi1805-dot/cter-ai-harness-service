@@ -57,7 +57,7 @@ export class C4ModelCaller {
    */
   private call(ctx: C4RunContext, text: string, images: PromptImage[], step: string, budgetMs: number, systemPrompt?: string): C4ModelCall {
     return {
-      provider: ctx.provider, model: ctx.model, systemPrompt: systemPrompt ?? ctx.systemPrompt, text, images, label: `${ctx.label}-${step}`,
+      provider: ctx.provider, model: ctx.model, systemPrompt: systemPrompt ?? ctx.systemPrompt, text: this.prompts.userText(ctx.reference, text), images, label: `${ctx.label}-${step}`,
       deadlineAt: this.now() + budgetMs,
     };
   }

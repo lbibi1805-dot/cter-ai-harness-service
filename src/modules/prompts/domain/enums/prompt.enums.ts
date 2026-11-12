@@ -10,6 +10,20 @@ export enum PromptKind {
   SKILL = 'skill',
 }
 
+/** Answering paths whose prompt the registry composes (`GET /api/prompts` → `compositions`, `trace.prompt`). */
+export enum PromptPath {
+  SINGLE = 'single',
+  AGENT = 'agent',
+  ESSAY = 'essay',
+  C4 = 'c4',
+}
+
+/** Kind of a stored eval run (`GET /api/evals` → `kind`). */
+export enum EvalKind {
+  GOLDEN_QA = 'golden-qa',
+  RULE_COMPLIANCE = 'rule-compliance',
+}
+
 /** Frontmatter keys of a prompt file. */
 export enum PromptField {
   ID = 'id',

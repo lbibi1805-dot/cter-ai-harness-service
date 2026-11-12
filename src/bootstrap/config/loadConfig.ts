@@ -16,6 +16,7 @@ import { readStorageConfig } from './readers/storageConfig.reader';
 import { readContextConfig } from './readers/contextConfig.reader';
 import { readEssayConfig } from './readers/essayConfig.reader';
 import { DEFAULT_AGENT_BUDGET } from '../../modules/agent/domain/constants/agentBudget.constants';
+import { DEFAULT_AGENT_MAX_DIAGRAM_VALIDATIONS, DEFAULT_DIAGRAM_GUARD_ENABLED, DEFAULT_DIAGRAM_MAX_REPAIRS } from '../../modules/agent/application/constants/diagramGuard.constants';
 import { parseStorageProvider } from '../../shared/database/helpers/database.helper';
 
 /** Reads `.env` + system-prompt.md + knowledge.md once at startup. Bad values fail fast. */
@@ -47,6 +48,11 @@ export function loadConfig(): AppConfig {
       maxToolCalls: readInt('AGENT_MAX_TOOL_CALLS', DEFAULT_AGENT_BUDGET.maxToolCalls),
       minToolCalls: readInt('AGENT_MIN_TOOL_CALLS', DEFAULT_AGENT_BUDGET.minToolCalls),
       maxDurationMs: readInt('AGENT_MAX_DURATION_MS', DEFAULT_AGENT_BUDGET.maxDurationMs),
+      maxDiagramValidations: readInt('AGENT_MAX_DIAGRAM_VALIDATIONS', DEFAULT_AGENT_MAX_DIAGRAM_VALIDATIONS),
+    },
+    diagramGuard: {
+      enabled: readBoolean('DIAGRAM_SYNTAX_GUARD_ENABLED', DEFAULT_DIAGRAM_GUARD_ENABLED),
+      maxRepairs: readInt('DIAGRAM_SYNTAX_MAX_REPAIRS', DEFAULT_DIAGRAM_MAX_REPAIRS),
     },
     c4: readC4Config(),
     database: {

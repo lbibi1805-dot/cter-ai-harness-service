@@ -77,6 +77,9 @@ const PUBLIC_CONFIG_ENTRIES: readonly PublicConfigEntry[] = [
   ['RERANK_TOP_N', (c) => c.rerank?.topN],
   ['AGENT_MAX_TOOL_CALLS', (c) => c.agent?.maxToolCalls],
   ['AGENT_MAX_DURATION_MS', (c) => c.agent?.maxDurationMs],
+  ['AGENT_MAX_DIAGRAM_VALIDATIONS', (c) => c.agent?.maxDiagramValidations],
+  ['DIAGRAM_SYNTAX_GUARD_ENABLED', (c) => c.diagramGuard?.enabled],
+  ['DIAGRAM_SYNTAX_MAX_REPAIRS', (c) => c.diagramGuard?.maxRepairs],
   // Storage
   ['VAULT_STORAGE_PROVIDER', (c) => c.database?.provider],
   ['DATABASE_CONFIGURED', (c) => !!c.database?.databaseUrl],

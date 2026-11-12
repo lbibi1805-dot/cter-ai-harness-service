@@ -63,6 +63,12 @@ export interface C4ModuleDeps {
   aux?: C4AuxGateway | null;
   /** Prompt registry lookup (`prompts/skills/c4/*.md`); absent = the built-in constants. */
   skills?: C4SkillSource | null;
+  /** Precedence + domain system-architecture from the registry (12/11 02 Bước 4); absent = none. */
+  sharedRules?: string | null;
+  /** `prompts/policies/reminder.md`. */
+  reminder?: string;
+  /** Shared `POST /api/c4/render` service (its RAM cache also serves the diagram guard); absent = a new one. */
+  render?: C4RenderService;
   /** ARTIFACT_RESOLVER_* settings (which design a revise/review is about). */
   resolver?: Partial<ResolverSettings>;
 }
@@ -100,6 +106,8 @@ export function createC4Module(config: C4ModuleConfig, deps: C4ModuleDeps): C4Mo
       router: deps.router ?? null,
       aux: deps.aux ?? null,
       skills: deps.skills ?? null,
+      sharedRules: deps.sharedRules ?? null,
+      reminder: deps.reminder ?? '',
       ...(deps.resolver ? { resolver: deps.resolver } : {}),
       model: deps.model ?? new AIInvocationModelAdapter(deps.invocation),
       knowledge: deps.knowledge ?? new RagKnowledgeAdapter(deps.currentRetriever),
@@ -108,7 +116,7 @@ export function createC4Module(config: C4ModuleConfig, deps: C4ModuleDeps): C4Mo
       now: deps.now,
     },
   );
-  const render = new C4RenderService(enabled, renderer);
+  const render = deps.render ?? new C4RenderService(enabled, renderer);
   return { router: new Router(createC4Routes(new C4Controller(service, deps.uploads ?? null), new C4RenderController(render)), config.chatApiToken), service, render };
 }
 

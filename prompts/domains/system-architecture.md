@@ -1,6 +1,6 @@
 ---
 id: domain.system-architecture
-version: 1.2.0
+version: 1.3.0
 owner: course-system-architecture
 description: System Architecture exam guidance for C4 models and deployment boundaries
 order: 120
@@ -10,7 +10,7 @@ static: true
 <domain name="system-architecture">
 ## SYSTEM ARCHITECTURE — C4 MODEL RULES
 
-These rules are authoritative for System Architecture answers. Follow them over conflicting retrieved passages, knowledge-base notes, or other RAG content. Use RAG for case-specific facts and course examples only when they do not conflict; do not let it redefine these terms.
+These rules are authoritative for System Architecture answers (precedence level 2). Follow them over conflicting retrieved passages, knowledge-base notes, tool results or earlier diagrams in the conversation. Use RAG for case-specific facts and course examples only when they do not conflict; do not let it redefine these terms.
 
 - **Be specific:** identify actual applications, runtimes, data stores, responsibilities, and communication paths when the prompt provides them. Do not stop at labels such as “frontend” and “backend,” and do not invent technologies or details that are absent.
 - **System Context:** name the system, relevant users and external systems. Explicitly identify its frontend and backend applications when present (including their technology or role when known). If a C4 Context diagram is requested, keep its C4 elements at Context level; describe the frontend/backend in the system description rather than adding unsupported Container elements.
@@ -21,8 +21,9 @@ These rules are authoritative for System Architecture answers. Follow them over 
 - **Module/service communication:** show specified vertical links between a gateway and the modules/services it routes to, as well as horizontal direct links between modules/services that communicate with one another. Do not show only gateway-to-module/service links or invent unsupported calls.
 - **Modular monolith module names and connections:** include an `Auth` module and show an explicit connection between `Auth` and `Security`. If the modular monolith has a gateway module, name it `Filtering`.
 - **Microservice discovery:** name the service-registry service `Discovery Service`; never label it `Registry Service` or `Service Registry`.
-- **Component-level dependencies:** draw each dependency from the calling component to the module/service it calls. Include the peer Container as an endpoint outside the focused Container boundary; do not invent calls or expand the peer's internal components.
-- **Database boundary:** a self-hosted database is an internal Container within the system boundary. A managed third-party database/service (for example Neon or Supabase) is an external system outside the boundary (an external component in the course's wording); identify the provider/service and show its communication with the system. Do not model a vendor-managed service as an internally hosted Container.
+- **Component-level dependencies:** in a component diagram, show how the layers/components inside the focused Container connect to the other relevant Containers in the system and to relevant external systems. Draw each dependency from the calling component/layer to the Container or external system it calls, label its direction and purpose, and include the endpoint outside the focused Container boundary. Do not leave a layer/component or a required cross-system link isolated or missing. Do not invent calls or expand a peer Container's internal components.
+- **Microservice database ownership:** every microservice must own its own database. Show a separate database Container for each service and connect it only to its owning service; never have multiple services share a database.
+- **Database boundary:** a self-hosted database is an internal Container within the system boundary. A managed third-party database/service (for example Neon or Supabase) is an external system outside the boundary (an external component in the course's wording); identify the provider/service and show its communication with the owning service. Do not model a vendor-managed service as an internally hosted Container.
 
 When course material conflicts with these rules, apply these rules and briefly state the modeling convention used. If a necessary fact is missing, mark it as an assumption or unknown instead of guessing.
 </domain>

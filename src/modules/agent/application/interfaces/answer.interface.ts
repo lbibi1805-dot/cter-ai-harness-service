@@ -5,4 +5,6 @@ export interface AgentCapability {
   runner: AgentRunner;
   createModel: ToolCallingModelFactory;
   systemPrompt: string;
+  /** `prompts/policies/reminder.md`, appended after the question; empty = none. */
+  reminder?: string;
 }

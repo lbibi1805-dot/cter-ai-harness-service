@@ -20,7 +20,8 @@ const ONLY_FLAG = '--only';
 const JUDGE_SCALE = 10;
 const PERCENT = 100;
 /** Scored by scripts/eval-essay.ts (npm run eval:essay), not by this rule set. */
-const ESSAY_GOLDEN_FILES = new Set(['essay.jsonl']);
+/** Scored by their own scripts: eval-essay.ts (npm run eval:essay), eval-rules.ts (npm run eval:rules). */
+const ESSAY_GOLDEN_FILES = new Set(['essay.jsonl', 'rule-compliance.jsonl']);
 const JUDGE_SCORE = /\b(10|[0-9])(?:\s*\/\s*10)?\b/;
 
 function readGoldenCases(): GoldenCase[] {

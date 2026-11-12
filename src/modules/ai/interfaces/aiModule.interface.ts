@@ -15,6 +15,8 @@ export interface AiModuleConfig {
   knowledgeContent: string;
   /** PROMPT_CACHE_LAYOUT (note 18 §4); default v2. */
   promptLayout?: PromptCacheLayout;
+  /** `prompts/policies/reminder.md`: appended after the question (12/11 02 Bước 3). */
+  reminder?: string;
 }
 
 export interface AiModuleDeps extends AIInvocationDeps {

@@ -84,7 +84,7 @@ function service(model: ReturnType<typeof scriptedModel>, opts: ServiceOptions =
 const REQUEST: C4SketchRequest = { provider: AIProvider.GEMINI, description: 'Cinema booking with VNPay', levels: [], fast: false, stream: false, images: [] };
 
 describe('C4SketchService', () => {
-  it('runs architect → repair → critic: 3 model calls for 2 levels, knowledge in the system prompt', async () => {
+  it('runs architect → repair → critic: 3 model calls for 2 levels, knowledge as reference material in the user text', async () => {
     const model = scriptedModel((_call, step) => ({
       architect: architect(true),
       repair: JSON.stringify({ diagrams: { Container: fixedContainerSpec() } }),
@@ -93,7 +93,10 @@ describe('C4SketchService', () => {
     const result = await service(model).sketch(REQUEST);
 
     expect(steps(model.calls)).toEqual(['extract', 'architect', 'repair', 'critic']);
-    expect(model.calls[1].systemPrompt).toContain('Always draw an API gateway');
+    // 12/11 02 Bước 3: vault notes are reference material in the user message, never in the system role.
+    expect(model.calls[1].systemPrompt).not.toContain('Always draw an API gateway');
+    expect(model.calls[1].text).toContain('Always draw an API gateway');
+    expect(model.calls[1].text.indexOf('[REFERENCE MATERIAL')).toBeLessThan(model.calls[1].text.indexOf('Problem statement'));
     expect(model.calls[1].systemPrompt).not.toContain('CITATION RULES');
     expect(model.calls[3].images).toHaveLength(2);
     expect(result.intent).toMatchObject({ intent: 'c4_generate', source: 'rule' });

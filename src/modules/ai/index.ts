@@ -11,7 +11,7 @@ export function createAiModule(config: AiModuleConfig, deps: AiModuleDeps = {}):
   const configuredAdapters = new ConfiguredAIAdapterFactory(config.ai);
   const adapters = deps.adapters ?? configuredAdapters;
   const rag = new RagAvailability();
-  const prompts = new PromptPreparer(config.systemPrompt, config.knowledgeContent, rag, config.promptLayout);
+  const prompts = new PromptPreparer(config.systemPrompt, config.knowledgeContent, rag, config.promptLayout, config.reminder ?? '');
   const invocation = new AIInvocationService(config.ai, catalog, prompts, adapters, deps);
   return { catalog, adapters, configuredAdapters, rag, invocation, metrics: invocation.metrics, circuit: invocation.circuit };
 }
@@ -39,9 +39,8 @@ export {
   withJit,
   withMemory,
   placeMemory,
-  withConversationRules,
   layoutConversationMemory,
-  composeStaticSystemPrompt,
+  withReminder,
   summaryTurns,
 } from './domain/helpers/promptLayers.helper';
 export * from './domain/enums/promptLayout.enums';

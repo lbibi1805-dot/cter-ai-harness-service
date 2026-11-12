@@ -1,3 +1,4 @@
+import type { PromptTrace } from '../interfaces/promptTrace.interface';
 import { ValidationError } from '../../../../shared/errors';
 import { AnswerMode } from '../../../agent/domain';
 import { AI_PROVIDERS, parseAIProvider, type PromptImage } from '../../../ai';
@@ -59,7 +60,19 @@ function parseEssayRequest(rawQuestion: string, rawMode: string | undefined): { 
   return { question: rawQuestion };
 }
 
-export function toChatAnswerDto({ question, answer, durationMs, sources, conversation, essay }: ChatAnswer): ChatAnswerDto {
+/** Path whose prompt composition answered (`trace.prompt`): essay, agent or single-shot. */
+export function promptPathOf({ answer, essay }: ChatAnswer): string {
+  if (essay) return 'essay';
+  return answer.mode === 'agent' ? 'agent' : 'single';
+}
+
+/**
+ * `promptTrace` (12/11 02 Bước 6): `id@version` + size of each prompt file in composition order for the path that
+ * answered, added to `trace.prompt` when the request asked for a trace. No chunk content.
+ */
+export function toChatAnswerDto(chatAnswer: ChatAnswer, promptTrace?: PromptTrace): ChatAnswerDto {
+  const { question, answer, durationMs, sources, conversation, essay } = chatAnswer;
+  const prompt = question.includeTrace && promptTrace ? promptTrace(promptPathOf(chatAnswer)) : null;
   return {
     text: answer.text,
     provider: question.provider,
@@ -73,6 +86,6 @@ export function toChatAnswerDto({ question, answer, durationMs, sources, convers
     sources,
     ...(answer.timings ? { timings: answer.timings } : {}),
     ...(essay ? { essay } : {}),
-    ...(question.includeTrace ? { trace: { contexts: answer.contexts ?? [], ...(answer.agent ? { agent: answer.agent } : {}) } } : {}),
+    ...(question.includeTrace ? { trace: { contexts: answer.contexts ?? [], ...(answer.agent ? { agent: answer.agent } : {}), ...(prompt ? { prompt } : {}) } } : {}),
   };
 }

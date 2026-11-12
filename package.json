@@ -19,7 +19,10 @@
     "vault:export-legacy": "tsx scripts/export-legacy-vault.ts",
     "eval": "tsx scripts/eval-prompts.ts",
     "eval:essay": "tsx scripts/eval-essay.ts",
-    "eval:cache": "tsx scripts/eval-cache.ts"
+    "eval:cache": "tsx scripts/eval-cache.ts",
+    "eval:rules": "tsx scripts/eval-rules.ts",
+    "prompts:legacy": "tsx scripts/generate-legacy-prompt.ts",
+    "prompts:check": "tsx scripts/generate-legacy-prompt.ts --check"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",

@@ -48,6 +48,8 @@ export interface GoldenRunSummary {
 /** One row of `GET /api/evals`. */
 export interface EvalResultEntry {
   file: string;
+  /** `golden-qa` (npm run eval) or `rule-compliance` (npm run eval:rules). */
+  kind: string;
   date: string | null;
   promptVersion: string | null;
   /** Mean score 0-1. */
