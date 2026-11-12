@@ -24,7 +24,7 @@ describe('12/11 02 Bước 5: every instruction comes from prompts/', () => {
   it('the composition starts with policy.precedence and includes the new policies; reminder is not in the system prompt', () => {
     const ids = registry.staticLayers().map((l) => `${l.id}@${l.version}`);
     expect(ids[0]).toBe('policy.precedence@1.0.0');
-    expect(ids).toEqual(expect.arrayContaining(['core.system@2.1.0', 'policy.citation@2.0.0', 'policy.conversation@1.0.0', 'policy.diagram-syntax@1.0.0', 'domain.system-architecture@1.3.0']));
+    expect(ids).toEqual(expect.arrayContaining(['core.system@2.1.0', 'policy.citation@2.0.0', 'policy.conversation@1.0.0', 'policy.diagram-syntax@1.0.0', 'domain.system-architecture@1.4.0']));
     expect(ids.some((id) => id.startsWith('policy.reminder'))).toBe(false);
     expect(registry.systemPrompt).not.toContain('[REMINDER]');
     expect(registry.systemPrompt).not.toContain('### C4 Diagrams in System Diagrams.');
