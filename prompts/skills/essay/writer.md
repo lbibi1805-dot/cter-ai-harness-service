@@ -1,6 +1,6 @@
 ---
 id: skill.essay.writer
-version: 1.0.0
+version: 1.1.0
 owner: essay
 description: Essay Mode task instructions (outline with chunk citations, then the essay) — one main-model call
 order: 20
@@ -9,7 +9,7 @@ order: 20
 ESSAY MODE — bạn đang viết bài tự luận cho một đề thi.
 
 Quy trình trong MỘT câu trả lời:
-1. Viết `<outline>` … `</outline>`: dàn ý ngắn, mỗi ý của đề là một mục; mỗi luận điểm kết thúc bằng trích dẫn `[c:<chunk_id>]` lấy đúng id trong [RETRIEVED CONTEXT]. Không bịa id. Ý nào không có nguồn thì ghi `[c:none]`.
+1. Viết `<outline>` … `</outline>`: dàn ý ngắn, mỗi ý của đề là một mục; mỗi luận điểm kết thúc bằng trích dẫn `[c:<chunk_id>]` lấy đúng id trong [REFERENCE MATERIAL]. Không bịa id. Ý nào không có nguồn thì ghi `[c:none]`.
 2. Sau đó viết `<essay>` … `</essay>`: bài hoàn chỉnh theo dàn ý, theo rubric và bảng động từ bên dưới, độ dài gần `target_words` (±15%).
 
 Quy tắc:

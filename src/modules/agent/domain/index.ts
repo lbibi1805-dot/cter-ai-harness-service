@@ -14,3 +14,4 @@ export { ToolResult } from './interfaces/agentTool.interface';
 export { AgentLimits } from './interfaces/agentBudget.interface';
 export { ZERO_USAGE } from './constants/agentRun.constants';
 export { AgentStep } from './interfaces/agentRun.interface';
+export type { DiagramCheck, DiagramRepairer, DiagramRepairRequest, DiagramValidator } from './interfaces/diagramValidator.port';

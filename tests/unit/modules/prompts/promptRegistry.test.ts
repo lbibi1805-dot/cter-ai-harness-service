@@ -10,7 +10,7 @@ function file(filePath: string, id: string, body: string, extra = ''): RawPrompt
 
 const BASE: RawPromptFile[] = [
   file('policies/language.md', 'policy.language', 'LANGUAGE', 'order: 10\n'),
-  file('core/system.md', 'core.system', 'CORE'),
+  file('core/system.md', 'core.system', 'CORE', 'order: 1\n'),
   file('policies/citation.md', 'policy.citation', 'CITATION', 'order: 20\n'),
   file('domains/usability.md', 'domain.usability', 'USABILITY', 'static: true\nmatch: ["*usability*"]\n'),
   file('domains/testing.md', 'domain.testing', 'TESTING', 'match:\n  - "software-tes*ing-*"\n  - istqb\n'),
@@ -22,6 +22,18 @@ describe('PromptRegistry', () => {
   it('composes core → policies (by order) → static domains; skills and other domains stay out', () => {
     const registry = new PromptRegistry(BASE);
     expect(registry.systemPrompt).toBe('CORE\n\nLANGUAGE\n\nCITATION\n\nUSABILITY');
+  });
+
+  it('12/11 02: a policy with order 0 (precedence) opens the prompt; a `static: false` policy (reminder) stays out', () => {
+    const registry = new PromptRegistry([
+      ...BASE,
+      file('policies/precedence.md', 'policy.precedence', 'PRECEDENCE', 'order: 0\n'),
+      file('policies/reminder.md', 'policy.reminder', 'REMINDER', 'order: 90\nstatic: false\n'),
+    ]);
+    expect(registry.systemPrompt).toBe('PRECEDENCE\n\nCORE\n\nLANGUAGE\n\nCITATION\n\nUSABILITY');
+    expect(registry.policy('policy.reminder')?.body).toBe('REMINDER');
+    expect(registry.staticLayers().map((l) => l.id)).toEqual(['policy.precedence', 'core.system', 'policy.language', 'policy.citation', 'domain.usability']);
+    expect(registry.list().find((e) => e.id === 'policy.reminder')?.active).toBe(false);
   });
 
   it('composition order does not depend on the file listing order', () => {

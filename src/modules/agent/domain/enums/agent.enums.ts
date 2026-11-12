@@ -19,6 +19,16 @@ export enum AgentToolName {
   /** Conversation artifacts (note 17 step 8), added per request when the conversation store is on. */
   LIST_ARTIFACTS = 'list_artifacts',
   GET_ARTIFACT = 'get_artifact',
+  /** Renders a PlantUML block and returns OK or the syntax error (12/11 plan 03 §4); own budget. */
+  VALIDATE_DIAGRAM = 'validate_diagram',
+}
+
+/** Which budget a tool call counts against (12/11 plan 03 §4: diagram checks never use up research calls). */
+export enum ToolBudgetGroup {
+  /** AGENT_MAX_TOOL_CALLS (default for every tool). */
+  RESEARCH = 'research',
+  /** AGENT_MAX_DIAGRAM_VALIDATIONS. */
+  DIAGRAM = 'diagram',
 }
 
 /** Why an agent request was answered by the single-shot path instead. */

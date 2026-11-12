@@ -2,12 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { createHash, randomUUID } from 'crypto';
 import { AIProvider, PromptPreparer, RagAvailability, type PromptContent } from '../../../../src/modules/ai';
 import { PromptCacheLayout } from '../../../../src/modules/ai/domain/enums/promptLayout.enums';
-import { CONVERSATION_MEMORY_ANCHOR, CONVERSATION_SOURCE_RULE, DIAGRAM_EDIT_RULE } from '../../../../src/modules/ai/domain/constants/promptLayers.constants';
 import { placeMemory } from '../../../../src/modules/ai/domain/helpers/promptLayers.helper';
 import { DEFAULT_CONTEXT_SETTINGS, createContextModule, staticPrefixOf, promptVersionOf } from '../../../../src/modules/context';
 import { ConversationService, InMemoryConversationStore } from '../../../../src/modules/conversation-store';
 import { CitationPromptBuilder } from '../../../../src/modules/retrieval';
-import { CITATION_RULES } from '../../../../src/modules/retrieval/application/constants/citationPrompt.constants';
 import { FakeObjectStorage } from '../../../support/countingAdapters';
 
 const BASE = 'BASE SYSTEM PROMPT';
@@ -39,10 +37,9 @@ describe('PROMPT_CACHE_LAYOUT=v2 (note 18 §4, §7)', () => {
     const systems = new Set(prompts.map((p) => p.systemPrompt));
     expect(systems.size).toBe(1);
     const [system] = systems;
-    expect(system).toBe(`${BASE}\n\n${CITATION_RULES}\n\n${CONVERSATION_SOURCE_RULE}\n${CONVERSATION_MEMORY_ANCHOR}\n${DIAGRAM_EDIT_RULE}`);
-    expect(DIAGRAM_EDIT_RULE).toContain('```plantuml');
+    // 12/11 02 Bước 2: the code appends no rule text: the system prompt is the registry composition as is.
+    expect(system).toBe(BASE);
     expect(system).toBe(staticPrefixOf(BASE, PromptCacheLayout.V2));
-    expect(CONVERSATION_SOURCE_RULE).toContain('Dựa trên [A7]');
   });
 
   it('tail order: ③ registry → ⑤ JIT → ⑥ RAG → ⑦ question; a legacy `memory` goes to the tail, never to the system prompt', async () => {

@@ -4,4 +4,6 @@ export enum ProgressStage {
   ANSWERING = 'answering',
   /** The agent is running a tool; `detail` is the tool name. */
   AGENT_TOOL = 'agent-tool',
+  /** The answer is written; its PlantUML blocks are being rendered/repaired (12/11 plan 03 §5). */
+  VALIDATING_DIAGRAM = 'validating-diagram',
 }

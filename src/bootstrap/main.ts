@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { EVAL_RESULTS_DIR, listEvalResults } from '../modules/prompts';
+import { COMPOSED_PATHS, EVAL_RESULTS_DIR, listEvalResults, type PromptPath } from '../modules/prompts';
 import { createAgentModule, createToolCallingModelFactory } from '../modules/agent';
 import { DEFAULT_AI_LATENCY, createAiModule } from '../modules/ai';
 import { createC4Module } from '../modules/c4';
@@ -26,6 +26,8 @@ import { logConfiguration } from './startup/configurationReport';
 import { buildOpsStatusSource } from './startup/opsStatusSource';
 import { indexVaultAndEnableRag } from './startup/ragWarmup';
 import { buildEssayService } from './startup/essayWiring';
+import { buildDiagramWiring } from './startup/diagramWiring';
+import { legacyPromptInSync } from './startup/legacyPrompt';
 
 /** Composition root: builds every module from the config, then starts the HTTP server and polling. */
 export async function main(): Promise<void> {
@@ -34,7 +36,7 @@ export async function main(): Promise<void> {
   // Static system prompt (layer ①): `prompts/` registry when present, else system-prompt.md. Domains/skills: config.prompts.registry.
   logger.info(`[prompts] ${config.prompts.registry ? 'registry' : 'system-prompt.md'} · promptVersion ${config.prompts.promptVersion ?? '-'}`);
   const promptLayout = config.context.settings.promptLayout;
-  const ai = createAiModule({ ai: { ...config.ai, ...(config.chat ? { geminiInlineImagesMaxBytes: config.chat.geminiInlineImagesMaxBytes } : {}) }, systemPrompt: config.prompts.systemPrompt, knowledgeContent: config.prompts.knowledgeContent, promptLayout });
+  const ai = createAiModule({ ai: { ...config.ai, ...(config.chat ? { geminiInlineImagesMaxBytes: config.chat.geminiInlineImagesMaxBytes } : {}) }, systemPrompt: config.prompts.systemPrompt, knowledgeContent: config.prompts.knowledgeContent, promptLayout, reminder: config.prompts.reminder });
   logConfiguration(config, ai);
   const state = new StateManager();
   state.load();
@@ -50,9 +52,17 @@ export async function main(): Promise<void> {
   const vault = createVaultModule({ database: config.database, adminToken: config.http.adminToken }, { retrieval, storage });
 
   // 3. Answering: single-shot by default; `_agent` files / `mode: agent` requests use the agent with fallback
+  // 12/11 plan 03: PlantUML render (validate_diagram tool, post-answer guard, /api/c4/render) + aux repair.
+  const isProviderConfigured = (provider: Parameters<typeof ai.configuredAdapters.isConfigured>[0]) => ai.configuredAdapters.isConfigured(provider);
+  const diagrams = buildDiagramWiring(config, ai, isProviderConfigured);
   const agent = createAgentModule(
-    { limits: config.agent, systemPrompt: config.prompts.systemPrompt, promptLayout },
     {
+      limits: config.agent, systemPrompt: config.prompts.systemPrompt, promptLayout,
+      researchMode: config.prompts.researchMode, reminder: config.prompts.reminder, diagramGuard: config.diagramGuard,
+    },
+    {
+      diagramValidator: diagrams.validator,
+      diagramRepairer: diagrams.repairer,
       singleShot: ai.invocation,
       vaultRepository: vault.repository,
       vaultDocuments: vault.service,
@@ -63,7 +73,6 @@ export async function main(): Promise<void> {
   );
 
   // 4. Server-side conversations + context engineering (API path only; the Canvas poller is unchanged)
-  const isProviderConfigured = (provider: Parameters<typeof ai.configuredAdapters.isConfigured>[0]) => ai.configuredAdapters.isConfigured(provider);
   const conversations = createConversationStoreModule(
     { enabled: config.context.conversationStoreEnabled, purgeDays: config.context.purgeDays, database: config.database, chatApiToken: config.http.chatApiToken, adminToken: config.http.adminToken },
     { storage },
@@ -90,6 +99,7 @@ export async function main(): Promise<void> {
     { chatApiToken: config.http.chatApiToken, limits: config.chat },
     {
       answers: agent.clientAnswers, catalog: ai.catalog, agentEnabled: agent.enabled, isProviderConfigured, turns: context?.turns, storage,
+      ...(config.prompts.registry ? { promptTrace: (p: string) => config.prompts.registry!.composition(p as PromptPath) } : {}),
       ...(essay ? { essay } : {}),
       // Essay Mode: the router's one aux call also returns the essay analysis (note 15 step ①).
       essayAux: ({ imageCount }) => routing.router.essaySession({ imageCount, designCount: 0 }, config.essay.analysisTimeoutMs),
@@ -115,6 +125,9 @@ export async function main(): Promise<void> {
       router: routing.router,
       aux: routing.auxModel,
       skills: config.prompts.registry ? (id) => config.prompts.registry!.skill(id)?.body ?? null : null,
+      sharedRules: config.prompts.c4Rules,
+      reminder: config.prompts.reminder,
+      ...(config.http.chatApiToken ? { render: diagrams.render } : {}),
       resolver: config.context.settings.resolver,
     },
   );
@@ -134,13 +147,20 @@ export async function main(): Promise<void> {
       },
     },
   );
+  const legacyInSync = config.prompts.registry ? legacyPromptInSync(config.prompts.registry.systemPrompt) : null;
   const ops = createOpsModule(
     { port: config.http.port, heartbeat: config.heartbeat, adminToken: config.http.adminToken },
     buildOpsStatusSource(config, ai, polling, vault, storage, {
-      latency: (windowMs) => ai.metrics.summary(windowMs),
+      latency: (windowMs) => ({ ...ai.metrics.summary(windowMs), diagramGuard: agent.diagramGuard?.stats() ?? null }),
       circuit: () => ai.circuit.snapshot(),
       prompts: config.prompts.registry
-        ? () => ({ promptVersion: config.prompts.promptVersion, prompts: config.prompts.registry!.list() })
+        ? () => ({
+          promptVersion: config.prompts.promptVersion,
+          prompts: config.prompts.registry!.list(),
+          // 12/11 02 Bước 6: composition order per path + whether system-prompt.md (rollback copy) is current.
+          compositions: Object.fromEntries(COMPOSED_PATHS.map((p) => [p, config.prompts.registry!.composition(p)])),
+          legacyInSync,
+        })
         : undefined,
       evals: () => listEvalResults(path.resolve(process.cwd(), EVAL_RESULTS_DIR)),
     }),

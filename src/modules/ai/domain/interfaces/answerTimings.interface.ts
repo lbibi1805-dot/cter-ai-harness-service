@@ -22,4 +22,12 @@ export interface AnswerTimings {
   retrievalMs?: number;
   /** LLM invocations behind the answer when a pipeline made several (Essay Mode: analysis + writing + self-check). */
   llmCalls?: number;
+  /** Diagram syntax guard (12/11 plan 03 §5): time spent rendering/repairing PlantUML blocks after the answer. */
+  diagramValidateMs?: number;
+  /** PlantUML blocks checked by the guard. */
+  diagramBlocks?: number;
+  /** Blocks replaced by a repaired version that renders. */
+  diagramRepairs?: number;
+  /** Blocks still broken after the repair (the original is kept). */
+  diagramRepairFailed?: number;
 }

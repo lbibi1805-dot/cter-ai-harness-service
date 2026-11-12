@@ -16,7 +16,6 @@ import {
   ARTIFACT_REFS_HEADING,
   CHARS_PER_TOKEN,
   COMPACT_ELEMENTS_MAX,
-  CONVERSATION_SOURCE_RULE,
   DESIGN_REFERENCE_WORDS,
   IMAGE_IN_HISTORY_LABEL,
   IMAGE_REFERENCE_WORDS,
@@ -89,10 +88,10 @@ export function buildRegistry(snapshot: ConversationSnapshot | null, settings: C
   return lines.length > 0 ? [MEMORY_HEADER, ...lines].join('\n') : '';
 }
 
-/** Layout V1 — layers ② + ③ as one system-prompt block (rule, summary, one line per artifact). */
+/** Layout V1 — layers ② + ③ as one system-prompt block (summary, one line per artifact); the source rule is in prompts/policies/conversation.md. */
 export function buildMemory(snapshot: ConversationSnapshot | null, settings: ContextSettings): string {
   if (isEmpty(snapshot)) return '';
-  const parts: string[] = [CONVERSATION_SOURCE_RULE];
+  const parts: string[] = [];
   if (snapshot.summary?.trim()) parts.push(SUMMARY_HEADER, snapshot.summary.trim());
   parts.push(...registryLines(snapshot, settings));
   return [MEMORY_HEADER, ...parts].join('\n');

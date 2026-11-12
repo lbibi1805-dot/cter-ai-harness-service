@@ -1,10 +1,4 @@
-import {
-  CONVERSATION_MEMORY_ANCHOR,
-  CONVERSATION_SOURCE_RULE,
-  DIAGRAM_EDIT_RULE,
-  SUMMARY_TURN_ACK,
-  SUMMARY_TURN_HEADER,
-} from '../constants/promptLayers.constants';
+import { SUMMARY_TURN_ACK, SUMMARY_TURN_HEADER } from '../constants/promptLayers.constants';
 import { ConversationRole } from '../enums/ai.enums';
 import { PromptCacheLayout } from '../enums/promptLayout.enums';
 import type { ConversationTurn, PromptContent } from '../interfaces/promptContent.interface';
@@ -19,14 +13,12 @@ export function withJit(userContent: string, jit: string | undefined): string {
   return jit?.trim() ? `${jit.trim()}\n\n${userContent}` : userContent;
 }
 
-/** Static conversation rules (source rule + memory anchor + diagram-edit rule) appended to a system prompt (layout V2). */
-export function withConversationRules(systemPrompt: string): string {
-  return `${systemPrompt}\n\n${CONVERSATION_SOURCE_RULE}\n${CONVERSATION_MEMORY_ANCHOR}\n${DIAGRAM_EDIT_RULE}`;
-}
-
-/** Layer ① of layout V2: base + citation rules + conversation rules — the same bytes for every request. */
-export function composeStaticSystemPrompt(basePrompt: string, citationRules: string): string {
-  return withConversationRules(`${basePrompt}\n\n${citationRules}`);
+/**
+ * Appends the static reminder (`prompts/policies/reminder.md`) after the user's question (12/11 02 Bước 3):
+ * the same bytes on every request, so the cacheable prefix does not change.
+ */
+export function withReminder(textContent: string, reminder: string | undefined): string {
+  return reminder?.trim() ? `${textContent}\n\n${reminder.trim()}` : textContent;
 }
 
 /** Layer ② of layout V2: the summary as the first (user) history turn plus a static assistant ack. */

@@ -2,9 +2,7 @@ import * as crypto from 'crypto';
 import { logger } from '../../shared/logging/logger';
 import type { AIInvocationService, AIProvider } from '../ai';
 import { PromptCacheLayout } from '../ai/domain/enums/promptLayout.enums';
-import { composeStaticSystemPrompt } from '../ai/domain/helpers/promptLayers.helper';
 import type { ConversationService, ConversationStore } from '../conversation-store';
-import { CITATION_RULES } from '../retrieval/application/constants/citationPrompt.constants';
 import { ContextJobs } from './application/contextJobs.service';
 import { ConversationTurnService } from './application/conversationTurn.service';
 import { C4ConversationRecorderAdapter } from './application/c4ConversationRecorder';
@@ -46,9 +44,12 @@ export function promptVersionOf(systemPrompt: string): string {
   return crypto.createHash('sha256').update(systemPrompt).digest('hex').slice(0, 12);
 }
 
-/** The static layer ① the answering model actually gets for this layout (V2: base + citation + conversation rules). */
-export function staticPrefixOf(systemPrompt: string, layout: PromptCacheLayout): string {
-  return layout === PromptCacheLayout.V2 ? composeStaticSystemPrompt(systemPrompt, CITATION_RULES) : systemPrompt;
+/**
+ * The static layer ① the answering model actually gets: the registry composition as is, in both layouts
+ * (12/11 02 Bước 2: the code appends no rule text). `layout` is kept for callers.
+ */
+export function staticPrefixOf(systemPrompt: string, _layout?: PromptCacheLayout): string {
+  return systemPrompt;
 }
 
 /** Context engineering for the API path: Context Assembler, artifact resolver, artifact memory, auto-compact. */

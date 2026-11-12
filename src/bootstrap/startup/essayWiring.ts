@@ -25,6 +25,7 @@ export function buildEssayService(config: AppConfig, { ai, retrieval, ranking, v
     registry: config.prompts.registry ?? null,
     exemplars: retrieval.lexical ? new VaultExemplarSource(retrieval.lexical, (filePath) => vault.service.readDocument(filePath)) : null,
     systemPrompt: config.prompts.systemPrompt,
+    reminder: config.prompts.reminder,
     promptLayout: config.context.settings.promptLayout,
   });
 }

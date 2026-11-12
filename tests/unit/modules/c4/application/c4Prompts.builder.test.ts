@@ -17,6 +17,6 @@ describe('C4 prompts from the prompt registry', () => {
   it('an edited skill file is what the agents get', () => {
     const edited = new C4PromptBuilder((id) => (id === C4SkillId.REVIEW ? 'REVIEW v2' : null));
     expect(edited.review('brief', '{}', 'A1')).toContain('REVIEW v2');
-    expect(edited.system([])).toBe(fromConstants.system([]));
+    expect(edited.system()).toBe(fromConstants.system());
   });
 });

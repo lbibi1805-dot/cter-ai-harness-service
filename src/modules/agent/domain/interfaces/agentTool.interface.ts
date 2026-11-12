@@ -1,5 +1,5 @@
 import type { CitedChunk } from '../../../retrieval/domain/interfaces/retrieval.interface';
-import type { AgentToolName } from '../enums/agent.enums';
+import type { AgentToolName, ToolBudgetGroup } from '../enums/agent.enums';
 
 export interface ToolResult {
   /** Text handed back to the model. */
@@ -19,5 +19,9 @@ export interface AgentToolDefinition {
 
 /** A read-only capability the model may call. Must never write or have side effects. */
 export interface AgentTool extends AgentToolDefinition {
+  /** Budget the call counts against; absent = research (AGENT_MAX_TOOL_CALLS). */
+  readonly budgetGroup?: ToolBudgetGroup;
+  /** Its output is vault content: the runner wraps it in the reference-material label (12/11 02 Bước 3). */
+  readonly referenceMaterial?: boolean;
   execute(args: Record<string, unknown>): Promise<ToolResult>;
 }

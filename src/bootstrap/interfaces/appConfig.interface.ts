@@ -8,6 +8,7 @@ import type { RerankConfig } from '../../modules/rerank/domain';
 import type { RetrievalConfig } from '../../modules/retrieval';
 import type { CanvasAccountConfig } from '../../shared/canvas/interfaces/canvasAccount.interface';
 import { AgentLimits } from '../../modules/agent/domain/interfaces/agentBudget.interface';
+import type { DiagramGuardSettings } from '../../modules/agent/application/interfaces/diagramGuard.interface';
 import { DatabaseSettings } from '../../shared/database/interfaces/database.interface';
 import type { ObjectStorageSettings } from '../../shared/storage';
 import type { AIProvider } from '../../modules/ai';
@@ -43,6 +44,14 @@ export interface PromptConfig {
   promptVersion?: string;
   /** Null/absent when PROMPT_REGISTRY_ENABLED=false or `prompts/` is missing; domains and skills are read from it. */
   registry?: PromptRegistry | null;
+  /** `prompts/policies/reminder.md` (built-in copy without the registry): appended after the question on every path. */
+  reminder?: string;
+  /** `prompts/skills/agent/research-mode.md`; null = the agent module's built-in copy. */
+  researchMode?: string | null;
+  /** /c4 shared rules: precedence + domain system-architecture (null without the registry). */
+  c4Rules?: string | null;
+  /** `prompts/policies/diagram-syntax.md`: system prompt of the diagram repair call (null without the registry). */
+  diagramSyntax?: string | null;
 }
 
 export interface PollingConfig {
@@ -66,6 +75,8 @@ export interface AppConfig {
   retrieval: RetrievalConfig | null;
   rerank: RerankConfig;
   agent: AgentLimits;
+  /** DIAGRAM_SYNTAX_GUARD_ENABLED / DIAGRAM_SYNTAX_MAX_REPAIRS (12/11 plan 03 §5). */
+  diagramGuard?: DiagramGuardSettings;
   /** /api/c4 (C4 Sketcher). */
   c4: C4Config;
   /** Neon (prod) or local JSON files — shared by the vault manifest and poll cursors. */

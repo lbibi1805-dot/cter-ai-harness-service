@@ -45,7 +45,16 @@ const FALLBACK: Readonly<Record<C4SkillId, string>> = {
  * requested level in one call: providers rate-limit and every call costs seconds.
  */
 export class C4PromptBuilder {
-  constructor(private readonly skills: C4SkillSource | null = null) {}
+  /**
+   * `sharedRules`: instruction precedence + domain system-architecture from the registry (12/11 02 Bước 4), composed
+   * in front of every /c4 system prompt so /c4 and chat share one source of C4 rules. `reminder`: the static
+   * `prompts/policies/reminder.md`, appended after each request text.
+   */
+  constructor(
+    private readonly skills: C4SkillSource | null = null,
+    private readonly sharedRules: string | null = null,
+    private readonly reminder: string = '',
+  ) {}
 
   /** A skill's text: the registry file when present, else the built-in constant. */
   skill(id: C4SkillId): string {
@@ -56,21 +65,33 @@ export class C4PromptBuilder {
     return levels.map((level) => this.skill(LEVEL_SKILLS[level])).join('\n');
   }
 
-  private knowledgeBlock(knowledge: readonly CitedChunk[]): string {
+  /**
+   * The user's vault notes (retrieved once per run, shared by every agent) as reference material: placed in the
+   * USER message in front of each request (12/11 02 Bước 3), never in the system role. Empty without notes.
+   */
+  reference(knowledge: readonly CitedChunk[]): string {
+    if (knowledge.length === 0) return '';
     const notes = knowledge.map((chunk, i) => `[${i + 1}] ${chunk.source} > ${chunk.heading}\n${chunk.text}`).join('\n\n');
     return `${KNOWLEDGE_OPEN_TAG}\n${notes}\n${KNOWLEDGE_CLOSE_TAG}\n\n${this.skill(C4SkillId.KNOWLEDGE_RULES)}`;
   }
 
-  /** C4 persona + the user's knowledge-base notes (retrieved once per run, shared by every agent). */
-  system(knowledge: readonly CitedChunk[]): string {
-    const base = this.skill(C4SkillId.SYSTEM);
-    return knowledge.length === 0 ? base : `${base}\n\n${this.knowledgeBlock(knowledge)}`;
+  /** One request's user text: reference material, the request, then the static reminder. */
+  userText(reference: string | undefined, text: string): string {
+    return [reference?.trim(), text, this.reminder.trim()].filter(Boolean).join('\n\n');
   }
 
-  /** The evaluator's system prompt (markdown answer) + the knowledge base (rules and rubric). */
-  reviewSystem(knowledge: readonly CitedChunk[]): string {
-    const base = this.skill(C4SkillId.REVIEW_SYSTEM);
-    return knowledge.length === 0 ? base : `${base}\n\n${this.knowledgeBlock(knowledge)}`;
+  private withSharedRules(base: string): string {
+    return this.sharedRules?.trim() ? `${this.sharedRules.trim()}\n\n${base}` : base;
+  }
+
+  /** Precedence + System Architecture rules + the C4 persona (static: the same for every run). */
+  system(): string {
+    return this.withSharedRules(this.skill(C4SkillId.SYSTEM));
+  }
+
+  /** The evaluator's system prompt (markdown answer), on the same shared rules. */
+  reviewSystem(): string {
+    return this.withSharedRules(this.skill(C4SkillId.REVIEW_SYSTEM));
   }
 
   jsonRetry(): string {

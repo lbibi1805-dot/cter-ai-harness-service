@@ -3,8 +3,6 @@ import { ArtifactKind } from '../../../conversation-store';
 import type { ContextSettings } from '../interfaces/context.interface';
 import { DEFAULT_RESOLVER_SETTINGS } from './artifactResolver.constants';
 
-export { CONVERSATION_SOURCE_RULE } from '../../../ai/domain/constants/promptLayers.constants';
-
 /** CONTEXT_PINNED_KINDS default: design kinds always loaded, outside the newest-N window (note 17 §4). */
 export const DEFAULT_PINNED_KINDS: readonly ArtifactKind[] = [
   ArtifactKind.C4_SPEC,

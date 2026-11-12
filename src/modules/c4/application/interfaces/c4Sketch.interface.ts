@@ -310,6 +310,10 @@ export interface C4SketchDeps {
   aux?: C4AuxGateway | null;
   /** Prompt registry skills; absent = the TS constants. */
   skills?: C4SkillSource | null;
+  /** Precedence + domain system-architecture (registry), composed before every /c4 system prompt; absent = none. */
+  sharedRules?: string | null;
+  /** `prompts/policies/reminder.md`, appended after every request text; absent = none. */
+  reminder?: string;
   /** Artifact resolver settings (ARTIFACT_RESOLVER_*). */
   resolver?: Partial<ResolverSettings>;
   /** Test hook. */
@@ -343,6 +347,8 @@ export interface C4RunContext {
   provider: AIProvider;
   model: string;
   systemPrompt: string;
+  /** The run's vault notes as reference material, put in front of every request text (empty = none). */
+  reference?: string;
   /** Epoch ms after which no new work starts. */
   deadline: number;
   /** Epoch ms after which the critic is skipped (its call and re-render must still fit). */

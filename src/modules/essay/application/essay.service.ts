@@ -3,7 +3,7 @@ import { logger } from '../../../shared/logging/logger';
 import { attempt } from '../../../shared/resilience/attempt';
 import { withTimeout } from '../../../shared/resilience/withTimeout';
 import type { AIAnswer, AnswerStream } from '../../ai';
-import { placeMemory } from '../../ai/domain/helpers/promptLayers.helper';
+import { placeMemory, withReminder } from '../../ai/domain/helpers/promptLayers.helper';
 import { reciprocalRankFusion, type CitedChunk } from '../../retrieval';
 import {
   ANALYSIS_MAX_OUTPUT_TOKENS,
@@ -92,7 +92,7 @@ export class EssayService {
     });
     const system = this.deps.registry?.skill(ESSAY_WRITER_SKILL_ID)?.body ?? DEFAULT_ESSAY_WRITER;
     const placed = placeMemory(`${this.deps.systemPrompt}\n\n${system}`, { ...request.content, textContent: userContent }, this.deps.promptLayout);
-    const content = { ...request.content, textContent: placed.textContent };
+    const content = { ...request.content, textContent: withReminder(placed.textContent, this.deps.reminder) };
     const filter = new EssayStreamFilter();
     llmCalls++;
     const written = await this.deps.invocation.answerPrepared(

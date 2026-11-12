@@ -17,6 +17,7 @@ export interface VaultDocumentSource {
 /** Reads vault content through the vault service (object storage) — never from the local filesystem. */
 export class ReadDocumentTool implements AgentTool {
   readonly name = AgentToolName.READ_DOCUMENT;
+  readonly referenceMaterial = true;
   readonly description = 'Read a vault file, or only one of its sections by heading. Use the exact file path returned by search_vault or list_folder.';
   readonly parameters = {
     type: 'object',

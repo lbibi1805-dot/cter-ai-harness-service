@@ -1,5 +1,5 @@
 import type { CitationPrompt, CitedChunk } from '../domain/interfaces/retrieval.interface';
-import { CITATION_RULES, DOLLAR_WRAPPED_MD_FILE, SOURCE_SEPARATOR, DOLLAR_WRAPPED_FILE_NAME, PERCENT, CONTEXT_OPEN_TAG, CONTEXT_CLOSE_TAG, TRAILING_REFERENCES_SECTION } from './constants/citationPrompt.constants';
+import { DOLLAR_WRAPPED_MD_FILE, SOURCE_SEPARATOR, DOLLAR_WRAPPED_FILE_NAME, PERCENT, CONTEXT_OPEN_TAG, CONTEXT_CLOSE_TAG, TRAILING_REFERENCES_SECTION } from './constants/citationPrompt.constants';
 
 /** Drops a trailing `## References` / `## Sources` / `## Nguồn` / `## Tài liệu tham khảo` section (clients list sources themselves). */
 export function stripTrailingReferences(response: string): string {
@@ -7,12 +7,12 @@ export function stripTrailingReferences(response: string): string {
   return stripped === response ? response : stripped.trimEnd();
 }
 
-/** Puts retrieved chunks in front of the question and adds the citation rules to the system prompt. */
+/** Puts retrieved chunks, labelled as reference material, in front of the question. The citation rules live in prompts/policies/citation.md. */
 export class CitationPromptBuilder {
   build(baseSystemPrompt: string, chunks: CitedChunk[], question: string): CitationPrompt {
     const contextBlock = this.formatContext(chunks);
     return {
-      systemPrompt: `${baseSystemPrompt}\n\n${CITATION_RULES}`,
+      systemPrompt: baseSystemPrompt,
       userContent: contextBlock ? `${contextBlock}\n\n${question}` : question,
     };
   }

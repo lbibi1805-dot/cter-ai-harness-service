@@ -1,32 +1,29 @@
 import { errorMessage } from '../../../shared/errors';
 import { logger } from '../../../shared/logging/logger';
 import { attempt } from '../../../shared/resilience/attempt';
-import { CITATION_RULES } from '../../retrieval/application/constants/citationPrompt.constants';
 import { injectKnowledge } from '../domain/knowledgeInjection';
 import { retrievalQuery } from '../domain/helpers/conversationHistory.helper';
 import { RagAvailability } from './ragAvailability.service';
 import { PromptContent } from '../domain/interfaces/promptContent.interface';
 import { PreparedPrompt } from './interfaces/promptPreparer.interface';
-import { composeStaticSystemPrompt, placeMemory } from '../domain/helpers/promptLayers.helper';
+import { placeMemory, withReminder } from '../domain/helpers/promptLayers.helper';
 import { PromptCacheLayout } from '../domain/enums/promptLayout.enums';
 import { DEFAULT_PROMPT_CACHE_LAYOUT } from '../domain/constants/promptLayers.constants';
 
 /** Builds the final prompt: RAG context when available, otherwise knowledge.md. */
 export class PromptPreparer {
-  /** Layer ① in layout V2: computed once, byte-identical for every request and both paths. */
-  private readonly staticSystemPrompt: string;
-
   constructor(
     private readonly systemPrompt: string,
     private readonly knowledgeContent: string,
     private readonly rag: RagAvailability = new RagAvailability(),
     private readonly layout: PromptCacheLayout = DEFAULT_PROMPT_CACHE_LAYOUT,
-  ) {
-    this.staticSystemPrompt = layout === PromptCacheLayout.V2 ? composeStaticSystemPrompt(systemPrompt, CITATION_RULES) : systemPrompt;
-  }
+    /** `prompts/policies/reminder.md`: static line after the question (12/11 02 Bước 3); empty = none. */
+    private readonly reminder: string = '',
+  ) {}
 
   /**
-   * Layers, static → dynamic.
+   * Layers, static → dynamic. The system prompt is the registry composition as is (every rule lives in `prompts/`);
+   * the static reminder closes the user text.
    * V2 (default): ① static system prompt ② summary (first history turn) ④ history ③ artifact
    * registry ⑤ JIT artifacts ⑥ RAG context ⑦ question (+ images) — nothing dynamic before history.
    * V1: ① system prompt (+citation rules) + ②③ memory ④ history ⑤ JIT ⑥ RAG ⑦ question.
@@ -44,11 +41,10 @@ export class PromptPreparer {
     }
     const chunks = retrieval.value;
     const prompt = pipeline.builder.build(this.systemPrompt, chunks, question);
-    const system = this.layout === PromptCacheLayout.V2 ? this.staticSystemPrompt : prompt.systemPrompt;
-    const placed = placeMemory(system, { ...content, textContent: prompt.userContent }, this.layout);
+    const placed = placeMemory(prompt.systemPrompt, { ...content, textContent: prompt.userContent }, this.layout);
     return {
       systemPrompt: placed.systemPrompt,
-      content: { ...content, textContent: placed.textContent },
+      content: { ...content, textContent: withReminder(placed.textContent, this.reminder) },
       contexts: chunks,
     };
   }
@@ -59,8 +55,8 @@ export class PromptPreparer {
   }
 
   private withKnowledgeFile(content: PromptContent): PreparedPrompt {
-    const placed = placeMemory(this.staticSystemPrompt, content, this.layout);
+    const placed = placeMemory(this.systemPrompt, content, this.layout);
     const injected = injectKnowledge({ ...content, textContent: placed.textContent }, this.knowledgeContent);
-    return { systemPrompt: placed.systemPrompt, content: injected, contexts: [] };
+    return { systemPrompt: placed.systemPrompt, content: { ...injected, textContent: withReminder(injected.textContent, this.reminder) }, contexts: [] };
   }
 }

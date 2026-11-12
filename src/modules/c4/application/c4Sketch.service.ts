@@ -110,7 +110,7 @@ export class C4SketchService {
     private readonly settings: C4SketchSettings,
     private readonly deps: C4SketchDeps,
   ) {
-    this.prompts = new C4PromptBuilder(deps.skills ?? null);
+    this.prompts = new C4PromptBuilder(deps.skills ?? null, deps.sharedRules ?? null, deps.reminder ?? '');
     this.puml = new C4PumlBuilder(deps.puml);
     this.now = deps.now ?? Date.now;
     this.calls = new C4ModelCaller(deps.model, this.prompts, settings.callTimeoutMs, this.now);
@@ -522,7 +522,8 @@ export class C4SketchService {
     return {
       provider,
       model,
-      systemPrompt: this.prompts.system(knowledge),
+      systemPrompt: this.prompts.system(),
+      reference: this.prompts.reference(knowledge),
       deadline,
       criticBy: deadline - (this.settings.deadlineMs - this.settings.criticCutoffMs),
       label,

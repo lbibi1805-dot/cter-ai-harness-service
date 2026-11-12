@@ -11,6 +11,7 @@ import { PERCENT, RESULT_SEPARATOR } from '../constants/vaultSearch.constants';
 
 export class VaultSearchTool implements AgentTool {
   readonly name = AgentToolName.SEARCH_VAULT;
+  readonly referenceMaterial = true;
   readonly description = 'Semantic search over the course document vault. Returns the most relevant passages with their file path and heading.';
   readonly parameters = {
     type: 'object',

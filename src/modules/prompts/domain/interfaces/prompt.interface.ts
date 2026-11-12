@@ -10,7 +10,10 @@ export interface PromptFrontmatter {
   order?: number;
   /** Domains only: vault folder prefixes / globs (`software-tes*ing-*`) used by `selectDomain`. */
   match?: string[];
-  /** Domains only: part of the static system prompt (until per-request domain selection is wired). */
+  /**
+   * Domains: part of the static system prompt only with `true`. Policies: in it unless `false`
+   * (e.g. `policies/reminder.md`, appended after the question instead).
+   */
   static?: boolean;
 }
 
@@ -46,4 +49,12 @@ export interface RawPromptFile {
   /** Relative to the prompts root, `/`-separated. */
   path: string;
   content: string;
+}
+
+/** One composed file in a prompt (`GET /api/prompts` compositions, `trace.prompt`). */
+export interface PromptLayerEntry {
+  id: string;
+  version: string;
+  /** Characters of the composed text of this layer. */
+  chars: number;
 }

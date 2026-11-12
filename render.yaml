@@ -146,6 +146,13 @@ services:
         value: 1
       - key: AGENT_MAX_DURATION_MS
         value: 180000
+      - key: AGENT_MAX_DIAGRAM_VALIDATIONS
+        value: 3
+      # ── Diagram syntax guard (12/11 plan 03): render + repair PlantUML blocks after an answer ──
+      - key: DIAGRAM_SYNTAX_GUARD_ENABLED
+        value: true
+      - key: DIAGRAM_SYNTAX_MAX_REPAIRS
+        value: 1
       # ── Reranking: none = cosine order only. Set pinecone once the Pinecone plan has rerank quota. ──
       - key: RERANK_PROVIDER
         value: none

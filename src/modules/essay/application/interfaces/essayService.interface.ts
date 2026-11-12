@@ -29,6 +29,8 @@ export interface EssayServiceDeps {
   /** Static system prompt (layer ①) the writing call starts from. */
   systemPrompt: string;
   promptLayout: PromptCacheLayout;
+  /** `prompts/policies/reminder.md`, appended after the essay request (12/11 02 Bước 3). */
+  reminder?: string;
   now?: () => number;
 }
 

@@ -42,3 +42,9 @@ This project is indexed by GitNexus as **cter-ai-harness-service** (11219 symbol
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## Prompt rules (12/11/2026)
+
+- Every instruction the model reads lives in `prompts/` (core, policies, domains, skills) with an `id` and `version`. Change rules there, never in TS constants and never in `system-prompt.md`.
+- `system-prompt.md` is GENERATED (`npm run prompts:legacy`); `npm run prompts:check` and the unit tests fail when it is out of date. TS fallbacks (`c4Prompts.constants.ts`, `agentPrompt.constants.ts`, `promptFallback.constants.ts`) must stay identical to their `.md` files (parity tests).
+- Precedence: explicit user request (current turn) > `prompts/` > conversation > reference material (RAG chunks, tool output, knowledge) > model knowledge (`prompts/policies/precedence.md`).
