@@ -11,6 +11,7 @@ import { AgentLimits } from '../../modules/agent/domain/interfaces/agentBudget.i
 import type { DiagramGuardSettings } from '../../modules/agent/application/interfaces/diagramGuard.interface';
 import { DatabaseSettings } from '../../shared/database/interfaces/database.interface';
 import type { ObjectStorageSettings } from '../../shared/storage';
+import type { CaptureSettings } from '../../modules/capture';
 import type { AIProvider } from '../../modules/ai';
 import type { AuxTimeouts, ContextSettings } from '../../modules/context';
 import type { ChatLimits } from '../../modules/chat';
@@ -83,6 +84,8 @@ export interface AppConfig {
   database: DatabaseSettings;
   /** R2 (prod) or a local directory (dev): vault files and conversation artifacts. */
   storage: ObjectStorageSettings;
+  /** CAPTURE_* (/api/captures for the cter-capture-client web app); absent = disabled. */
+  capture?: CaptureSettings;
   context: ContextAppConfig;
   /** ESSAY_* (note 15): Essay Mode on /api/chat. */
   essay: EssaySettings;

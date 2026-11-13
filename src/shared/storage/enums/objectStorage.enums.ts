@@ -8,6 +8,8 @@ export enum ObjectPrefix {
   DERIVED = 'derived/',
   /** `conversations/{conversationId}/{artifactId}.{ext}` — user images, C4 PNG/PUML. */
   CONVERSATIONS = 'conversations/',
+  /** `captures/{folder}/{index}/{seq}-{id}.{ext}` — photos from the cter-capture-client web app (own bucket when CAPTURE_R2_BUCKET is set). */
+  CAPTURES = 'captures/',
   /** Scratch space; the bucket lifecycle rule deletes it after 1 day. */
   TMP = 'tmp/',
 }

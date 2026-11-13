@@ -215,6 +215,21 @@ Lỗi OpenRouter: `402` (hết credit) và `401` dừng ngay (FATAL); `403` (mod
 
 > Từ bản refactor này, giá trị env **sai kiểu** làm service dừng ngay lúc khởi động với thông báo rõ ràng (vd. `POLL_AUTOSTART must be "true" or "false"`, `EMBEDDING_PROVIDER must be one of gemini, openai`) thay vì âm thầm dùng giá trị khác. Giá trị mặc định khi **không đặt** biến không đổi, trừ `DEFAULT_MODEL_GEMINI` (nay `gemini-3.5-flash`, vì `gemini-2.0-flash` đã bị Google tắt).
 
+### 4.3e Photo capture `/api/captures` cho web app `cter-capture-client` (mới 13/11 — tắt khi chưa đặt key; thêm origin Vercel của app vào `FRONTEND_URL`)
+
+| Biến | Bắt buộc | Mặc định | Prod |
+|---|---|---|---|
+| `CAPTURE_API_KEY` | Có (để bật) | — | Secret ngẫu nhiên, chia cho người nhận ảnh |
+| `CAPTURE_UPLOAD_KEY` | Không | = `CAPTURE_API_KEY` | Secret riêng cho người chụp |
+| `CAPTURE_R2_BUCKET` | Khuyến nghị | dùng chung `R2_BUCKET` (prefix `captures/`) | `cter-capture-prod` |
+| `CAPTURE_R2_ACCESS_KEY_ID` / `CAPTURE_R2_SECRET_ACCESS_KEY` | Khi có bucket riêng | `R2_*` | Token R2 chỉ cho `cter-capture-prod` |
+| `CAPTURE_R2_ACCOUNT_ID` / `CAPTURE_R2_ENDPOINT` | Không | `R2_ACCOUNT_ID` / `R2_ENDPOINT` | — |
+| `CAPTURE_URL_TTL_SECONDS` | Không | `3600` | `3600` |
+| `CAPTURE_MAX_IMAGE_MB` | Không | `15` | `15` |
+| `CAPTURE_STORAGE_DIR` | Không | `./data/capture-store` | không đặt (chỉ dev không R2) |
+
+Runbook đầy đủ: `planning/planning-13112026-photo-capture/handoff/01-devops-deploy-runbook.md` (workspace).
+
 ### 4.4 Chỉ dùng cho test/eval (không đặt trên server)
 
 | Biến | Dùng ở |

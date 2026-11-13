@@ -85,6 +85,13 @@ const PUBLIC_CONFIG_ENTRIES: readonly PublicConfigEntry[] = [
   ['DATABASE_CONFIGURED', (c) => !!c.database?.databaseUrl],
   ['OBJECT_STORAGE', (c) => (c.storage?.r2 ? ObjectStorageKind.R2 : ObjectStorageKind.LOCAL_DISK)],
   ['R2_BUCKET', (c) => c.storage?.r2?.bucket ?? null],
+  // Photo capture (/api/captures, used by the cter-capture-client web app)
+  ['CAPTURE_ENABLED', (c) => !!c.capture?.apiKey],
+  ['CAPTURE_SEPARATE_UPLOAD_ACCESS', (c) => (c.capture ? !!c.capture.uploadKey : undefined)],
+  ['CAPTURE_STORAGE', (c) => (c.capture ? (c.capture.storage.r2 ? ObjectStorageKind.R2 : ObjectStorageKind.LOCAL_DISK) : undefined)],
+  ['CAPTURE_R2_BUCKET', (c) => (c.capture ? c.capture.storage.r2?.bucket ?? null : undefined)],
+  ['CAPTURE_URL_TTL_SECONDS', (c) => c.capture?.urlTtlSeconds],
+  ['CAPTURE_MAX_IMAGE_MB', (c) => (c.capture ? Math.round(c.capture.maxImageBytes / (1024 * 1024)) : undefined)],
   // Polling and heartbeat
   ['POLL_INTERVAL_MS', (c) => c.polling?.intervalMs],
   ['POLL_AUTOSTART', (c) => c.polling?.autostart],
