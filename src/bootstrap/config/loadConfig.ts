@@ -13,6 +13,7 @@ import { readCanvasAccounts } from './readers/canvasAccounts.reader';
 import { readRerankConfig } from './readers/rerankConfig.reader';
 import { readRetrievalConfig } from './readers/retrievalConfig.reader';
 import { readStorageConfig } from './readers/storageConfig.reader';
+import { readCaptureConfig } from './readers/captureConfig.reader';
 import { readContextConfig } from './readers/contextConfig.reader';
 import { readEssayConfig } from './readers/essayConfig.reader';
 import { DEFAULT_AGENT_BUDGET } from '../../modules/agent/domain/constants/agentBudget.constants';
@@ -21,6 +22,7 @@ import { parseStorageProvider } from '../../shared/database/helpers/database.hel
 
 /** Reads `.env` + system-prompt.md + knowledge.md once at startup. Bad values fail fast. */
 export function loadConfig(): AppConfig {
+  const storage = readStorageConfig();
   return {
     http: {
       port: readInt('API_PORT', DEFAULT_API_PORT),
@@ -59,7 +61,8 @@ export function loadConfig(): AppConfig {
       provider: parseStorageProvider(readOptionalString('VAULT_STORAGE_PROVIDER')),
       databaseUrl: readOptionalString('DATABASE_URL'),
     },
-    storage: readStorageConfig(),
+    storage,
+    capture: readCaptureConfig(storage),
     context: readContextConfig(),
     essay: readEssayConfig(),
     gmail: { user: readOptionalString('GMAIL_USER'), appPassword: readOptionalString('GMAIL_APP_PASSWORD') },

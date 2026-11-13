@@ -1,3 +1,48 @@
+# Thay đổi: Photo capture — API `/api/captures` cho web app `cter-capture-client` (13/11/2026)
+
+> Trạng thái: **chưa commit** (branch `feature/bach-photo-capture`) · Plan: `planning/planning-13112026-photo-capture`
+> · Client: **`cter-capture-client`** (web app mobile riêng, deploy Vercel — UI chụp/upload), `cter-interview-cloak-client` (nút 📥 Sync + Chuyển vào chat), `cter-monitoring-client-ui` (trang Photos). Tương thích ngược: module tắt khi chưa đặt `CAPTURE_API_KEY`.
+
+## Vì sao
+
+Cần chụp bài tập trên giấy bằng điện thoại (iPhone, góc 0.5×) rồi đưa nhanh vào AI. Một người chụp, nhiều người nhận (cả app AI riêng của người khác) qua một API GET đơn giản chỉ cần một key dùng chung.
+
+## Thay đổi
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | Module mới `src/modules/capture` (domain `CaptureCatalog` + key layout, application `CaptureService`, presentation controller/routes) | Không dùng database: index nằm trong RAM, dựng lại từ **1 lần list** `captures/` khi được hỏi lần đầu |
+| 2 | UI chụp **không** nằm trong harness: web app riêng `cter-capture-client` (Vercel) gọi API này qua CORS | Không đổi `Dockerfile` |
+| 3 | API: `GET /api/captures`, `GET /api/captures/folders`, `POST /api/captures/batches`, `POST /api/captures/batches/{folder}/{index}/images` (body ảnh thô), `GET\|DELETE /api/captures/batches/{folder}/{index}`, `GET /api/captures/files/{folder}/{index}/{name}` | Key: header `X-Capture-Key` (hoặc `?key=`, hoặc `Bearer`); fail-closed |
+| 4 | Object key `captures/{folder}/{0007}/{01-abcdef}.jpg`; `ObjectPrefix.CAPTURES` | Ảnh trong list có `url` presigned R2 (TTL `CAPTURE_URL_TTL_SECONDS`) + `path` proxy |
+| 5 | CORS: thêm `X-Capture-Key` vào `Access-Control-Allow-Headers` | Để `cter-capture-client` và app web của người khác gọi được; thêm origin Vercel vào `FRONTEND_URL` |
+| 6 | `/api/config` thêm `CAPTURE_ENABLED`, `CAPTURE_SEPARATE_UPLOAD_ACCESS`, `CAPTURE_STORAGE`, `CAPTURE_R2_BUCKET`, `CAPTURE_URL_TTL_SECONDS`, `CAPTURE_MAX_IMAGE_MB` | Không lộ key |
+
+## Biến môi trường mới
+
+| Biến | Bắt buộc | Mặc định | Ghi chú |
+|---|---|---|---|
+| `CAPTURE_API_KEY` | Có (để bật) | — | Secret, chia cho người nhận. Trống = 503 |
+| `CAPTURE_UPLOAD_KEY` | Không | = `CAPTURE_API_KEY` | Secret, chỉ người chụp |
+| `CAPTURE_R2_BUCKET` | Khuyến nghị | — | Trống = dùng chung `R2_BUCKET` (prefix `captures/`) |
+| `CAPTURE_R2_ACCESS_KEY_ID` / `CAPTURE_R2_SECRET_ACCESS_KEY` | Khi có bucket riêng | `R2_*` | Secret; token chỉ có quyền trên bucket capture |
+| `CAPTURE_R2_ACCOUNT_ID` / `CAPTURE_R2_ENDPOINT` | Không | `R2_ACCOUNT_ID` / `R2_ENDPOINT` | |
+| `CAPTURE_STORAGE_DIR` | Không | `./data/capture-store` | Chỉ khi không có R2 (dev) |
+| `CAPTURE_URL_TTL_SECONDS` | Không | `3600` | 60–604800 |
+| `CAPTURE_MAX_IMAGE_MB` | Không | `15` | 1–50 |
+
+## Rollback
+
+Xoá `CAPTURE_API_KEY` → `/api/captures` trả 503 (app `cter-capture-client` báo "Server chưa bật Capture API"). Không có migration.
+
+## Kiểm thử
+
+- `tests/unit/modules/capture/*` 11 test (key, catalog, routes: auth, upload song song, since/cursor, restart, 400/413). Toàn bộ suite: 882 pass; `puppeteerPdfRenderer.browser.test.ts` chập chờn khi chạy cả suite (chạy riêng pass, không liên quan).
+- Smoke HTTP thật (module capture + local disk, không chạm Neon/R2): preflight có `X-Capture-Key`, create/upload/list/file OK, thiếu key 401. E2E headless Chrome (viewport iPhone) với `cter-capture-client`: setup → chọn 4 ảnh → 4/4 lên `bach/1`, 0 lỗi console.
+- **Chưa** chạy trên R2 dev, chưa thử trên iPhone thật.
+
+---
+
 # Thay đổi: Thứ tự ưu tiên rule trong `prompts/`, kiểm tra cú pháp PlantUML (12/11/2026)
 
 > Trạng thái: **chưa commit** (branch `feature/bach-planning-12112026`) · Plan: `planning/planning-12112026/02`, `03` (01 là thay đổi của client)

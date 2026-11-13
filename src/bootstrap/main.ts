@@ -15,6 +15,7 @@ import { createVaultModule } from '../modules/vault';
 import { createConversationStoreModule } from '../modules/conversation-store';
 import { createContextModule } from '../modules/context';
 import { createRoutingModule } from '../modules/routing';
+import { createCaptureModule } from '../modules/capture';
 import { createObjectStorage } from '../shared/storage';
 import { Router } from '../shared/http/router';
 import { logger } from '../shared/logging/logger';
@@ -166,8 +167,11 @@ export async function main(): Promise<void> {
     }),
   );
 
+  // Photo capture (planning-13112026-photo-capture): /api/captures for the cter-capture-client web app; shared key, no database.
+  const capture = config.capture ? createCaptureModule(config.capture, { adminToken: config.http.adminToken }) : null;
+
   // 7. Start: the API first so the host (Render) detects the open port right away
-  const server = new HttpServer(config.http.port, [vault.router, polling.router, chat.router, conversations.router, retrieveRouter, c4.router, ops.router], config.http.corsOrigins);
+  const server = new HttpServer(config.http.port, [vault.router, polling.router, chat.router, conversations.router, retrieveRouter, c4.router, ops.router, ...(capture ? [capture.router] : [])], config.http.corsOrigins);
   logger.startup(config.accounts.length, config.polling.intervalMs);
   await server.start();
   // Polling starts on boot so a redeploy never leaves it silently stopped; POLL_AUTOSTART=false waits for GET /start.
