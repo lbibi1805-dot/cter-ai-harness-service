@@ -42,10 +42,13 @@ function goodMicroservices(): C4DiagramSpec {
     db('order_db', { name: 'Order DB' }),
     db('payment_db', { name: 'Payment DB' }),
     container('events', { name: 'Kafka', tech: 'Kafka', variant: C4ElementVariant.QUEUE }),
+    container('discovery', { name: 'Discovery Service', tech: 'Eureka' }),
   ], [
     rel('user', 'web', 'Uses'), rel('web', 'gateway', 'Calls API'), rel('gateway', 'order_service', 'Routes'), rel('gateway', 'payment_service', 'Routes'),
     rel('order_service', 'order_db', 'Reads/writes'), rel('payment_service', 'payment_db', 'Reads/writes'),
     rel('order_service', 'events', 'Publishes OrderPlaced'), rel('payment_service', 'events', 'Consumes OrderPlaced'),
+    rel('order_service', 'discovery', 'Registers / sends heartbeat'), rel('payment_service', 'discovery', 'Registers / sends heartbeat'),
+    rel('gateway', 'discovery', 'Resolves service instances'),
   ], 'Shop microservices');
 }
 
@@ -130,6 +133,39 @@ describe('connectivity rules C1–C9 (12/11 plan 04 §4.2)', () => {
     s.rels.push(rel('order_service', 'mail', 'Sends email'));
     const issue = checkConnectivity(s, C4Level.CONTAINER).warnings.find((i) => i.code === ConnectivityCode.MISSING_INSTANCES);
     expect(issue?.elementIds).toEqual(['order_service']);
+  });
+
+  it('C10 MISSING_LAYER: a layered component diagram without the Domain Model is a warning; all four layers pass', () => {
+    const comp = (id: string, name: string) => element(id, C4ElementKind.COMPONENT, { name, tech: 'Java', parent: 'api_b' });
+    const inside: C4DiagramSpec = {
+      title: 'Order Service components',
+      elements: [element('api_b', C4ElementKind.CONTAINER_BOUNDARY), comp('order_controller', 'Order Controller'), comp('order_svc', 'Order Service'),
+        comp('order_repo', 'Order Repository'), db('db', { parent: undefined })],
+      rels: [rel('order_controller', 'order_svc'), rel('order_svc', 'order_repo'), rel('order_repo', 'db', 'Reads/writes')],
+    };
+    const warning = checkConnectivity(inside, C4Level.COMPONENT).warnings.find((i) => i.code === ConnectivityCode.MISSING_LAYER);
+    expect(warning?.message).toMatch(/without Domain Model/);
+    inside.elements.push(comp('order_domain', 'Order Domain Model'));
+    inside.rels.push(rel('order_svc', 'order_domain', 'Uses'), rel('order_repo', 'order_domain', 'Maps'));
+    expect(codes(checkConnectivity(inside, C4Level.COMPONENT)).warnings).not.toContain(ConnectivityCode.MISSING_LAYER);
+    // Not a layered diagram (one layer-like component only): not checked.
+    const single: C4DiagramSpec = { title: 'Gateway', elements: [element('gw', C4ElementKind.CONTAINER_BOUNDARY), comp('router', 'Router'), comp('auth', 'Auth Filter'), db('db', { parent: undefined })],
+      rels: [rel('router', 'auth'), rel('auth', 'db')] };
+    expect(codes(checkConnectivity(single, C4Level.COMPONENT)).warnings).not.toContain(ConnectivityCode.MISSING_LAYER);
+  });
+
+  it('C11 MISSING_DISCOVERY: microservices without a Discovery Service, or a service not registered, are warnings', () => {
+    const s = goodMicroservices();
+    s.elements = s.elements.filter((e) => e.id !== 'discovery');
+    s.rels = s.rels.filter((r) => r.to !== 'discovery');
+    expect(checkConnectivity(s, C4Level.CONTAINER).warnings.find((i) => i.code === ConnectivityCode.MISSING_DISCOVERY)?.elementIds).toEqual(['order_service', 'payment_service']);
+    const unregistered = goodMicroservices();
+    unregistered.rels = unregistered.rels.filter((r) => !(r.from === 'payment_service' && r.to === 'discovery'));
+    expect(checkConnectivity(unregistered, C4Level.CONTAINER).warnings.find((i) => i.code === ConnectivityCode.MISSING_DISCOVERY)?.elementIds).toEqual(['payment_service']);
+    // A modular monolith (modules in one process) is not checked.
+    const monolith = spec([element('u', C4ElementKind.PERSON), container('order_module', { name: 'Order Module' }), container('payment_module', { name: 'Payment Module' }), db('shared_db')],
+      [rel('u', 'order_module'), rel('order_module', 'payment_module'), rel('order_module', 'shared_db'), rel('payment_module', 'shared_db')], 'Shop modular monolith');
+    expect(codes(checkConnectivity(monolith, C4Level.CONTAINER)).warnings).not.toContain(ConnectivityCode.MISSING_DISCOVERY);
   });
 
   it('runs only the rules of the level: context checks orphans and splits, not instances', () => {

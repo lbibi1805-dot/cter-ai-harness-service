@@ -30,7 +30,10 @@ export enum C4Scaling {
   SERVERLESS = 'serverless',
 }
 
-/** Connectivity rules C1–C9 (12/11 plan 04 §4.2, B1): "every box connected, and connected enough". */
+/**
+ * Connectivity rules C1–C9 (12/11 plan 04 §4.2, B1): "every box connected, and connected enough";
+ * C10–C11: mandatory architecture checks (14/11 plan 02: N-Tier layers, Discovery Service).
+ */
 export enum ConnectivityCode {
   /** C1: an element with no relationship (error). */
   ORPHAN_ELEMENT = 'ORPHAN_ELEMENT',
@@ -50,6 +53,10 @@ export enum ConnectivityCode {
   COMPONENT_NO_OUTBOUND = 'COMPONENT_NO_OUTBOUND',
   /** C9: an internal container without an instance count / autoscaling range (warning). */
   MISSING_INSTANCES = 'MISSING_INSTANCES',
+  /** C10: a layered component diagram without all of Controller, Service, Domain Model, Repository (warning). */
+  MISSING_LAYER = 'MISSING_LAYER',
+  /** C11: a microservice design without a Discovery Service, or services/gateway not linked to it (warning). */
+  MISSING_DISCOVERY = 'MISSING_DISCOVERY',
 }
 
 /** Where the system runs (brief slot `deployment_target`, plan 04 §5.2). */

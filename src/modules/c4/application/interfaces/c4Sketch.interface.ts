@@ -321,7 +321,7 @@ export interface C4SketchSettings {
   callTimeoutMs: number;
   /** C4_DESIGN_DISCUSSION_ENABLED (default true): the discussion writer step after the critic. */
   designDiscussionEnabled?: boolean;
-  /** DIAGRAM_CONNECTIVITY_CHECK (default true): connectivity rules C1–C9 in the validator. */
+  /** DIAGRAM_CONNECTIVITY_CHECK (default true): connectivity rules C1–C11 in the validator. */
   connectivityCheck?: boolean;
 }
 

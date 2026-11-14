@@ -33,7 +33,7 @@ export interface C4Config {
   showLegend: boolean;
   /** C4_DESIGN_DISCUSSION_ENABLED (default true): discussion writer step T1–T7 (12/11 plan 04 §5.3). */
   designDiscussionEnabled?: boolean;
-  /** DIAGRAM_CONNECTIVITY_CHECK (default true): connectivity rules C1–C9 (plan 04 §4). */
+  /** DIAGRAM_CONNECTIVITY_CHECK (default true): connectivity rules C1–C11 (plan 04 §4). */
   connectivityCheck?: boolean;
 }
 

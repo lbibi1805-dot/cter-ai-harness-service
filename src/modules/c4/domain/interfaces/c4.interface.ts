@@ -48,7 +48,7 @@ export interface ConnectivityIssue {
   elementIds: string[];
 }
 
-/** C1–C9 result: errors go to the repair round, warnings to the critic and the client. */
+/** C1–C11 result: errors go to the repair round, warnings to the critic and the client. */
 export interface ConnectivityReport {
   errors: ConnectivityIssue[];
   warnings: ConnectivityIssue[];
@@ -76,7 +76,7 @@ export interface C4ValidationRules {
   maxElements: number;
   /** Actors and external systems that context and container diagrams must show (C4: same people/systems at both levels). */
   requiredElements?: readonly C4ModelElement[];
-  /** DIAGRAM_CONNECTIVITY_CHECK: run the C1–C9 checks (default true). */
+  /** DIAGRAM_CONNECTIVITY_CHECK: run the C1–C11 checks (default true). */
   connectivity?: boolean;
 }
 

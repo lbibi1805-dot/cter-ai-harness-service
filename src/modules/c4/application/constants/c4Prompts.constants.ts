@@ -70,14 +70,18 @@ export const LEVEL_RULES: Readonly<Record<C4Level, string>> = {
   links or invent unsupported calls. One "system_boundary" for the system; its containers have "parent" = that boundary
   id. People and external systems stay outside (no parent). Self-hosted databases are kind "container" + variant "db";
   managed third-party databases are external systems with external=true. For a modular monolith, create one Container
-  per module even when modules share a process. In microservices every service owns its own database (one db container or
+  per module even when modules share a process. Microservices always include a "Discovery Service" container: every
+  service registers with it ("Registers / sends heartbeat") and the gateway resolves service instances through it
+  ("Resolves service instances"); a modular monolith does not need one. In microservices every service owns its own database (one db container or
   managed external database per service, connected only to its owning service; never shared). Brokers: variant "queue". No components.
   Add a queue/broker, cache, worker or storage only when a requirement or a non-functional requirement (scale, availability,
   asynchronous processing) needs it. Give every internal container "instances" (a count, or an autoscaling range with
   "scaling").`,
   [C4Level.COMPONENT]: `[component] One "container_boundary" for the most important container (usually the backend API); its components have
-  "parent" = that boundary id. Components only for responsibilities a requirement needs (controller/service per feature area, repository,
-  gateway client). Include peer Containers only for direct dependencies: other modules in a modular monolith, or other services in
+  "parent" = that boundary id. Components only for responsibilities a requirement needs (controller, service, domain model, repository per
+  feature area; gateway client). A backend service or module (N-Tier/layered) always shows all four layers
+  Controller → Service → Domain Model ← Repository (Repository → database); never fold the domain model into the service
+  or repository. Include peer Containers only for direct dependencies: other modules in a modular monolith, or other services in
   microservices. Place each peer outside the focused boundary and draw dependencies from the calling component to the target Container;
   show specified horizontal dependencies between modules/services as well as vertical gateway dependencies; do not show only gateway
   links or invent calls. Do not add peer internals. Every component/layer connects to the other Containers and external systems it uses (outside the
@@ -163,16 +167,19 @@ Evaluate the design below. Use EXACTLY these sections, in this order, with these
 standard C4 rubric: requirement coverage, correct C4 notation per level, consistency between levels, minimality/clarity,
 technology choices. After the rubric rows, always add one row per design discussion topic: Cloud data migration,
 Deployment strategy, Resilience (Kafka, circuit breaker, rate limiting, replication), Observability (Grafana/Datadog),
-Multi-tenancy, Security service, Instances and scaling, and one row "Connectivity" (every element connected, enough
-links). A topic that does not apply scores "N/A" with the reason in one sentence.)
+Multi-tenancy, Security service, Instances and scaling, one row "Connectivity" (every element connected, enough
+links), and one row "Mandatory checks (N-Tier layers, Discovery Service)": a backend component diagram has Controller,
+Service, Domain Model and Repository; a microservice design has a Discovery Service that every service registers with
+and the gateway resolves through. A topic that does not apply scores "N/A" with the reason in one sentence.)
 ## Yêu cầu chưa đáp ứng
 (bullets: requirements of the problem the design does not show, and design discussion topics the design ignores although
-they apply; "- Không có" when none)
+they apply, and every failed mandatory check (missing Domain Model or other layer, missing Discovery Service or its
+links) even if the question did not ask about it; "- Không có" when none)
 ## Lỗi ký hiệu C4
 (bullets: wrong element kinds, missing technology on containers/components, unlabeled relationships, mixed levels,
 orphan or disconnected elements…)
 ## Đề xuất sửa (ưu tiên)
-(numbered list, most important first, each concrete enough to apply)
+(numbered list, most important first, each concrete enough to apply; include the fix for every failed mandatory check)
 Judge only what is in the design; never invent elements it does not have.
 `.trim();
 
@@ -222,4 +229,9 @@ export const CRITIC_DESIGN_CHECKS = `
    requirement or a non-functional requirement needs it, and it is connected.
 7. Connectivity: no orphan or disconnected element; fix every connectivity warning listed below unless the problem
    statement makes it intentional (then say why in "issues").
+8. Layered completeness: a component diagram of a backend service/module has Controller, Service, Domain Model and
+   Repository components, linked Controller → Service → Domain Model, Repository → Domain Model, Repository → database;
+   add any missing layer (most often the Domain Model).
+9. Discovery Service: a microservice design has a "Discovery Service" container, every service links to it (registers)
+   and the gateway links to it (resolves instances); add it or the missing links. Not for a modular monolith.
 `.trim();

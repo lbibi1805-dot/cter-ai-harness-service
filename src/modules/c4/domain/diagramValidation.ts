@@ -10,7 +10,7 @@ import type { C4DiagramSpec, C4Requirement, C4Validation, C4ValidationRules, Con
  * Deterministic checks between the model calls. Applies the c4-diagrams skill rules (unique ids,
  * technology on containers/components, no boundaries/_Ext in sequence diagrams), requires every
  * requirement of the level to be claimed by an element or relationship, prunes elements that cover
- * nothing and connect to nothing — "minimal but sufficient" — and runs the connectivity rules C1–C9
+ * nothing and connect to nothing — "minimal but sufficient" — and runs the connectivity rules C1–C11
  * (plan 04 §4.2: errors join `errors` for the repair round, warnings go to the critic). Returns a fixed
  * copy; the input is untouched.
  */

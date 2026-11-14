@@ -112,5 +112,5 @@ export const C4_PURPOSE = 'c4';
 /** C4_DESIGN_DISCUSSION_ENABLED default (12/11 plan 04 §8): the discussion writer runs unless rolled back. */
 export const DEFAULT_C4_DESIGN_DISCUSSION_ENABLED = true;
 
-/** DIAGRAM_CONNECTIVITY_CHECK default (plan 04 §8): C1–C9 on /c4 specs and the chat PlantUML lint. */
+/** DIAGRAM_CONNECTIVITY_CHECK default (plan 04 §8): C1–C11 on /c4 specs and the chat PlantUML lint. */
 export const DEFAULT_DIAGRAM_CONNECTIVITY_CHECK = true;
