@@ -46,7 +46,6 @@ export function readCaptureConfig(mainStorage: ObjectStorageSettings): CaptureSe
   }
   return {
     apiKey: readOptionalString('CAPTURE_API_KEY'),
-    uploadKey: readOptionalString('CAPTURE_UPLOAD_KEY'),
     storage,
     sharedBucket: !bucket && !!mainStorage.r2,
     urlTtlSeconds: inRange('CAPTURE_URL_TTL_SECONDS', readInt('CAPTURE_URL_TTL_SECONDS', DEFAULT_CAPTURE_URL_TTL_SECONDS), 60, MAX_URL_TTL_SECONDS),

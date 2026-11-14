@@ -9,7 +9,6 @@ import { LocalDiskObjectStorage } from '../../../../src/shared/storage';
 import type { Router } from '../../../../src/shared/http/router';
 
 const API_KEY = 'shared-read-key';
-const UPLOAD_KEY = 'upload-only-key';
 const ADMIN = 'admin-token';
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64, 1)]);
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 2)]);
@@ -19,7 +18,7 @@ let router: Router;
 let clock: number;
 
 function settings(overrides: Partial<CaptureSettings> = {}): CaptureSettings {
-  return { apiKey: API_KEY, uploadKey: UPLOAD_KEY, storage: { r2: null, localDir: dir }, sharedBucket: false, urlTtlSeconds: 600, maxImageBytes: 1024, ...overrides };
+  return { apiKey: API_KEY, storage: { r2: null, localDir: dir }, sharedBucket: false, urlTtlSeconds: 600, maxImageBytes: 1024, ...overrides };
 }
 
 function build(overrides: Partial<CaptureSettings> = {}) {
@@ -55,27 +54,39 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 describe('capture routes', () => {
-  it('is fail-closed: 503 without CAPTURE_API_KEY, 401 with a wrong key', async () => {
-    expect((await call('GET', '/api/captures', { key: 'nope' })).status).toBe(401);
-    expect((await call('GET', '/api/captures')).status).toBe(401);
-    build({ apiKey: undefined, uploadKey: undefined });
-    expect((await call('GET', '/api/captures', { key: API_KEY })).status).toBe(503);
+  it('read and delete routes are fail-closed: 401 without or with a wrong key', async () => {
+    await call('POST', '/api/captures/batches/bach/1/images', { body: JPEG, contentType: 'image/jpeg' });
+    for (const key of [undefined, 'nope']) {
+      expect((await call('GET', '/api/captures', { key })).status).toBe(401);
+      expect((await call('GET', '/api/captures/folders', { key })).status).toBe(401);
+      expect((await call('GET', '/api/captures/batches/bach/1', { key })).status).toBe(401);
+      expect((await call('DELETE', '/api/captures/batches/bach/1', { key })).status).toBe(401);
+    }
+    expect((await call('GET', '/api/captures', { key: API_KEY })).status).toBe(200);
+    expect((await call('GET', '/api/captures', { key: ADMIN })).status).toBe(200);
   });
 
-  it('read key cannot upload when a separate upload key is set; admin token can do both', async () => {
-    expect((await call('POST', '/api/captures/batches', { key: API_KEY, body: { folder: 'bach' } })).status).toBe(401);
-    expect((await call('POST', '/api/captures/batches', { key: ADMIN, body: { folder: 'bach' } })).status).toBe(201);
-    expect((await call('GET', '/api/captures', { key: UPLOAD_KEY })).status).toBe(200);
+  it('uploads are public: no key needed', async () => {
+    expect((await call('POST', '/api/captures/batches', { body: { folder: 'bach' } })).status).toBe(201);
+    expect((await call('POST', '/api/captures/batches/bach/1/images', { body: JPEG, contentType: 'image/jpeg' })).status).toBe(201);
+  });
+
+  it('every route answers 503 without CAPTURE_API_KEY (module switch)', async () => {
+    build({ apiKey: undefined });
+    expect((await call('GET', '/api/captures', { key: API_KEY })).status).toBe(503);
+    expect((await call('POST', '/api/captures/batches', { body: { folder: 'bach' } })).status).toBe(503);
+    expect((await call('POST', '/api/captures/batches/bach/1/images', { body: JPEG, contentType: 'image/jpeg' })).status).toBe(503);
+    expect((await call('DELETE', '/api/captures/batches/bach/1', { key: ADMIN })).status).toBe(503);
   });
 
   it('upload → list → download → incremental since → delete', async () => {
-    const created = await call('POST', '/api/captures/batches', { key: UPLOAD_KEY, body: { folder: 'Bách' } });
+    const created = await call('POST', '/api/captures/batches', { body: { folder: 'Bách' } });
     expect(created.status).toBe(201);
     expect(created.json).toMatchObject({ id: 'bach/1', folder: 'bach', index: 1, imageCount: 0 });
 
     const [a, b] = await Promise.all([
-      call('POST', '/api/captures/batches/bach/1/images', { key: UPLOAD_KEY, body: JPEG, contentType: 'image/jpeg' }),
-      call('POST', '/api/captures/batches/bach/1/images', { key: UPLOAD_KEY, body: PNG, contentType: 'image/png' }),
+      call('POST', '/api/captures/batches/bach/1/images', { body: JPEG, contentType: 'image/jpeg' }),
+      call('POST', '/api/captures/batches/bach/1/images', { body: PNG, contentType: 'image/png' }),
     ]);
     expect([a.status, b.status]).toEqual([201, 201]);
     expect(new Set([a.json.seq, b.json.seq])).toEqual(new Set([1, 2]));
@@ -93,27 +104,27 @@ describe('capture routes', () => {
 
     const cursor = list.json.cursor;
     expect((await call('GET', `/api/captures?since=${encodeURIComponent(cursor)}`, { key: API_KEY })).json.batches).toEqual([]);
-    await call('POST', '/api/captures/batches/bach/2/images', { key: UPLOAD_KEY, body: JPEG, contentType: 'image/jpeg' });
+    await call('POST', '/api/captures/batches/bach/2/images', { body: JPEG, contentType: 'image/jpeg' });
     const delta = await call('GET', `/api/captures?since=${encodeURIComponent(cursor)}`, { key: API_KEY });
     expect(delta.json.batches.map((x: { id: string }) => x.id)).toEqual(['bach/2']);
 
-    const removed = await call('DELETE', '/api/captures/batches/bach/1', { key: UPLOAD_KEY });
+    const removed = await call('DELETE', '/api/captures/batches/bach/1', { key: API_KEY });
     expect(removed.json).toEqual({ ok: true, deleted: 2 });
     expect((await call('GET', '/api/captures/batches/bach/1', { key: API_KEY })).status).toBe(404);
   });
 
   it('rebuilds the index from storage after a restart', async () => {
-    await call('POST', '/api/captures/batches/an/4/images', { key: UPLOAD_KEY, body: JPEG, contentType: 'image/jpeg' });
+    await call('POST', '/api/captures/batches/an/4/images', { body: JPEG, contentType: 'image/jpeg' });
     build();
     const list = await call('GET', '/api/captures?folder=an', { key: API_KEY });
     expect(list.json.batches.map((x: { id: string; imageCount: number }) => [x.id, x.imageCount])).toEqual([['an/4', 1]]);
-    expect((await call('POST', '/api/captures/batches', { key: UPLOAD_KEY, body: { folder: 'an' } })).json.index).toBe(5);
+    expect((await call('POST', '/api/captures/batches', { body: { folder: 'an' } })).json.index).toBe(5);
   });
 
   it('rejects non-images, empty and oversized bodies', async () => {
-    expect((await call('POST', '/api/captures/batches/bach/1/images', { key: UPLOAD_KEY, body: Buffer.from('hello world, not an image') })).status).toBe(400);
-    expect((await call('POST', '/api/captures/batches/bach/1/images', { key: UPLOAD_KEY, body: Buffer.alloc(0) })).status).toBe(400);
-    expect((await call('POST', '/api/captures/batches/bach/1/images', { key: UPLOAD_KEY, body: Buffer.concat([JPEG, Buffer.alloc(2048)]) })).status).toBe(413);
-    expect((await call('POST', '/api/captures/batches/bach/x/images', { key: UPLOAD_KEY, body: JPEG })).status).toBe(400);
+    expect((await call('POST', '/api/captures/batches/bach/1/images', { body: Buffer.from('hello world, not an image') })).status).toBe(400);
+    expect((await call('POST', '/api/captures/batches/bach/1/images', { body: Buffer.alloc(0) })).status).toBe(400);
+    expect((await call('POST', '/api/captures/batches/bach/1/images', { body: Buffer.concat([JPEG, Buffer.alloc(2048)]) })).status).toBe(413);
+    expect((await call('POST', '/api/captures/batches/bach/x/images', { body: JPEG })).status).toBe(400);
   });
 });

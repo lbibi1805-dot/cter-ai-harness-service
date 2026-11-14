@@ -217,12 +217,13 @@ Lỗi OpenRouter: `402` (hết credit) và `401` dừng ngay (FATAL); `403` (mod
 
 > Từ bản refactor này, giá trị env **sai kiểu** làm service dừng ngay lúc khởi động với thông báo rõ ràng (vd. `POLL_AUTOSTART must be "true" or "false"`, `EMBEDDING_PROVIDER must be one of gemini, openai`) thay vì âm thầm dùng giá trị khác. Giá trị mặc định khi **không đặt** biến không đổi, trừ `DEFAULT_MODEL_GEMINI` (nay `gemini-3.5-flash`, vì `gemini-2.0-flash` đã bị Google tắt).
 
-### 4.3e Photo capture `/api/captures` cho web app `cter-capture-client` (mới 13/11 — tắt khi chưa đặt key; thêm origin Vercel của app vào `FRONTEND_URL`)
+### 4.3e Photo capture `/api/captures` cho web app `cter-capture-client` (mới 13/11, sửa 14/11 — tắt khi chưa đặt key; thêm origin Vercel của app vào `FRONTEND_URL`)
+
+Quyền (từ 14/11, plan `04-plan-public-upload`): **upload (`POST`) công khai, không cần key**; mọi `GET` và `DELETE` cần `X-Capture-Key` = `CAPTURE_API_KEY` hoặc `ADMIN_TOKEN`. Key **chỉ** gửi cho backend người nhận (AI của bên thứ ba, cloak client); không nhập vào web app. Biến `CAPTURE_UPLOAD_KEY` đã bỏ — nếu đã đặt trên Render thì xoá.
 
 | Biến | Bắt buộc | Mặc định | Prod |
 |---|---|---|---|
-| `CAPTURE_API_KEY` | Có (để bật) | — | Secret ngẫu nhiên, chia cho người nhận ảnh |
-| `CAPTURE_UPLOAD_KEY` | Không | = `CAPTURE_API_KEY` | Secret riêng cho người chụp |
+| `CAPTURE_API_KEY` | Có (để bật) | — | Secret ngẫu nhiên ≥ 32 ký tự. Key đọc/xoá cho người nhận **và** công tắc bật module: trống = mọi route 503 (cả upload) |
 | `CAPTURE_R2_BUCKET` | Khuyến nghị | dùng chung `R2_BUCKET` (prefix `captures/`) | `cter-capture-prod` |
 | `CAPTURE_R2_ACCESS_KEY_ID` / `CAPTURE_R2_SECRET_ACCESS_KEY` | Khi có bucket riêng | `R2_*` | Token R2 chỉ cho `cter-capture-prod` |
 | `CAPTURE_R2_ACCOUNT_ID` / `CAPTURE_R2_ENDPOINT` | Không | `R2_ACCOUNT_ID` / `R2_ENDPOINT` | — |
