@@ -113,6 +113,25 @@ describe('capture routes', () => {
     expect((await call('GET', '/api/captures/batches/bach/1', { key: API_KEY })).status).toBe(404);
   });
 
+  it('uploader deletes one image with its deleteToken (no key); wrong/other tokens are 403', async () => {
+    const a = await call('POST', '/api/captures/batches/Bách/1/images', { body: JPEG, contentType: 'image/jpeg' });
+    const b = await call('POST', '/api/captures/batches/bach/1/images', { body: PNG, contentType: 'image/png' });
+    expect(a.json.deleteToken).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    const urlA = `/api/captures/batches/bach/1/images/${a.json.name}`;
+
+    expect((await call('DELETE', urlA)).status).toBe(403);
+    expect((await call('DELETE', `${urlA}?token=nope`)).status).toBe(403);
+    expect((await call('DELETE', `${urlA}?token=${b.json.deleteToken}`)).status).toBe(403); // token of another image
+    expect((await call('DELETE', `${urlA}?token=${a.json.deleteToken}`)).json).toEqual({ ok: true });
+    expect((await call('DELETE', `${urlA}?token=${a.json.deleteToken}`)).status).toBe(404);
+
+    const batch = await call('GET', '/api/captures/batches/bach/1', { key: API_KEY });
+    expect(batch.json.images.map((i: { name: string }) => i.name)).toEqual([b.json.name]);
+    // The read key may delete any image; the batch route still works.
+    expect((await call('DELETE', `/api/captures/batches/bach/1/images/${b.json.name}`, { key: API_KEY })).status).toBe(200);
+    expect((await call('GET', '/api/captures/batches/bach/1', { key: API_KEY })).status).toBe(404);
+  });
+
   it('rebuilds the index from storage after a restart', async () => {
     await call('POST', '/api/captures/batches/an/4/images', { body: JPEG, contentType: 'image/jpeg' });
     build();

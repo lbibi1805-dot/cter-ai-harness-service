@@ -85,6 +85,16 @@ export class CaptureCatalog {
   }
 
   /** Every batch with at least one image (empty ones are still being filled). */
+  /** Removes one image (bumps `updatedAt` so incremental readers see the change); returns it, or null. */
+  removeImage(folder: string, index: number, name: string, now: number): CaptureImage | null {
+    const batch = this.get(folder, index);
+    const image = batch?.images.find((i) => i.name === name);
+    if (!batch || !image) return null;
+    batch.images = batch.images.filter((i) => i !== image);
+    batch.updatedAt = Math.max(batch.updatedAt, now);
+    return image;
+  }
+
   batches(folder?: string): CaptureBatch[] {
     const sources = folder ? [this.folders.get(folder)] : [...this.folders.values()];
     return sources.flatMap((batches) => (batches ? [...batches.values()] : [])).filter((b) => b.images.length > 0);
