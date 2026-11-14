@@ -1,10 +1,13 @@
 import type { CaptureMimeType } from '../../domain';
+import type { CaptureImageSink } from './captureImageSink.interface';
 
 export interface CaptureServiceOptions {
   /** Lifetime of the presigned image URLs in a listing. */
   urlTtlSeconds: number;
   maxImagesPerBatch: number;
   now: () => number;
+  /** Told about every uploaded / deleted photo (Starlinguide push). Default: nobody. */
+  sink?: CaptureImageSink;
 }
 
 /** One image as the API returns it. */

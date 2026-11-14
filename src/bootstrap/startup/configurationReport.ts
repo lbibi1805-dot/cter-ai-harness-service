@@ -1,5 +1,6 @@
 import { AI_PROVIDERS, type AiModule } from '../../modules/ai';
 import { HEARTBEAT_PATH } from '../../modules/ops';
+import { starlinguideHost } from '../../modules/starlinguide';
 import { DEFAULT_POLL_CURSOR_FLUSH_MS } from '../../modules/polling';
 import { logger } from '../../shared/logging/logger';
 import { ObjectStorageKind } from '../../shared/storage';
@@ -103,6 +104,12 @@ const PUBLIC_CONFIG_ENTRIES: readonly PublicConfigEntry[] = [
   ['CAPTURE_R2_BUCKET', (c) => (c.capture ? c.capture.storage.r2?.bucket ?? null : undefined)],
   ['CAPTURE_URL_TTL_SECONDS', (c) => c.capture?.urlTtlSeconds],
   ['CAPTURE_MAX_IMAGE_MB', (c) => (c.capture ? Math.round(c.capture.maxImageBytes / (1024 * 1024)) : undefined)],
+  // Starlinguide push (new capture uploads → Starlinguide Partner API); never the secret or the emails
+  ['STARLINGUIDE_ENABLED', (c) => !!c.starlinguide],
+  ['STARLINGUIDE_HOST', (c) => (c.starlinguide ? starlinguideHost(c.starlinguide.baseUrl) : undefined)],
+  ['STARLINGUIDE_EMAIL_COUNT', (c) => c.starlinguide?.emails.length],
+  ['STARLINGUIDE_FLUSH_DELAY_MS', (c) => c.starlinguide?.flushDelayMs],
+  ['STARLINGUIDE_TIMEOUT_MS', (c) => c.starlinguide?.timeoutMs],
   // Polling and heartbeat
   ['POLL_INTERVAL_MS', (c) => c.polling?.intervalMs],
   ['POLL_AUTOSTART', (c) => c.polling?.autostart],

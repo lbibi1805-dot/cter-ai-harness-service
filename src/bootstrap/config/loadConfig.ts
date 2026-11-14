@@ -14,6 +14,7 @@ import { readRerankConfig } from './readers/rerankConfig.reader';
 import { readRetrievalConfig } from './readers/retrievalConfig.reader';
 import { readStorageConfig } from './readers/storageConfig.reader';
 import { readCaptureConfig } from './readers/captureConfig.reader';
+import { readStarlinguideConfig } from './readers/starlinguideConfig.reader';
 import { readContextConfig } from './readers/contextConfig.reader';
 import { readEssayConfig } from './readers/essayConfig.reader';
 import { readAnswerConfig } from './readers/answerConfig.reader';
@@ -67,6 +68,7 @@ export function loadConfig(): AppConfig {
     },
     storage,
     capture: readCaptureConfig(storage),
+    starlinguide: readStarlinguideConfig(),
     context: readContextConfig(),
     essay: readEssayConfig(),
     answers: readAnswerConfig(),

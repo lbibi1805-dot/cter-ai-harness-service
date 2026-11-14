@@ -2,6 +2,7 @@ import { Router } from '../../shared/http/router';
 import { logger } from '../../shared/logging/logger';
 import { createObjectStorage, type ObjectStorage, type ObjectStorageSettings } from '../../shared/storage';
 import { CaptureService } from './application/capture.service';
+import type { CaptureImageSink } from './application/interfaces/captureImageSink.interface';
 import { CAPTURE_MAX_IMAGES_PER_BATCH } from './domain';
 import { CaptureController } from './presentation/capture.controller';
 import { createCaptureRoutes } from './presentation/capture.routes';
@@ -23,6 +24,8 @@ export interface CaptureModuleDeps {
   /** Test hooks. */
   storage?: ObjectStorage;
   now?: () => number;
+  /** Told about uploaded / deleted photos (planning-15112026-starlinguide-push). */
+  sink?: CaptureImageSink;
 }
 
 export interface CaptureModule {
@@ -40,6 +43,7 @@ export function createCaptureModule(settings: CaptureSettings, deps: CaptureModu
       urlTtlSeconds: settings.urlTtlSeconds,
       maxImagesPerBatch: CAPTURE_MAX_IMAGES_PER_BATCH,
       now: deps.now ?? Date.now,
+      ...(deps.sink ? { sink: deps.sink } : {}),
     });
     logger.info(`[capture] enabled · storage ${storage.location}${settings.sharedBucket ? ' (shared main bucket, prefix captures/)' : ''}`);
   } else {
@@ -53,3 +57,7 @@ export { CaptureService } from './application/capture.service';
 export * from './application/constants/captureService.constants';
 export type * from './application/interfaces/captureService.interface';
 export { CaptureApiPath } from './presentation/enums/capture.enums';
+export type { CaptureImageSink, CaptureStoredImage } from './application/interfaces/captureImageSink.interface';
+export type { CaptureKeys } from './presentation/interfaces/captureKeys.interface';
+export { hasCaptureAccess, presentedKey } from './presentation/helpers/captureAuth.helper';
+export { normalizeFolder, parseBatchIndex } from './domain';

@@ -12,6 +12,7 @@ import type { DiagramGuardSettings } from '../../modules/agent/application/inter
 import { DatabaseSettings } from '../../shared/database/interfaces/database.interface';
 import type { ObjectStorageSettings } from '../../shared/storage';
 import type { CaptureSettings } from '../../modules/capture';
+import type { StarlinguideSettings } from '../../modules/starlinguide';
 import type { AIProvider } from '../../modules/ai';
 import type { AuxTimeouts, ContextSettings } from '../../modules/context';
 import type { AnswerCompletenessSettings, ChatLimits } from '../../modules/chat';
@@ -86,6 +87,8 @@ export interface AppConfig {
   storage: ObjectStorageSettings;
   /** CAPTURE_* (/api/captures for the cter-capture-client web app); absent = disabled. */
   capture?: CaptureSettings;
+  /** STARLINGUIDE_* (planning-15112026-starlinguide-push): push new capture photos to Starlinguide; absent = off. */
+  starlinguide?: StarlinguideSettings;
   context: ContextAppConfig;
   /** ESSAY_* (note 15): Essay Mode on /api/chat. */
   essay: EssaySettings;
