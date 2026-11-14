@@ -12,11 +12,3 @@ export enum CaptureKeySource {
   HEADER = 'x-capture-key',
   QUERY = 'key',
 }
-
-/** Which keys a route accepts. */
-export enum CaptureAccess {
-  /** CAPTURE_API_KEY, CAPTURE_UPLOAD_KEY or ADMIN_TOKEN. */
-  READ = 'read',
-  /** CAPTURE_UPLOAD_KEY (defaults to CAPTURE_API_KEY) or ADMIN_TOKEN. */
-  UPLOAD = 'upload',
-}

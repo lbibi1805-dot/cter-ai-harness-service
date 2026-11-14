@@ -1,3 +1,38 @@
+# Thay đổi: Photo capture — upload không cần key, `CAPTURE_API_KEY` chỉ để đọc (14/11/2026)
+
+> Trạng thái: **chưa commit** (branch `feature/bach-planning-12112026-wave3`) · Plan: `planning/planning-13112026-photo-capture/04-plan-public-upload`
+> · Client: `cter-capture-client` bỏ ô Capture key (chỉ còn tên người chụp, bài gần đây lưu trên máy). Cloak client và monitoring không đổi.
+
+## Vì sao
+
+Bản 13/11 bắt người chụp nhập key. Yêu cầu đúng: ai mở web app cũng upload được; key chỉ dành cho backend bên nhận để đọc.
+
+## Thay đổi
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | `POST /api/captures/batches` và `POST /api/captures/batches/{folder}/{index}/images` **không kiểm tra key** | Vẫn giữ: 15 MB/ảnh, 60 ảnh/bài, magic bytes, `CAPTURE_FOLDER_PATTERN`, CORS theo `FRONTEND_URL` |
+| 2 | `GET` (list, folders, batch, files) và `DELETE` batch: chỉ nhận `CAPTURE_API_KEY` hoặc `ADMIN_TOKEN` | Trước: `DELETE` đi theo quyền upload |
+| 3 | `CAPTURE_API_KEY` vẫn là công tắc bật: trống = **mọi** route 503, cả upload | |
+| 4 | Bỏ biến `CAPTURE_UPLOAD_KEY`, enum `CaptureAccess`, dòng `/api/config` `CAPTURE_SEPARATE_UPLOAD_ACCESS` | |
+
+## Biến môi trường
+
+| Biến | Thay đổi |
+|---|---|
+| `CAPTURE_UPLOAD_KEY` | **Bỏ**. Xoá trên Render nếu đã đặt (đặt cũng không còn tác dụng) |
+| `CAPTURE_API_KEY` | Không đổi tên/giá trị; nay chỉ là key đọc/xoá + công tắc bật. Không nhập vào web app |
+
+## Rủi ro chấp nhận
+
+Ai biết URL harness đều upload được (spam, tốn dung lượng R2). Giảm thiểu: giới hạn kích thước/số ảnh, magic bytes, lifecycle R2, CORS. Không làm rate limit theo IP (plan 04 §6 O1).
+
+## Kiểm thử
+
+- `tests/unit/modules/capture/capture.routes.test.ts`: upload không key → 201; `GET`/`DELETE` không key hoặc sai key → 401; `ADMIN_TOKEN` đọc được; thiếu `CAPTURE_API_KEY` → 503 cho cả upload, đọc, xoá.
+
+---
+
 # Thay đổi: Trả lời đủ dài, đủ câu, đủ mọi câu hỏi trong một lượt — answer plan, sinh theo phần, auto-continue, kiểm tra phủ (13/11/2026)
 
 > Trạng thái: **chưa commit** (branch `feature/bach-planning-12112026-wave3`) · Plan: `planning/planning-12112026/08-long-complete-answers` (Bước 1–5, 7 phía harness, 8)

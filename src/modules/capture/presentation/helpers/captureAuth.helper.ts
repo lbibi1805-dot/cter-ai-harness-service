@@ -2,7 +2,7 @@ import { timingSafeEqual } from 'crypto';
 import type { IncomingMessage } from 'http';
 import { HttpHeader } from '../../../../shared/http/enums/http.enums';
 import type { QueryParams } from '../../../../shared/http/interfaces/router.interface';
-import { CaptureAccess, CaptureKeySource } from '../enums/capture.enums';
+import { CaptureKeySource } from '../enums/capture.enums';
 import type { CaptureKeys } from '../interfaces/captureKeys.interface';
 
 const BEARER = 'Bearer ';
@@ -23,10 +23,8 @@ export function presentedKey(req: IncomingMessage, query: QueryParams): string |
   return null;
 }
 
-/** Fail-closed: with no key configured nobody gets in (the module is disabled anyway). */
-export function hasCaptureAccess(keys: CaptureKeys, access: CaptureAccess, presented: string | null): boolean {
+/** Read/delete access: CAPTURE_API_KEY or ADMIN_TOKEN. Fail-closed: with no key configured nobody gets in. */
+export function hasCaptureAccess(keys: CaptureKeys, presented: string | null): boolean {
   if (!presented) return false;
-  const upload = keys.uploadKey ?? keys.apiKey;
-  const accepted = access === CaptureAccess.UPLOAD ? [upload, keys.adminToken] : [keys.apiKey, upload, keys.adminToken];
-  return accepted.some((key) => !!key && sameSecret(key, presented));
+  return [keys.apiKey, keys.adminToken].some((key) => !!key && sameSecret(key, presented));
 }

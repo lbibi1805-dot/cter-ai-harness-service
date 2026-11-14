@@ -1,8 +1,6 @@
 export interface CaptureKeys {
-  /** CAPTURE_API_KEY: shared with every receiver app. Unset = module disabled. */
+  /** CAPTURE_API_KEY: read/delete key for receiver backends only (uploads are public). Unset = module disabled. */
   apiKey?: string;
-  /** CAPTURE_UPLOAD_KEY: optional separate key for uploading/deleting; defaults to apiKey. */
-  uploadKey?: string;
-  /** ADMIN_TOKEN (monitoring UI) — full access. */
+  /** ADMIN_TOKEN (monitoring UI) — read/delete access. */
   adminToken?: string;
 }

@@ -8,10 +8,8 @@ import { createCaptureRoutes } from './presentation/capture.routes';
 
 /** CAPTURE_* settings (planning-13112026-photo-capture). */
 export interface CaptureSettings {
-  /** CAPTURE_API_KEY — unset = module disabled (503). */
+  /** CAPTURE_API_KEY — read/delete key; also the on/off switch: unset = module disabled (503), uploads included. */
   apiKey?: string;
-  /** CAPTURE_UPLOAD_KEY — optional; defaults to apiKey. */
-  uploadKey?: string;
   /** Own bucket (CAPTURE_R2_*), else the main R2 bucket, else local disk (dev). */
   storage: ObjectStorageSettings;
   /** True when `storage` is the main R2 bucket (no CAPTURE_R2_BUCKET). */
@@ -33,7 +31,7 @@ export interface CaptureModule {
   router: Router;
 }
 
-/** Photo capture API `/api/captures` (shared key, no database); the phone UI is `cter-capture-client`. */
+/** Photo capture API `/api/captures` (public upload, read key for receivers, no database); the phone UI is `cter-capture-client`. */
 export function createCaptureModule(settings: CaptureSettings, deps: CaptureModuleDeps = {}): CaptureModule {
   let service: CaptureService | null = null;
   if (settings.apiKey) {
@@ -47,7 +45,7 @@ export function createCaptureModule(settings: CaptureSettings, deps: CaptureModu
   } else {
     logger.info('[capture] CAPTURE_API_KEY not set — /api/captures disabled');
   }
-  const controller = new CaptureController(service, { apiKey: settings.apiKey, uploadKey: settings.uploadKey, adminToken: deps.adminToken }, settings.maxImageBytes);
+  const controller = new CaptureController(service, { apiKey: settings.apiKey, adminToken: deps.adminToken }, settings.maxImageBytes);
   return { service, router: new Router(createCaptureRoutes(controller), undefined) };
 }
 
