@@ -88,6 +88,14 @@ services:
         sync: false
       - key: CAPTURE_R2_SECRET_ACCESS_KEY
         sync: false
+      # ── Starlinguide push (planning-15112026-starlinguide-push): NEW capture uploads → Starlinguide Partner API. ──
+      # Unset base URL = off. Set it without the secret or the emails = the service refuses to start.
+      - key: STARLINGUIDE_API_BASE_URL   # prod URL sent by Starlinguide (UAT: https://api.solve.vn/starlinguide-uat)
+        sync: false
+      - key: STARLINGUIDE_PARTNER_SECRET # secret (X-Partner-Secret)
+        sync: false
+      - key: STARLINGUIDE_EMAILS         # comma-separated, 1–20, exact case; personal data
+        sync: false
       # ── Operations ──
       - key: POLL_INTERVAL_MS
         value: 30000

@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors';
+import { ConflictError, NotFoundError, ValidationError, errorMessage } from '../../../shared/errors';
 import { logger } from '../../../shared/logging/logger';
 import { ObjectPrefix, type ObjectStorage } from '../../../shared/storage';
 import {
@@ -23,6 +23,7 @@ import type {
   CaptureListView,
   CaptureServiceOptions,
 } from './interfaces/captureService.interface';
+import { NO_CAPTURE_SINK, type CaptureImageSink, type CaptureStoredImage } from './interfaces/captureImageSink.interface';
 
 /**
  * Photo capture use cases: one person uploads photos of paper exercises into numbered batches per folder
@@ -66,6 +67,8 @@ export class CaptureService {
     await this.storage.put(key, body, { contentType: mimeType });
     const image: CaptureImage = { name, key, seq, mimeType, bytes: body.length, createdAt: this.options.now() };
     this.catalog.addImage(folder, index, image);
+    // Only a fresh upload reaches the sink; ready() (photos already in the bucket) never does.
+    this.notify((sink) => sink.imageStored({ folder, index, seq, name, mimeType, bytes: body.length } satisfies CaptureStoredImage));
     return this.toImageView(folder, index, image);
   }
 
@@ -117,6 +120,7 @@ export class CaptureService {
     const batch = await this.requireBatch(folderRaw, indexRaw);
     const images = this.catalog.removeBatch(batch.folder, batch.index);
     if (images.length > 0) await this.storage.deleteMany(images.map((i) => i.key));
+    for (const image of images) this.notify((sink) => sink.imageDeleted(batch.folder, batch.index, image.name));
     return images.length;
   }
 
@@ -126,11 +130,21 @@ export class CaptureService {
     const image = this.catalog.removeImage(batch.folder, batch.index, name, this.options.now());
     if (!image) throw new NotFoundError(`image ${batch.folder}/${batch.index}/${name} not found`);
     await this.storage.delete(image.key);
+    this.notify((sink) => sink.imageDeleted(batch.folder, batch.index, name));
   }
 
   /** Forces a rebuild from storage on next use (e.g. objects were changed outside the API). */
   invalidate(): void {
     this.loading = null;
+  }
+
+  /** A listener failure never fails the upload or delete. */
+  private notify(call: (sink: CaptureImageSink) => void): void {
+    try {
+      call(this.options.sink ?? NO_CAPTURE_SINK);
+    } catch (err) {
+      logger.warn(`[capture] image listener failed: ${errorMessage(err)}`);
+    }
   }
 
   private async requireBatch(folderRaw: unknown, indexRaw: unknown): Promise<CaptureBatch> {

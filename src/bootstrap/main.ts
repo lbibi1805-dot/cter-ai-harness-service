@@ -15,7 +15,8 @@ import { createVaultModule } from '../modules/vault';
 import { createConversationStoreModule } from '../modules/conversation-store';
 import { createContextModule } from '../modules/context';
 import { createRoutingModule } from '../modules/routing';
-import { createCaptureModule } from '../modules/capture';
+import { createCaptureModule, type CaptureService } from '../modules/capture';
+import { STARLINGUIDE_SHUTDOWN_GRACE_MS, createStarlinguideForwarder, createStarlinguideRouter } from '../modules/starlinguide';
 import { createObjectStorage } from '../shared/storage';
 import { Router } from '../shared/http/router';
 import { logger } from '../shared/logging/logger';
@@ -176,10 +177,26 @@ export async function main(): Promise<void> {
   );
 
   // Photo capture (planning-13112026-photo-capture): /api/captures for the cter-capture-client web app; shared key, no database.
-  const capture = config.capture ? createCaptureModule(config.capture, { adminToken: config.http.adminToken }) : null;
+  // planning-15112026-starlinguide-push: new uploads (never the photos already in the bucket) go on to Starlinguide.
+  // The forwarder reads bytes through the capture service, which only exists once the capture module is built.
+  let captureService: CaptureService | null = null;
+  const starlinguide = config.starlinguide && config.capture?.apiKey
+    ? createStarlinguideForwarder(config.starlinguide, {
+      images: { readImage: (folder, index, name) => captureService!.readImage(folder, index, name) },
+    })
+    : null;
+  if (config.starlinguide && !config.capture?.apiKey) logger.warn('[starlinguide] STARLINGUIDE_API_BASE_URL is set but CAPTURE_API_KEY is not: nothing to push');
+  const capture = config.capture
+    ? createCaptureModule(config.capture, { adminToken: config.http.adminToken, ...(starlinguide ? { sink: starlinguide } : {}) })
+    : null;
+  captureService = capture?.service ?? null;
+  // Before the capture router: it owns every /api/captures/batches/* path.
+  const starlinguideRouter = capture
+    ? createStarlinguideRouter(starlinguide, captureService, { apiKey: config.capture?.apiKey, adminToken: config.http.adminToken })
+    : null;
 
   // 7. Start: the API first so the host (Render) detects the open port right away
-  const server = new HttpServer(config.http.port, [vault.router, polling.router, chat.router, conversations.router, retrieveRouter, c4.router, ops.router, ...(capture ? [capture.router] : [])], config.http.corsOrigins);
+  const server = new HttpServer(config.http.port, [vault.router, polling.router, chat.router, conversations.router, retrieveRouter, c4.router, ops.router, ...(starlinguideRouter ? [starlinguideRouter] : []), ...(capture ? [capture.router] : [])], config.http.corsOrigins);
   logger.startup(config.accounts.length, config.polling.intervalMs);
   await server.start();
   // Polling starts on boot so a redeploy never leaves it silently stopped; POLL_AUTOSTART=false waits for GET /start.
@@ -187,7 +204,12 @@ export async function main(): Promise<void> {
   else logger.info('POLL_AUTOSTART=false — waiting for GET /start');
   ops.heartbeat.start();
   // Poll cursors live in RAM (Neon must sleep): persist them before the host stops the process.
-  for (const signal of SHUTDOWN_SIGNALS) process.once(signal, () => void polling.shutdown().finally(() => process.exit(0)));
+  for (const signal of SHUTDOWN_SIGNALS) {
+    process.once(signal, () => void Promise.allSettled([
+      polling.shutdown(),
+      starlinguide?.shutdown(STARLINGUIDE_SHUTDOWN_GRACE_MS),
+    ]).finally(() => process.exit(0)));
+  }
   if (retrieval) void indexVaultAndEnableRag({ vault, retrieval, ranking, ai, rerankTopN: config.rerank.topN });
   else void vault.repository.refresh().catch(() => undefined);
 }

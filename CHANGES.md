@@ -1,3 +1,30 @@
+# Thay đổi: đẩy ảnh Capture mới sang Starlinguide (15/11/2026)
+
+> Trạng thái: **chưa commit** (branch `feature/bach-starlinguide-push`) · Plan: `planning/planning-15112026-starlinguide-push`
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | Port `CaptureImageSink` trong module `capture`: `addImage` báo `imageStored` **sau** khi lưu R2; xoá ảnh/bài báo `imageDeleted` | Nạp index từ R2 lúc khởi động không báo gì → ảnh đã có trong bucket không bao giờ tự đẩy. Lỗi listener bị nuốt, upload vẫn `201` |
+| 2 | Module mới `src/modules/starlinguide` (domain / application / infrastructure / presentation) | Hàng đợi RAM (metadata, ≤ 200 ảnh), debounce `STARLINGUIDE_FLUSH_DELAY_MS`, ≤ 20 file / 28 MB mỗi request, 1 request cùng lúc. Bytes đọc từ storage ngay trước khi gửi |
+| 3 | Retry theo tài liệu đối tác | Cặp `INTERNAL_SERVER_ERROR` gửi lại riêng (10 s/60 s/300 s); 429 theo `Retry-After`; 5xx/mạng gửi lại cả request ≤ 3 lần; timeout ≤ 1 lần; 413 chia đôi; 401 dừng hẳn tới khi sửa env + restart |
+| 4 | `GET /api/captures/starlinguide/status`, `POST /api/captures/batches/{folder}/{index}/starlinguide` | Cần `X-Capture-Key` (`CAPTURE_API_KEY`) hoặc `ADMIN_TOKEN`. Email luôn bị che (`a***@x.com`). Re-push có thể tạo bản trùng |
+| 5 | SIGTERM: gửi nốt ảnh đang chờ trong 8 s | Còn sót thì log để re-push |
+| 6 | `GET /api/config`: `STARLINGUIDE_ENABLED`, `STARLINGUIDE_HOST`, `STARLINGUIDE_EMAIL_COUNT`, `STARLINGUIDE_FLUSH_DELAY_MS`, `STARLINGUIDE_TIMEOUT_MS` | Không lộ secret, không lộ email |
+
+**Biến môi trường mới** (`.env.example`, `render.yaml` `sync: false`):
+
+| Biến | Bắt buộc | Mặc định |
+|---|---|---|
+| `STARLINGUIDE_API_BASE_URL` | Công tắc (trống = tắt) | — |
+| `STARLINGUIDE_PARTNER_SECRET` | Có khi bật (**secret**) | — |
+| `STARLINGUIDE_EMAILS` | Có khi bật (1–20, đúng hoa/thường) | — |
+| `STARLINGUIDE_FLUSH_DELAY_MS` | Không | `5000` (1000–60000) |
+| `STARLINGUIDE_TIMEOUT_MS` | Không | `120000` (10000–600000) |
+
+**Kiểm thử:** `tests/unit/modules/starlinguide/*` 5 file, 33 test; full suite 1007/1008 (1 fail có sẵn `promptSources` / `system-prompt.md`, cũng fail trên `main`); `tsc --noEmit` + `npm run build` sạch.
+
+---
+
 # Thay đổi: `GET /api/chat/status` trả `limits.maxImages` (14/11/2026)
 
 > Trạng thái: **chưa commit** · Plan: `planning/planning-14112026/05-capture-image-selection` (giai đoạn 1, #5)
