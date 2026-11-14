@@ -126,6 +126,7 @@ export class AIInvocationService {
       contexts: prompt.contexts,
       route,
       timings,
+      ...(reply.finishReason ? { finishReason: reply.finishReason } : {}),
     };
   }
 

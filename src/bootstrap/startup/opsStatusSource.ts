@@ -20,7 +20,7 @@ export interface OpsStatusExtras {
   latency?: (windowMs: number) => unknown;
   circuit?: () => unknown;
   prompts?: () => unknown;
-  evals?: () => unknown;
+  evals?: (kind?: string) => unknown;
   /** Defaults to the process-wide counter every Neon client reports to. */
   dbCounter?: DbQueryCounter;
 }

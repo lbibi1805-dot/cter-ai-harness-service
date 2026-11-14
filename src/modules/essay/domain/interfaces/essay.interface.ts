@@ -63,6 +63,19 @@ export interface EssaySettings {
   analysisTimeoutMs: number;
   /** ESSAY_SELF_CHECK_TIMEOUT_MS: step ⑦ gives up and keeps the essay. */
   selfCheckTimeoutMs: number;
+  /** ESSAY_MAX_ASPECTS (12/11 plan 08 Bước 4): aspects kept from the analysis (was a fixed 6). */
+  maxAspects: number;
+  /** AI_MAX_OUTPUT_TOKENS: cap of the writing call (was a fixed 8192). */
+  maxOutputTokens?: number;
+  /** ANSWER_MAX_CONTINUATIONS: auto-continues of a cut essay (unclosed `<essay>` / output cap). */
+  maxContinuations?: number;
+}
+
+/** One numbered question of an essay prompt with its own marks (08 Bước 4: every "(N điểm)" counts). */
+export interface EssayQuestionTarget {
+  label: string;
+  points: number;
+  targetWords: number;
 }
 
 /** Chunks picked for the prompt and how well they cover the aspects. */

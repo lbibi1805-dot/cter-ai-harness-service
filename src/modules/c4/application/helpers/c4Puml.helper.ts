@@ -1,10 +1,13 @@
-import { C4ElementKind, isBoundary, type C4Element } from '../../domain';
+import { C4ElementKind, C4Scaling, isBoundary, type C4Element } from '../../domain';
 import {
   BOUNDARY_MACRO,
   DOUBLE_QUOTE,
   ELEMENT_MACRO,
   EXTERNAL_SUFFIX,
   INDENT,
+  INSTANCE_COUNT,
+  INSTANCE_COUNT_SUFFIX,
+  INSTANCE_RANGE_LINE,
   LINE_BREAKS,
   REPEATED_SPACES,
   VARIANT_SUFFIX,
@@ -33,9 +36,22 @@ export function addElements(all: C4Element[], parent: string | undefined, indent
 export function elementLine(e: C4Element, sequence: boolean): string {
   const macro = elementMacro(e, sequence);
   const withTech = e.kind === C4ElementKind.CONTAINER || e.kind === C4ElementKind.COMPONENT;
+  const { name, desc } = sequence ? { name: quote(e.name), desc: quote(e.desc) } : withInstances(e);
   return withTech
-    ? `${macro}(${e.id}, "${quote(e.name)}", "${quote(e.tech)}", "${quote(e.desc)}")`
-    : `${macro}(${e.id}, "${quote(e.name)}", "${quote(e.desc)}")`;
+    ? `${macro}(${e.id}, "${name}", "${quote(e.tech)}", "${desc}")`
+    : `${macro}(${e.id}, "${name}", "${desc}")`;
+}
+
+/**
+ * T7 on the box (plan 04 §5.1), without new macros: a fixed count joins the name ("API Service x 3"); a range
+ * or "auto" becomes a description line ("Instances: 2..10 (HPA)"). Quoted text, ready for the macro.
+ */
+export function withInstances(e: C4Element): { name: string; desc: string } {
+  const instances = e.instances;
+  if (!instances) return { name: quote(e.name), desc: quote(e.desc) };
+  const scaling = e.scaling && e.scaling !== C4Scaling.FIXED ? e.scaling : undefined;
+  if (INSTANCE_COUNT.test(instances) && !scaling) return { name: quote(e.name) + INSTANCE_COUNT_SUFFIX(instances), desc: quote(e.desc) };
+  return { name: quote(e.name), desc: quote(e.desc) + INSTANCE_RANGE_LINE(instances, scaling) };
 }
 
 export function elementMacro(e: C4Element, sequence = false): string {

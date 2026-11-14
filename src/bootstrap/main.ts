@@ -1,9 +1,9 @@
 import * as path from 'path';
 import { COMPOSED_PATHS, EVAL_RESULTS_DIR, listEvalResults, type PromptPath } from '../modules/prompts';
-import { createAgentModule, createToolCallingModelFactory } from '../modules/agent';
-import { DEFAULT_AI_LATENCY, createAiModule } from '../modules/ai';
+import { ClientAnswerService, createAgentModule, createToolCallingModelFactory } from '../modules/agent';
+import { DEFAULT_AI_LATENCY, configureHistoryLimits, createAiModule } from '../modules/ai';
 import { createC4Module } from '../modules/c4';
-import { createChatModule } from '../modules/chat';
+import { AnswerOrchestrator, answerPromptsFrom, createChatModule } from '../modules/chat';
 import { createConversationPoller } from '../modules/conversation';
 import { createFileQaJob } from '../modules/fileqa';
 import { createNotifier } from '../modules/notification';
@@ -27,13 +27,15 @@ import { logConfiguration } from './startup/configurationReport';
 import { buildOpsStatusSource } from './startup/opsStatusSource';
 import { indexVaultAndEnableRag } from './startup/ragWarmup';
 import { buildEssayService } from './startup/essayWiring';
-import { buildDiagramWiring } from './startup/diagramWiring';
+import { buildDiagramWiring, diagramGuardMetrics } from './startup/diagramWiring';
 import { legacyPromptInSync } from './startup/legacyPrompt';
 
 /** Composition root: builds every module from the config, then starts the HTTP server and polling. */
 export async function main(): Promise<void> {
   // 1. Configuration and shared state
   const config = loadConfig();
+  // 12/11 plan 08 Bước 5: the newest assistant turn keeps HISTORY_ASSISTANT_TURN_MAX_CHARS in every history.
+  configureHistoryLimits({ lastAssistantTurnMaxChars: config.historyAssistantTurnMaxChars });
   // Static system prompt (layer ①): `prompts/` registry when present, else system-prompt.md. Domains/skills: config.prompts.registry.
   logger.info(`[prompts] ${config.prompts.registry ? 'registry' : 'system-prompt.md'} · promptVersion ${config.prompts.promptVersion ?? '-'}`);
   const promptLayout = config.context.settings.promptLayout;
@@ -73,6 +75,12 @@ export async function main(): Promise<void> {
     },
   );
 
+  // 12/11 plan 08: every text answer (chat, Canvas replies, file Q&A) answers ALL questions of the prompt, long enough —
+  // answer plan, sections, auto-continue, coverage fix. ANSWER_COMPLETENESS_ENABLED=false passes requests through.
+  const skillBody = config.prompts.registry ? (id: string) => config.prompts.registry!.skill(id)?.body ?? null : null;
+  const orchestrator = new AnswerOrchestrator(agent.answers, config.answers ?? {}, answerPromptsFrom(skillBody));
+  const clientAnswers = new ClientAnswerService(orchestrator, agent.diagramGuard);
+
   // 4. Server-side conversations + context engineering (API path only; the Canvas poller is unchanged)
   const conversations = createConversationStoreModule(
     { enabled: config.context.conversationStoreEnabled, purgeDays: config.context.purgeDays, database: config.database, chatApiToken: config.http.chatApiToken, adminToken: config.http.adminToken },
@@ -99,7 +107,7 @@ export async function main(): Promise<void> {
   const chat = createChatModule(
     { chatApiToken: config.http.chatApiToken, limits: config.chat },
     {
-      answers: agent.clientAnswers, catalog: ai.catalog, agentEnabled: agent.enabled, isProviderConfigured, turns: context?.turns, storage,
+      answers: clientAnswers, catalog: ai.catalog, agentEnabled: agent.enabled, isProviderConfigured, turns: context?.turns, storage,
       ...(config.prompts.registry ? { promptTrace: (p: string) => config.prompts.registry!.composition(p as PromptPath) } : {}),
       ...(essay ? { essay } : {}),
       // Essay Mode: the router's one aux call also returns the essay analysis (note 15 step ①).
@@ -136,12 +144,12 @@ export async function main(): Promise<void> {
   // 6. Canvas polling jobs and ops endpoints
   // File Q&A renders a PDF (loose math normalization there); Canvas replies get the client-formatted text.
   // Canvas polling is background work (long PDF answers): CANVAS_DEADLINE_MS instead of the interactive CHAT_DEADLINE_MS.
-  const jobDeps = { catalog: ai.catalog, state, answers: agent.answers, deadlineMs: config.ai.latency?.canvasDeadlineMs ?? DEFAULT_AI_LATENCY.canvasDeadlineMs };
+  const jobDeps = { catalog: ai.catalog, state, answers: orchestrator, deadlineMs: config.ai.latency?.canvasDeadlineMs ?? DEFAULT_AI_LATENCY.canvasDeadlineMs };
   const staleThresholdMs = config.ai.timeoutMs * (config.ai.maxRetryCount + STALE_RETRY_MARGIN);
   const polling = createPollingModule(
     { intervalMs: config.polling.intervalMs, accounts: config.accounts, database: config.database, adminToken: config.http.adminToken, cursorFlushMs: config.polling.cursorFlushMs },
     {
-      jobs: [createFileQaJob(config.canvasFolders, { ...jobDeps, notifier }), createConversationPoller({ ...jobDeps, answers: agent.clientAnswers })],
+      jobs: [createFileQaJob(config.canvasFolders, { ...jobDeps, notifier }), createConversationPoller({ ...jobDeps, answers: clientAnswers })],
       validateKeys: () => ai.configuredAdapters.validateKeys(),
       beforeTick: () => {
         for (const record of state.resetStaleProcessing(staleThresholdMs)) logger.staleReset(record.fileName, record.updatedAt);
@@ -152,7 +160,7 @@ export async function main(): Promise<void> {
   const ops = createOpsModule(
     { port: config.http.port, heartbeat: config.heartbeat, adminToken: config.http.adminToken },
     buildOpsStatusSource(config, ai, polling, vault, storage, {
-      latency: (windowMs) => ({ ...ai.metrics.summary(windowMs), diagramGuard: agent.diagramGuard?.stats() ?? null }),
+      latency: (windowMs) => ({ ...ai.metrics.summary(windowMs), diagramGuard: diagramGuardMetrics(agent.diagramGuard?.stats() ?? null, c4.service.connectivityStats()), answers: orchestrator.metrics.summary() }),
       circuit: () => ai.circuit.snapshot(),
       prompts: config.prompts.registry
         ? () => ({
@@ -163,7 +171,7 @@ export async function main(): Promise<void> {
           legacyInSync,
         })
         : undefined,
-      evals: () => listEvalResults(path.resolve(process.cwd(), EVAL_RESULTS_DIR)),
+      evals: (kind) => listEvalResults(path.resolve(process.cwd(), EVAL_RESULTS_DIR), kind),
     }),
   );
 

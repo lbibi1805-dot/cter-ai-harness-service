@@ -22,6 +22,8 @@ export enum PromptPath {
 export enum EvalKind {
   GOLDEN_QA = 'golden-qa',
   RULE_COMPLIANCE = 'rule-compliance',
+  /** `npm run eval:c4` (12/11 plan 04 §7.2): connectivity, instances and the discussion frame of /c4 runs. */
+  DESIGN_COMPLIANCE = 'design-compliance',
 }
 
 /** Frontmatter keys of a prompt file. */

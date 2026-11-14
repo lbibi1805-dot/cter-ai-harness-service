@@ -10,6 +10,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { readPromptConfig } from '../src/bootstrap/config/readers/promptConfig.reader';
 import { EvalKind, mean, scoreGoldenCase, type GoldenAnswer, type GoldenCase, type GoldenScore } from '../src/modules/prompts';
+import { lintPlantUmlConnectivity } from '../src/modules/c4';
+import { extractPlantUmlBlocks } from '../src/shared/text';
 
 const ROOT = path.resolve(__dirname, '..');
 const CASES_FILE = path.join(ROOT, 'evals', 'golden', 'rule-compliance.jsonl');
@@ -24,6 +26,13 @@ const TARGET = 0.9;
 
 interface RuleCase extends GoldenCase {
   group: string;
+  /** 12/11 plan 04 R11: every PlantUML block of the answer must pass the connectivity lint (no orphan box). */
+  lint_connectivity?: boolean;
+}
+
+/** R11: connectivity errors left in the answer's PlantUML blocks ("CODE alias"), empty when clean. */
+function connectivityProblems(text: string): string[] {
+  return extractPlantUmlBlocks(text).flatMap((block) => lintPlantUmlConnectivity(block).errors.map((i) => `${i.code} ${i.elementIds.join(',')}`));
 }
 
 interface Variant {
@@ -76,7 +85,9 @@ async function main(): Promise<void> {
     for (const testCase of cases) {
       try {
         const answer = await ask(baseUrl, token, { provider: variant.provider, ...(variant.model ? { model: variant.model } : {}), mode: variant.mode, question: testCase.question });
-        const score = scoreGoldenCase(testCase, answer);
+        const scored = scoreGoldenCase(testCase, answer);
+        const lint = testCase.lint_connectivity ? connectivityProblems(answer.text) : [];
+        const score = lint.length ? { ...scored, pass: false, score: 0, missingPoints: [...scored.missingPoints, ...lint] } : scored;
         rows.push({ ...score, ...variant, group: testCase.group, answeredMode: answer.mode });
         console.log(`${variant.mode} ${variant.provider}:${variant.model ?? '-'} ${testCase.id}: ${pct(score.score)}${score.pass ? '' : ` (fail: ${[...score.missingPoints, ...score.forbiddenHits.map((f) => `forbidden ${f}`)].join(', ')})`}`);
       } catch (error) {

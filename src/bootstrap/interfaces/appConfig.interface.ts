@@ -14,7 +14,7 @@ import type { ObjectStorageSettings } from '../../shared/storage';
 import type { CaptureSettings } from '../../modules/capture';
 import type { AIProvider } from '../../modules/ai';
 import type { AuxTimeouts, ContextSettings } from '../../modules/context';
-import type { ChatLimits } from '../../modules/chat';
+import type { AnswerCompletenessSettings, ChatLimits } from '../../modules/chat';
 import type { PromptRegistry } from '../../modules/prompts';
 
 export interface ContextAppConfig {
@@ -89,6 +89,10 @@ export interface AppConfig {
   context: ContextAppConfig;
   /** ESSAY_* (note 15): Essay Mode on /api/chat. */
   essay: EssaySettings;
+  /** ANSWER_* / LONG_ANSWER_DEADLINE_MS (12/11 plan 08): the AnswerOrchestrator; absent = defaults. */
+  answers?: AnswerCompletenessSettings;
+  /** HISTORY_ASSISTANT_TURN_MAX_CHARS (12/11 plan 08 Bước 5): newest assistant turn kept in history. */
+  historyAssistantTurnMaxChars?: number;
   gmail: GmailCredentials;
   heartbeat: HeartbeatSettings;
 }

@@ -4,17 +4,23 @@ import { ValidationError } from '../../../shared/errors';
 import { ConversationStateKey } from '../domain/enums/conversation.enums';
 import type { ConversationStore } from '../domain/conversationStore.port';
 import type {
+  ArtifactDetail,
   ArtifactEnrichment,
   ConversationDetail,
-  ConversationListItem,
+  ConversationListPage,
+  ConversationListQuery,
   ConversationSnapshot,
+  MessagePage,
   PendingWorkflow,
   PinnedArtifactsOptions,
+  RenamedConversation,
   TurnWrite,
 } from '../domain/interfaces/conversation.interface';
 import { CONVERSATION_SCHEMA_STATEMENTS } from './constants/conversationSchema.constants';
 import {
+  pageOfMessages,
   parseJson,
+  titleSourceOf,
   toArtifactDetail,
   toIso,
   toIsoOrNull,
@@ -138,10 +144,12 @@ export class NeonConversationStore implements ConversationStore {
   }
 
   async findActive(id: string, maxMessages: number): Promise<ConversationDetail | null> {
+    // LIMIT n + 1: the extra (oldest) row only tells whether older messages exist.
     const [row] = await this.query<Row>(
-      `SELECT c.id, c.title, c.summary, c.summary_upto_seq, c.state, c.created_at, c.updated_at, c.deleted_at, c.purge_after,
+      `SELECT c.id, COALESCE(c.display_title, c.title) AS title, c.display_title IS NOT NULL AS user_titled,
+         c.summary, c.summary_upto_seq, c.state, c.created_at, c.updated_at, c.deleted_at, c.purge_after,
          COALESCE((SELECT json_agg(x ORDER BY x.seq) FROM (
-           SELECT * FROM messages WHERE conversation_id = c.id ORDER BY seq DESC LIMIT $2) x), '[]'::json) AS messages,
+           SELECT * FROM messages WHERE conversation_id = c.id ORDER BY seq DESC LIMIT $2::int + 1) x), '[]'::json) AS messages,
          COALESCE((SELECT json_agg(y ORDER BY y.ordinal) FROM (
            SELECT a.*, m.seq AS message_seq FROM artifacts a LEFT JOIN messages m ON m.id = a.message_id
            WHERE a.conversation_id = c.id) y), '[]'::json) AS artifacts
@@ -149,38 +157,103 @@ export class NeonConversationStore implements ConversationStore {
       [id, maxMessages],
     );
     if (!row) return null;
+    const state = parseJson<Record<string, unknown>>(row.state, {});
     return {
       id: String(row.id),
       title: (row.title as string | null) ?? null,
+      titleSource: titleSourceOf(row.user_titled),
       summary: (row.summary as string | null) ?? null,
       summaryUptoSeq: Number(row.summary_upto_seq ?? 0),
-      state: parseJson<Record<string, unknown>>(row.state, {}),
+      state,
       createdAt: toIso(row.created_at),
       updatedAt: toIso(row.updated_at),
       deletedAt: null,
       purgeAfter: null,
-      pending: Object.keys(parseJson<Record<string, unknown>>(row.state, {})),
-      messages: parseJson<Row[]>(row.messages, []).map(toMessageDetail),
+      pending: Object.keys(state),
+      ...pageOfMessages(parseJson<Row[]>(row.messages, []).map(toMessageDetail), maxMessages),
       artifacts: parseJson<Row[]>(row.artifacts, []).map(toArtifactDetail),
     };
   }
 
-  async list(limit: number, deleted: boolean, pending?: string): Promise<ConversationListItem[]> {
-    const rows = await this.query<Row>(
-      `SELECT id, title, updated_at, deleted_at, purge_after,
-         ARRAY(SELECT jsonb_object_keys(state)) AS pending FROM conversations
-       WHERE ${deleted ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL'}${pending ? ' AND state ? $2' : ''}
-       ORDER BY updated_at DESC LIMIT $1`,
-      pending ? [limit, stateKey(pending)] : [limit],
+  async findMessages(id: string, beforeSeq: number | null, limit: number): Promise<MessagePage | null> {
+    // One round-trip: the page (limit + 1 rows) and the artifacts of the returned messages only.
+    const [row] = await this.query<Row>(
+      `WITH conv AS (SELECT id FROM conversations WHERE id = $1::uuid AND deleted_at IS NULL),
+       page AS (
+         SELECT m.* FROM messages m JOIN conv ON m.conversation_id = conv.id
+         WHERE ($2::int IS NULL OR m.seq < $2::int)
+         ORDER BY m.seq DESC LIMIT $3::int + 1),
+       shown AS (SELECT id, seq FROM page ORDER BY seq DESC LIMIT $3::int)
+       SELECT conv.id,
+         COALESCE((SELECT json_agg(p ORDER BY p.seq) FROM page p), '[]'::json) AS messages,
+         COALESCE((SELECT json_agg(y ORDER BY y.ordinal) FROM (
+           SELECT a.*, s.seq AS message_seq FROM artifacts a JOIN shown s ON s.id = a.message_id
+           WHERE a.conversation_id = conv.id) y), '[]'::json) AS artifacts
+       FROM conv`,
+      [id, beforeSeq, limit],
     );
-    return rows.map((r) => ({
-      id: String(r.id),
-      title: (r.title as string | null) ?? null,
-      updatedAt: toIso(r.updated_at),
-      deletedAt: toIsoOrNull(r.deleted_at),
-      purgeAfter: toIsoOrNull(r.purge_after),
-      pending: Array.isArray(r.pending) ? r.pending.map(String) : [],
-    }));
+    if (!row) return null;
+    return {
+      ...pageOfMessages(parseJson<Row[]>(row.messages, []).map(toMessageDetail), limit),
+      artifacts: parseJson<Row[]>(row.artifacts, []).map(toArtifactDetail),
+    };
+  }
+
+  async findActiveArtifact(conversationId: string, artifactId: string): Promise<ArtifactDetail | null> {
+    // Light lookup for the bytes route: one row, no messages (was a full findActive per image).
+    const [row] = await this.query<Row>(
+      `SELECT a.* FROM artifacts a JOIN conversations c ON c.id = a.conversation_id
+       WHERE a.id = $2::uuid AND c.id = $1::uuid AND c.deleted_at IS NULL`,
+      [conversationId, artifactId],
+    );
+    return row ? toArtifactDetail(row) : null;
+  }
+
+  async list(query: ConversationListQuery): Promise<ConversationListPage> {
+    const params: unknown[] = [query.limit + 1];
+    const where = [query.deleted ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL'];
+    if (query.pending) {
+      params.push(stateKey(query.pending));
+      where.push(`state ? $${params.length}`);
+    }
+    if (query.after) {
+      params.push(query.after.updatedAt, query.after.id);
+      where.push(`(updated_at, id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+    }
+    // Cursor text comes from SQL (microseconds, UTC, independent of DateStyle/TimeZone): a JS Date would drop the µs.
+    const rows = await this.query<Row>(
+      `SELECT id, COALESCE(display_title, title) AS title, display_title IS NOT NULL AS user_titled,
+         updated_at, to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at,
+         deleted_at, purge_after, ARRAY(SELECT jsonb_object_keys(state)) AS pending FROM conversations
+       WHERE ${where.join(' AND ')}
+       ORDER BY updated_at DESC, id DESC LIMIT $1`,
+      params,
+    );
+    const page = rows.slice(0, query.limit);
+    const last = page.at(-1);
+    return {
+      conversations: page.map((r) => ({
+        id: String(r.id),
+        title: (r.title as string | null) ?? null,
+        titleSource: titleSourceOf(r.user_titled),
+        updatedAt: toIso(r.updated_at),
+        deletedAt: toIsoOrNull(r.deleted_at),
+        purgeAfter: toIsoOrNull(r.purge_after),
+        pending: Array.isArray(r.pending) ? r.pending.map(String) : [],
+      })),
+      next: rows.length > query.limit && last ? { updatedAt: String(last.cursor_at), id: String(last.id) } : null,
+    };
+  }
+
+  async rename(id: string, displayTitle: string | null): Promise<RenamedConversation | null> {
+    // Deliberately leaves updated_at alone: a rename must not move the conversation to the top of the list.
+    const [row] = await this.query<Row>(
+      `UPDATE conversations SET display_title = $2 WHERE id = $1::uuid AND deleted_at IS NULL
+       RETURNING id, COALESCE(display_title, title) AS title, display_title IS NOT NULL AS user_titled`,
+      [id, displayTitle],
+    );
+    if (!row) return null;
+    return { id: String(row.id), title: (row.title as string | null) ?? null, titleSource: titleSourceOf(row.user_titled) };
   }
 
   async softDelete(id: string, purgeAfterDays: number): Promise<boolean> {

@@ -1,10 +1,14 @@
 import type {
+  ArtifactDetail,
   ArtifactEnrichment,
   ConversationDetail,
-  ConversationListItem,
+  ConversationListPage,
+  ConversationListQuery,
   ConversationSnapshot,
+  MessagePage,
   PendingWorkflow,
   PinnedArtifactsOptions,
+  RenamedConversation,
   TurnWrite,
 } from './interfaces/conversation.interface';
 
@@ -25,10 +29,16 @@ export interface ConversationStore {
   load(id: string, maxMessages: number, maxArtifacts: number, pinned?: PinnedArtifactsOptions): Promise<ConversationSnapshot | null>;
   /** Creates the conversation when needed, appends messages (seq assigned in SQL) and artifacts. */
   recordTurn(turn: TurnWrite): Promise<void>;
-  /** Active conversation with every message and artifact; null when missing or soft-deleted. */
+  /** Active conversation with its newest `maxMessages` messages and every artifact; null when missing or soft-deleted. */
   findActive(id: string, maxMessages: number): Promise<ConversationDetail | null>;
-  /** `pending`: only conversations whose state holds that key (e.g. `pendingC4`). */
-  list(limit: number, deleted: boolean, pending?: string): Promise<ConversationListItem[]>;
+  /** Messages with seq < `beforeSeq` (all when null), newest `limit`, plus their artifacts; null when missing or soft-deleted. */
+  findMessages(id: string, beforeSeq: number | null, limit: number): Promise<MessagePage | null>;
+  /** One artifact of an active conversation (no messages loaded); null when either is missing or soft-deleted. */
+  findActiveArtifact(conversationId: string, artifactId: string): Promise<ArtifactDetail | null>;
+  /** Keyset page, newest first (`updated_at DESC, id DESC`); fetches `limit + 1` rows, never counts. */
+  list(query: ConversationListQuery): Promise<ConversationListPage>;
+  /** Sets (or clears with null) the user's title; never touches `updated_at`. Null when missing or soft-deleted. */
+  rename(id: string, displayTitle: string | null): Promise<RenamedConversation | null>;
   /** Idempotent; false when the id does not exist. */
   softDelete(id: string, purgeAfterDays: number): Promise<boolean>;
   /** False when the id does not exist (already purged). */

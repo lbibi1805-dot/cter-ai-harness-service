@@ -1104,11 +1104,15 @@
                   },
                   "fast": {
                     "type": "boolean",
-                    "description": "Bỏ vòng Critic"
+                    "description": "Bỏ câu hỏi clarify và vòng Critic (phần bàn luận thiết kế vẫn chạy)"
+                  },
+                  "noDiscussion": {
+                    "type": "boolean",
+                    "description": "(13/11) true → bỏ bước bàn luận thiết kế T1–T7 cho lần này"
                   },
                   "stream": {
                     "type": "boolean",
-                    "description": "true → application/x-ndjson: progress, intent {intent, confidence, source}, brief {brief}, clarify {sessionId, summary[], questions[], expiresInSec}, analysis, level (mỗi cấp có ảnh mới), review_delta {text}, review_done {review}, cuối cùng {\"type\":\"done\", ...response}. Lỗi → {\"type\":\"error\"}."
+                    "description": "true → application/x-ndjson: progress, intent {intent, confidence, source}, brief {brief}, clarify {sessionId, summary[], questions[], expiresInSec}, analysis, level (mỗi cấp có ảnh mới), review_delta {text}, review_done {review}, (13/11) discussion_delta {text}, discussion_done {discussion: {markdown, artifactId?, alias?}}; level có thêm connectivity {errors[], warnings[]} ({code, message, elementIds}), cuối cùng {\"type\":\"done\", ...response}. Lỗi → {\"type\":\"error\"}."
                   },
                   "images": {
                     "type": "array",
@@ -1583,6 +1587,482 @@
           },
           "503": {
             "description": "CHAT_API_TOKEN chưa đặt (API tắt)"
+          }
+        }
+      }
+    },
+    "/api/conversations": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Danh sách conversation, keyset (updated_at DESC, id DESC). CHAT_API_TOKEN hoặc ADMIN_TOKEN. 1 query Neon (lấy limit+1 hàng).",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "nextCursor của trang trước (opaque, base64url)"
+          },
+          {
+            "name": "deleted",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "pending",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "c4"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Một trang",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conversations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "title": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "COALESCE(display_title, title)"
+                          },
+                          "titleSource": {
+                            "type": "string",
+                            "enum": [
+                              "user",
+                              "auto"
+                            ]
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "deletedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "purgeAfter": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "pending": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cursor hỏng hoặc pending lạ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "invalid_cursor"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu/sai token"
+          }
+        }
+      }
+    },
+    "/api/conversations/{id}": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Chi tiết: N tin mới nhất + mọi artifact (metadata + url presigned). Thêm title, titleSource, hasMoreMessages, oldestSeq.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "messages",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Không truyền = 500 (client cũ); client mới truyền 40"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ConversationView",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "id/messages không hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "conversationId must be a UUID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không có hoặc đã xoá mềm"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Conversations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Đổi tên (display_title). null hoặc \"\" = về tên tự sinh. Không đổi updatedAt. 1 query Neon.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 80
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã đổi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "title": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "titleSource": {
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "auto"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Rỗng sau trim, > 80 ký tự, hoặc không phải chuỗi/null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "invalid_title"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không có hoặc đã xoá mềm"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Xoá mềm (204, idempotent). ?hard=true = purge ngay, cần ADMIN_TOKEN.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "hard",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Đã xoá"
+          },
+          "401": {
+            "description": "Thiếu/sai token"
+          },
+          "404": {
+            "description": "Không có"
+          }
+        }
+      }
+    },
+    "/api/conversations/{id}/messages": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Tin cũ hơn beforeSeq + artifact của chính các tin đó (url presigned). 1 query Neon.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "beforeSeq",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Không truyền = trang mới nhất"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 40
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{messages, artifacts, hasMoreMessages, oldestSeq}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tham số không hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "beforeSeq must be a positive integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không có hoặc đã xoá mềm"
+          }
+        }
+      }
+    },
+    "/api/conversations/{id}/artifacts/{artifactId}": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Byte của artifact (dev không có presigned URL). 1 JOIN nhẹ, không tải tin nhắn.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "artifactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bytes"
+          },
+          "404": {
+            "description": "Không có"
+          }
+        }
+      }
+    },
+    "/api/conversations/{id}/restore": {
+      "post": {
+        "tags": [
+          "Conversations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Khôi phục conversation đã xoá mềm",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ok, id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Đã purge"
           }
         }
       }

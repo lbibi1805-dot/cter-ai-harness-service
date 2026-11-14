@@ -1,11 +1,14 @@
 import type { CitedChunk } from '../../retrieval';
-import type { C4Level, ClarifyQuestion } from '../domain';
+import { describeConnectivity, type C4Level, type ClarifyQuestion, type ConnectivityReport } from '../domain';
 import type { C4RepairInput, C4SkillSource } from './interfaces/c4Sketch.interface';
 import { C4SkillId } from './enums/c4Skill.enums';
 import {
   C4_SYSTEM_PROMPT,
   CLARIFY_PARSE_INSTRUCTIONS,
+  CRITIC_DESIGN_CHECKS,
   DESIGN_READ_INSTRUCTIONS,
+  DISCUSSION_INSTRUCTIONS,
+  DISCUSSION_SYSTEM_PROMPT,
   EXTRACT_INSTRUCTIONS,
   JSON_RETRY,
   KNOWLEDGE_CLOSE_TAG,
@@ -37,6 +40,9 @@ const FALLBACK: Readonly<Record<C4SkillId, string>> = {
   [C4SkillId.REVIEW_SYSTEM]: REVIEW_SYSTEM_PROMPT,
   [C4SkillId.REVIEW]: REVIEW_INSTRUCTIONS,
   [C4SkillId.CLARIFY_PARSE]: CLARIFY_PARSE_INSTRUCTIONS,
+  [C4SkillId.DISCUSSION_SYSTEM]: DISCUSSION_SYSTEM_PROMPT,
+  [C4SkillId.DISCUSSION]: DISCUSSION_INSTRUCTIONS,
+  [C4SkillId.CRITIC_DESIGN]: CRITIC_DESIGN_CHECKS,
 };
 
 /**
@@ -94,6 +100,11 @@ export class C4PromptBuilder {
     return this.withSharedRules(this.skill(C4SkillId.REVIEW_SYSTEM));
   }
 
+  /** The design discussion writer's system prompt (markdown answer), on the same shared rules (plan 04 §5.3). */
+  discussionSystem(): string {
+    return this.withSharedRules(this.skill(C4SkillId.DISCUSSION_SYSTEM));
+  }
+
   jsonRetry(): string {
     return this.skill(C4SkillId.JSON_RETRY);
   }
@@ -121,7 +132,7 @@ main container → component; a runtime flow → sequence.
 
 Step 2 — one consistent model: one element per distinct actor role and per external system that is mentioned or strictly required
 (e.g. a payment provider when payment is required). Containers: the fewest deployable units that satisfy the requirements (typically
-client app(s), one backend API, one database); add queue/cache/worker/storage only when a requirement needs it.
+client app(s), one backend API, one database), plus the infrastructure the container rules call for.
 
 Step 3 — diagrams (at most ${maxElements} non-boundary elements each). Context and container diagrams MUST contain every actor and
 external system of the model, with the same id, each connected by a relationship:
@@ -220,15 +231,23 @@ Return the full corrected specs (same shape as given):
 { "diagrams": { ${[...broken.keys()].map((level) => `"${level}": <spec>`).join(', ')} } }`;
   }
 
-  /** One critic call; the rendered images are attached in the order of `specs`. */
-  critic(specs: ReadonlyMap<C4Level, string>, requirementsJson: string, maxElements: number): string {
+  /**
+   * One critic call; the rendered images are attached in the order of `specs`. `connectivity`: the validator's
+   * findings per level (C1–C9, plan 04 §4.2), given as facts for checks 5–7.
+   */
+  critic(specs: ReadonlyMap<C4Level, string>, requirementsJson: string, maxElements: number, connectivity?: ReadonlyMap<C4Level, ConnectivityReport>): string {
     const levels = [...specs.keys()];
+    const findings = [...(connectivity ?? new Map<C4Level, ConnectivityReport>())]
+      .map(([level, report]) => [level, describeConnectivity([...report.errors, ...report.warnings])] as const)
+      .filter(([, lines]) => lines.length > 0)
+      .map(([level, lines]) => `### ${level}\n${lines.map((line) => `- ${line}`).join('\n')}`);
     return `Review the rendered C4 diagrams (images attached in this order: ${levels.join(', ')}) that answer an exam problem.
 For each diagram check, in order:
 1. Coverage: every requirement that applies to its level is clearly visible.
 2. Minimality: no element or relationship that no requirement needs; no two elements that mean the same thing.
 3. Readability in the image: overlapping or crossing lines, unreadable labels (fix with "dir" hints or shorter text).
 4. C4 correctness for the level (right element kinds, technology on containers/components) and the knowledge-base notes.
+${this.skill(C4SkillId.CRITIC_DESIGN)}
 
 Only revise for a real problem. Always list what you checked and found in "issues" (short, readable sentences in the
 language of the requirements), also for an "ok" verdict. JSON shape:
@@ -239,7 +258,29 @@ at most ${maxElements} non-boundary elements>}.
 Requirements:
 ${requirementsJson}
 
+Connectivity warnings (validator):
+${findings.length ? findings.join('\n') : '(none)'}
+
 ${[...specs].map(([level, json]) => `### ${level} spec\n${json}`).join('\n\n')}`;
+  }
+
+  /**
+   * The design discussion request (plan 04 §5.3): the problem brief, the final specs (with instances) and the
+   * connectivity findings left after repair/critic, under the fixed seven-topic frame.
+   */
+  discussion(briefText: string, specsJson: string, warnings: readonly string[]): string {
+    return `${this.skill(C4SkillId.DISCUSSION)}
+
+Problem (brief):
+<<<
+${briefText || '(no statement given)'}
+>>>
+
+Connectivity warnings (validator):
+${warnings.length ? warnings.map((w) => `- ${w}`).join('\n') : '(none)'}
+
+Design (final specs, JSON):
+${specsJson}`;
   }
 
   /** The user's design image(s) → specs, transcribed as drawn. */

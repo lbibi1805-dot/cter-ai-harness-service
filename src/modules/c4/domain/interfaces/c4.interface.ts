@@ -1,4 +1,4 @@
-import type { C4Direction, C4ElementKind, C4ElementVariant, C4Level } from '../enums/c4.enums';
+import type { C4Direction, C4ElementKind, C4ElementVariant, C4Level, C4Scaling, ConnectivityCode } from '../enums/c4.enums';
 
 /** A requirement found in the problem statement; `levels` are the diagrams that must show it (empty = all). */
 export interface C4Requirement {
@@ -19,6 +19,9 @@ export interface C4Element {
   parent?: string;
   /** Requirement ids this element demonstrates. */
   covers: string[];
+  /** T7: instance count ("3"), autoscaling range ("2..10") or "auto"; shown on the box. */
+  instances?: string;
+  scaling?: C4Scaling;
 }
 
 export interface C4Relationship {
@@ -38,10 +41,25 @@ export interface C4DiagramSpec {
   rels: C4Relationship[];
 }
 
+/** One connectivity finding (plan 04 §4.2); `elementIds` are the spec ids (or PlantUML aliases) involved. */
+export interface ConnectivityIssue {
+  code: ConnectivityCode;
+  message: string;
+  elementIds: string[];
+}
+
+/** C1–C9 result: errors go to the repair round, warnings to the critic and the client. */
+export interface ConnectivityReport {
+  errors: ConnectivityIssue[];
+  warnings: ConnectivityIssue[];
+}
+
 /** A validated, auto-fixed spec plus what is still wrong with it. */
 export interface C4Validation {
   spec: C4DiagramSpec;
   errors: string[];
+  /** Connectivity findings (empty when DIAGRAM_CONNECTIVITY_CHECK=false); its errors are also in `errors`. */
+  connectivity: ConnectivityReport;
   covered: string[];
   missing: string[];
   /** Lower is better (errors + uncovered requirements); a revision must not raise it. */
@@ -58,6 +76,8 @@ export interface C4ValidationRules {
   maxElements: number;
   /** Actors and external systems that context and container diagrams must show (C4: same people/systems at both levels). */
   requiredElements?: readonly C4ModelElement[];
+  /** DIAGRAM_CONNECTIVITY_CHECK: run the C1–C9 checks (default true). */
+  connectivity?: boolean;
 }
 
 /** An element kind as the model wrote it, plus the variant the alias implies. */

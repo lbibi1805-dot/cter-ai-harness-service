@@ -10,6 +10,9 @@ export const DEFAULT_ESSAY_SETTINGS: Readonly<EssaySettings> = {
   thinkingLevel: GeminiThinkingLevel.LOW,
   analysisTimeoutMs: 6_000,
   selfCheckTimeoutMs: 20_000,
+  maxAspects: 12,
+  maxOutputTokens: 16_384,
+  maxContinuations: 2,
 };
 
 // ── Triggers ─────────────────────────────────────────────────────
@@ -46,8 +49,12 @@ export const ESSAY_VERB_PATTERNS: Readonly<Record<EssayVerb, RegExp>> = {
   [EssayVerb.EVALUATE]: /(?:^|[\s(,.;:"'])(?:đánh giá|bình luận|evaluate|assess|discuss|critique)(?=[\s,.;:)]|$)/u,
 };
 
+/**
+ * Built-in copy of `prompts/skills/essay/verb-expectations.md` (12/11 plan 08 moved the rule to prompts/); kept
+ * identical to the file by tests/unit/modules/essay/essayCompleteness.test.ts.
+ */
 export const ESSAY_VERB_EXPECTATIONS: Readonly<Record<EssayVerb, string>> = {
-  [EssayVerb.LIST]: 'Nêu, liệt kê → gạch đầu dòng, giải thích ngắn từng ý',
+  [EssayVerb.LIST]: 'Nêu, liệt kê → gạch đầu dòng, mỗi ý 1–3 câu giải thích đầy đủ (không chỉ nêu từ khoá)',
   [EssayVerb.EXPLAIN]: 'Trình bày, giải thích → đoạn văn có lập luận nhân quả',
   [EssayVerb.ANALYZE]: 'Phân tích → tách thành phần, nêu quan hệ, có ví dụ',
   [EssayVerb.COMPARE]: 'So sánh, phân biệt → bảng tiêu chí và kết luận',
@@ -63,7 +70,8 @@ export const ASPECT_CONJUNCTION = /\s+(?:và|and)\s+/iu;
 
 export const ASPECT_MIN_WORDS = 3;
 
-export const MAX_ESSAY_ASPECTS = 6;
+/** ESSAY_MAX_ASPECTS default (12/11 plan 08 Bước 4: was a fixed 6). */
+export const MAX_ESSAY_ASPECTS = 12;
 
 export const SUBJECT_MAX_CHARS = 120;
 
@@ -72,7 +80,8 @@ export const DEFAULT_TARGET_WORDS = 500;
 
 export const MIN_TARGET_WORDS = 120;
 
-export const MAX_TARGET_WORDS = 2500;
+/** Upper bound of the whole essay (several questions with marks add up, 08 Bước 4); the rest is continued. */
+export const MAX_TARGET_WORDS = 6000;
 
 // ── Retrieval ────────────────────────────────────────────────────
 /** Chunks per query (original question + one per aspect) before fusion (15 §3.1). */
@@ -124,7 +133,8 @@ export const OUTLINE_TOKENS = 1_200;
 /** Thinking tokens count against Gemini's output cap. */
 export const THINKING_TOKENS = 2_048;
 
-export const MAX_ESSAY_OUTPUT_TOKENS = 8_192;
+/** Default cap of the writing call when no AI_MAX_OUTPUT_TOKENS is given (08 Bước 4: no fixed 8192 clamp). */
+export const MAX_ESSAY_OUTPUT_TOKENS = 16_384;
 
 export const ANALYSIS_MAX_OUTPUT_TOKENS = 600;
 
@@ -135,6 +145,14 @@ export const LLM_CALL_BUDGET = 3;
 export const ESSAY_RUBRIC_SKILL_ID = 'skill.essay.rubric';
 
 export const ESSAY_WRITER_SKILL_ID = 'skill.essay.writer';
+
+export const ESSAY_VERB_SKILL_ID = 'skill.essay.verb-expectations';
+
+/** `prompts/skills/answer/continue.md`: auto-continue of a cut essay (08 Bước 4). */
+export const ESSAY_CONTINUE_SKILL_ID = 'skill.answer.continue';
+
+/** `key: text` lines of verb-expectations.md. */
+export const VERB_LINE = /^\s*(\w+)\s*:\s*(.+)$/;
 
 export const DEFAULT_ESSAY_RUBRIC = [
   '- Mở: định nghĩa chính xác các thuật ngữ trong đề (theo tài liệu môn học)',
@@ -147,8 +165,8 @@ export const DEFAULT_ESSAY_RUBRIC = [
 export const DEFAULT_ESSAY_WRITER = [
   'ESSAY MODE — viết bài tự luận cho một đề thi, trong MỘT câu trả lời:',
   '1. `<outline>` … `</outline>`: dàn ý, mỗi ý của đề một mục; mỗi luận điểm kết thúc bằng `[c:<chunk_id>]` lấy đúng id trong [REFERENCE MATERIAL] (không bịa id; không có nguồn thì `[c:none]`).',
-  '2. `<essay>` … `</essay>`: bài hoàn chỉnh theo dàn ý, rubric và bảng động từ, độ dài gần target_words (±15%).',
-  'Trong `<essay>` không ghi `[c:...]`, không viết mục References. Ý nào tài liệu không đề cập: ghi rõ "giáo trình không đề cập, theo kiến thức chung…". Bài mẫu chỉ là mẫu cấu trúc. Viết cùng ngôn ngữ với đề.',
+  '2. `<essay>` … `</essay>`: bài hoàn chỉnh theo dàn ý, rubric và bảng động từ, đoạn văn đầy đủ, độ dài ít nhất target_words (mỗi câu có target_words riêng thì đủ từng câu).',
+  'Trong `<essay>` không ghi `[c:...]`, không viết mục References. Ý nào tài liệu không đề cập: ghi rõ "giáo trình không đề cập, theo kiến thức chung…" rồi vẫn trả lời đầy đủ. Bài mẫu chỉ là mẫu cấu trúc. Viết cùng ngôn ngữ với đề. Viết hết bài, luôn đóng `</essay>`.',
 ].join('\n');
 
 export const ANALYSIS_SYSTEM_PROMPT = [

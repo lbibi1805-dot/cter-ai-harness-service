@@ -71,6 +71,7 @@ export const C4Step = {
   CRITIC: 'critic',
   DESIGN_READ: 'design-read',
   REVIEW: 'review',
+  DISCUSSION: 'discussion',
   DRAFT: (level: string) => `draft-${level}`,
 } as const;
 
@@ -82,6 +83,7 @@ export const C4FlowProgress = {
   REVISE: (alias: string) => `Đang sửa thiết kế ${alias}…`,
   DESIGN_READ: 'Đang đọc thiết kế của bạn…',
   REVIEW: 'Đang đánh giá thiết kế theo rubric…',
+  DISCUSSION: 'Đang viết phần bàn luận thiết kế (cloud, triển khai, chịu lỗi, giám sát, tenancy, bảo mật, instance)…',
 } as const;
 
 /** Readable critic findings (criticNotes, note 05 §6). */
@@ -91,6 +93,7 @@ export const CriticNotes = {
   REJECTED_WORSE: (level: string, issues: string[]) => `${level}: critic góp ý (${issues.join('; ')}) nhưng bản sửa kém hơn, giữ bản cũ`,
   REJECTED_RENDER: (level: string, issues: string[]) => `${level}: critic góp ý (${issues.join('; ')}) nhưng bản sửa lỗi cú pháp, giữ bản cũ`,
   SKIPPED_LATE: 'Bỏ bước critic vì sát giờ',
+  CONNECTIVITY: (level: string, problems: string[]) => `${level}: còn lỗi kết nối sau khi sửa — ${problems.join('; ')}`,
   FAILED: 'Critic không trả lời được, giữ bản đã vẽ',
 } as const;
 
@@ -105,3 +108,9 @@ export const DESIGN_UNREADABLE = '(transcription failed: read the design from th
 
 /** `AIRequest.purpose` of C4 model calls (latency metrics). */
 export const C4_PURPOSE = 'c4';
+
+/** C4_DESIGN_DISCUSSION_ENABLED default (12/11 plan 04 §8): the discussion writer runs unless rolled back. */
+export const DEFAULT_C4_DESIGN_DISCUSSION_ENABLED = true;
+
+/** DIAGRAM_CONNECTIVITY_CHECK default (plan 04 §8): C1–C9 on /c4 specs and the chat PlantUML lint. */
+export const DEFAULT_DIAGRAM_CONNECTIVITY_CHECK = true;

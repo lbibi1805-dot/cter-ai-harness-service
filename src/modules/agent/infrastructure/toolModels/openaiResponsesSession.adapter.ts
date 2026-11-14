@@ -40,7 +40,10 @@ export class OpenAIResponsesSession implements ToolCallingSession {
   async next(toolOutputs: ToolOutput[], options: TurnOptions, onDelta?: TextDeltaListener): Promise<ModelTurn> {
     for (const { callId, output } of toolOutputs) this.input.push({ type: 'function_call_output', call_id: callId, output });
 
-    const request = { model: this.model, input: this.input, tools: this.tools, tool_choice: toolChoiceFor(options) };
+    const request = {
+      model: this.model, input: this.input, tools: this.tools, tool_choice: toolChoiceFor(options),
+      ...(this.options.maxOutputTokens ? { max_output_tokens: this.options.maxOutputTokens } : {}),
+    };
     if (onDelta) return this.streamTurn(request, options, onDelta);
 
     const response = await retryTransient(

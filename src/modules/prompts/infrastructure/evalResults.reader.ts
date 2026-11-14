@@ -26,7 +26,7 @@ function readRun(dir: string, file: string): StoredRun | null {
  * newest first, with the delta against `baseline.json`. Reads local files only (deployed with the image,
  * or empty) — never Neon/R2. Unreadable files are skipped.
  */
-export function listEvalResults(resultsDir: string): EvalResultEntry[] {
+export function listEvalResults(resultsDir: string, kind?: string): EvalResultEntry[] {
   if (!fs.existsSync(resultsDir)) return [];
   const baseline = readRun(resultsDir, EVAL_BASELINE_FILE);
   const baselineScore = typeof baseline?.meanScore === 'number' ? baseline.meanScore : null;
@@ -35,12 +35,13 @@ export function listEvalResults(resultsDir: string): EvalResultEntry[] {
     if (!file.endsWith(EVAL_RESULT_EXTENSION) || file === EVAL_BASELINE_FILE) continue;
     const run = readRun(resultsDir, file);
     if (!run || typeof run.meanScore !== 'number') continue;
-    const kind = run.kind ?? EvalKind.GOLDEN_QA;
+    const runKind = run.kind ?? EvalKind.GOLDEN_QA;
+    if (kind && runKind !== kind) continue;
     // The QA baseline only compares with QA runs (rule-compliance has its own target, 12/11 02 Bước 7).
-    const comparable = kind === EvalKind.GOLDEN_QA ? baselineScore : null;
+    const comparable = runKind === EvalKind.GOLDEN_QA ? baselineScore : null;
     rows.push({
       file,
-      kind,
+      kind: runKind,
       date: run.date ?? null,
       promptVersion: run.promptVersion ?? null,
       score: run.meanScore,

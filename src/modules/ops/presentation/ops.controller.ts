@@ -47,9 +47,10 @@ export class OpsController {
     sendJson(res, HttpStatus.OK, prompts);
   };
 
-  /** `GET /api/evals` (admin): eval runs on disk, newest first (empty list when none were deployed). */
-  evals = async ({ res }: RouteContext): Promise<void> => {
-    sendJson(res, HttpStatus.OK, { evals: this.ops.evals() });
+  /** `GET /api/evals[?kind=rule-compliance|design-compliance|golden-qa]` (admin): eval runs on disk, newest first. */
+  evals = async ({ res, query }: RouteContext): Promise<void> => {
+    const kind = query.kind?.trim() || undefined;
+    sendJson(res, HttpStatus.OK, { evals: this.ops.evals(kind) });
   };
 
   /** `GET /api/metrics/latency?window=1h|24h` (admin): 503 until a latency provider is wired. */

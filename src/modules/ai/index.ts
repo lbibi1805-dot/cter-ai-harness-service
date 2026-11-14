@@ -34,7 +34,10 @@ export { toChatMessages, toResponsesHistory, toResponsesUserMessage } from './in
 export { renderHistory, currentUserParts, allPromptImages } from './domain/helpers/historyRender.helper';
 export * from './domain/enums/historyRender.enums';
 export type { RenderedHistory, RenderedPart, RenderedTurn } from './domain/interfaces/historyRender.interface';
-export { normalizeHistory, retrievalQuery } from './domain/helpers/conversationHistory.helper';
+export { configureHistoryLimits, normalizeHistory, retrievalQuery } from './domain/helpers/conversationHistory.helper';
+export { clampOutputTokens } from './domain/helpers/outputLimit.helper';
+export { MODEL_OUTPUT_LIMITS } from './domain/constants/modelOutputLimits.constants';
+export { DEFAULT_HISTORY_ASSISTANT_TURN_MAX_CHARS, MAX_HISTORY_TURN_CHARS } from './domain/constants/conversation.constants';
 export {
   withJit,
   withMemory,

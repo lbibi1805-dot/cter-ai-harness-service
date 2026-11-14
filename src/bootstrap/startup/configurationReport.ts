@@ -80,6 +80,18 @@ const PUBLIC_CONFIG_ENTRIES: readonly PublicConfigEntry[] = [
   ['AGENT_MAX_DIAGRAM_VALIDATIONS', (c) => c.agent?.maxDiagramValidations],
   ['DIAGRAM_SYNTAX_GUARD_ENABLED', (c) => c.diagramGuard?.enabled],
   ['DIAGRAM_SYNTAX_MAX_REPAIRS', (c) => c.diagramGuard?.maxRepairs],
+  // Long, complete answers (12/11 plan 08)
+  ['AI_MAX_OUTPUT_TOKENS', (c) => c.ai?.tuning?.maxOutputTokens],
+  ['ANSWER_COMPLETENESS_ENABLED', (c) => c.answers?.enabled],
+  ['ANSWER_MIN_WORDS_PER_QUESTION', (c) => c.answers?.minWordsPerQuestion],
+  ['ANSWER_SECTION_MAX_QUESTIONS', (c) => c.answers?.sectionMaxQuestions],
+  ['ANSWER_MAX_CONTINUATIONS', (c) => c.answers?.maxContinuations],
+  ['ANSWER_COVERAGE_FIX', (c) => c.answers?.coverageFix],
+  ['LONG_ANSWER_DEADLINE_MS', (c) => c.answers?.longAnswerDeadlineMs],
+  ['ESSAY_MAX_ASPECTS', (c) => c.essay?.maxAspects],
+  ['HISTORY_ASSISTANT_TURN_MAX_CHARS', (c) => c.historyAssistantTurnMaxChars],
+  ['DIAGRAM_CONNECTIVITY_CHECK', (c) => c.c4?.connectivityCheck],
+  ['C4_DESIGN_DISCUSSION_ENABLED', (c) => c.c4?.designDiscussionEnabled],
   // Storage
   ['VAULT_STORAGE_PROVIDER', (c) => c.database?.provider],
   ['DATABASE_CONFIGURED', (c) => !!c.database?.databaseUrl],

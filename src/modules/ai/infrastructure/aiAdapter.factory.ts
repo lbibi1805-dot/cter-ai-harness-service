@@ -84,7 +84,7 @@ export class ConfiguredAIAdapterFactory implements AIAdapterFactory {
           ...(this.config.geminiInlineImagesMaxBytes ? { inlineImagesMaxBytes: this.config.geminiInlineImagesMaxBytes } : {}),
         });
       case AIProvider.GROK:
-        return new GrokAdapter(key, this.config.grokBaseUrl);
+        return new GrokAdapter(key, this.config.grokBaseUrl, this.config.tuning);
       case AIProvider.OPENAI:
         return new OpenAIAdapter(key, this.config.tuning);
     }

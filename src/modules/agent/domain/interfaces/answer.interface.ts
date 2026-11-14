@@ -28,6 +28,21 @@ export interface AnswerResult extends AIAnswer {
   agent?: AgentAnswerDetails;
   /** Set when an agent request was answered single-shot. */
   fallbackReason?: AgentFallbackReason;
+  /** Set by the AnswerOrchestrator (12/11 plan 08): questions, sections, continuations and what is still missing. */
+  completeness?: AnswerCompletenessDetails;
+}
+
+/** How a long / multi-question answer was produced (12/11 plan 08). */
+export interface AnswerCompletenessDetails {
+  questions: number;
+  sections: number;
+  continuations: number;
+  /** True when the coverage-fix call ran. */
+  coverageFix: boolean;
+  /** Question ids still missing at the end (empty = complete). */
+  missing: string[];
+  /** True when the last call was still cut by the output cap. */
+  truncated: boolean;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { ArtifactKind, MessageKind, MessageRole } from '../../domain/enums/conversation.enums';
+import { ArtifactKind, MessageKind, MessageRole, TitleSource } from '../../domain/enums/conversation.enums';
 import type { ArtifactDetail, MessageDetail, ResolvedRefs, StoredArtifact, StoredMessage } from '../../domain/interfaces/conversation.interface';
 
 type Row = Record<string, unknown>;
@@ -86,4 +86,19 @@ export function toStoredArtifact(row: Row): StoredArtifact {
 
 export function toArtifactDetail(row: Row): ArtifactDetail {
   return { ...toStoredArtifact(row), sha256: strOrNull(row.sha256), sizeBytes: numOrNull(row.size_bytes), createdAt: toIso(row.created_at) };
+}
+
+export function titleSourceOf(userTitled: unknown): TitleSource {
+  return userTitled === true || userTitled === 't' ? TitleSource.USER : TitleSource.AUTO;
+}
+
+/**
+ * Messages read with `LIMIT n + 1` (any order): the extra oldest row only says that more exist.
+ * Same rule for the SQL and the in-memory store. Returned oldest first.
+ */
+export function pageOfMessages<T extends { seq: number }>(rows: T[], limit: number): { messages: T[]; hasMoreMessages: boolean; oldestSeq: number | null } {
+  const sorted = [...rows].sort((a, b) => a.seq - b.seq);
+  const hasMoreMessages = sorted.length > limit;
+  const messages = hasMoreMessages ? sorted.slice(sorted.length - limit) : sorted;
+  return { messages, hasMoreMessages, oldestSeq: messages[0]?.seq ?? null };
 }

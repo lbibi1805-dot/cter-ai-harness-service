@@ -5,6 +5,14 @@ export enum ChatStreamEvent {
   /** No text yet: `stage` says what the server is doing (see ChatProgressStage and ProgressStage). */
   PROGRESS = 'progress',
   DONE = 'done',
+  /** 12/11 plan 08: questions found in the prompt `{ total, questions: [{ id, label }] }` (multi-question only). */
+  ANSWER_PLAN = 'answer_plan',
+  /** A new part of a sectioned answer `{ index, total }` (1-based); its text follows as deltas. */
+  SECTION = 'section',
+  /** The answer hit the output cap and is being continued `{ n }` (1-based). */
+  CONTINUATION = 'continuation',
+  /** Question ids still missing after the fix pass `{ missing: string[] }` (empty = complete). */
+  COVERAGE = 'coverage',
 }
 
 /** `progress` stages sent by the HTTP layer itself (the answer pipeline adds `answering` and `agent-tool`). */

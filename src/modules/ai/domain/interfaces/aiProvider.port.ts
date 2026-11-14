@@ -1,5 +1,5 @@
 import type { GeminiThinkingLevel } from '../enums/latency.enums';
-import type { AIProvider } from '../enums/ai.enums';
+import type { AIProvider, FinishReason } from '../enums/ai.enums';
 import { PromptContent } from './promptContent.interface';
 
 /** Token counts reported by the provider for one call; absent fields were not reported. */
@@ -17,6 +17,8 @@ export interface ProviderReply {
   /** The model that actually answered (OpenRouter may have fallen back to another one). */
   model: string;
   usage?: ProviderUsage;
+  /** Why the model stopped (08 Bước 2); absent = the vendor did not say. `length` = cut by the output cap. */
+  finishReason?: FinishReason;
 }
 
 /** Per-call options every adapter honours. */

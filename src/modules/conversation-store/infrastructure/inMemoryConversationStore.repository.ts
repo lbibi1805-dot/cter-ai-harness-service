@@ -1,19 +1,27 @@
 import type { ConversationStore } from '../domain/conversationStore.port';
+import { TitleSource } from '../domain/enums/conversation.enums';
 import type {
   ArtifactDetail,
   ArtifactEnrichment,
+  ConversationCursor,
   ConversationDetail,
-  ConversationListItem,
+  ConversationListPage,
+  ConversationListQuery,
   ConversationSnapshot,
   MessageDetail,
+  MessagePage,
   PendingWorkflow,
   PinnedArtifactsOptions,
+  RenamedConversation,
   TurnWrite,
 } from '../domain/interfaces/conversation.interface';
+import { pageOfMessages } from './helpers/conversationRow.helper';
 
 interface MemoryConversation {
   id: string;
   title: string | null;
+  /** User-given name (migration 009); null = show `title`. */
+  displayTitle: string | null;
   summary: string | null;
   summaryUptoSeq: number;
   state: Record<string, unknown>;
@@ -54,7 +62,7 @@ export class InMemoryConversationStore implements ConversationStore {
   async recordTurn(turn: TurnWrite): Promise<void> {
     let c = this.conversations.get(turn.conversationId);
     if (!c) {
-      c = { id: turn.conversationId, title: turn.title, summary: null, summaryUptoSeq: 0, state: {}, createdAt: this.now(), updatedAt: this.now(), deletedAt: null, purgeAfter: null, messages: [], artifacts: [] };
+      c = { id: turn.conversationId, title: turn.title, displayTitle: null, summary: null, summaryUptoSeq: 0, state: {}, createdAt: this.now(), updatedAt: this.now(), deletedAt: null, purgeAfter: null, messages: [], artifacts: [] };
       this.conversations.set(c.id, c);
     }
     c.updatedAt = this.now();
@@ -86,23 +94,54 @@ export class InMemoryConversationStore implements ConversationStore {
   }
 
   async findActive(id: string, maxMessages: number): Promise<ConversationDetail | null> {
-    const c = this.conversations.get(id);
-    if (!c || c.deletedAt) return null;
+    const c = this.active(id);
+    if (!c) return null;
     return {
-      id: c.id, title: c.title, summary: c.summary, summaryUptoSeq: c.summaryUptoSeq, state: structuredClone(c.state),
+      id: c.id, ...titleOf(c), summary: c.summary, summaryUptoSeq: c.summaryUptoSeq, state: structuredClone(c.state),
       createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString(), deletedAt: null, purgeAfter: null, pending: Object.keys(c.state),
-      messages: c.messages.slice(-maxMessages).map((m) => ({ ...m })),
+      ...pageOfMessages(c.messages.slice(-(maxMessages + 1)).map((m) => ({ ...m })), maxMessages),
       artifacts: c.artifacts.map((a) => ({ ...a, messageSeq: this.seqOf(c, a.messageId) })),
     };
   }
 
-  async list(limit: number, deleted: boolean, pending?: string): Promise<ConversationListItem[]> {
-    return [...this.conversations.values()]
-      .filter((c) => (deleted ? c.deletedAt !== null : c.deletedAt === null))
-      .filter((c) => !pending || c.state[pending] !== undefined)
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-      .slice(0, limit)
-      .map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt.toISOString(), deletedAt: c.deletedAt?.toISOString() ?? null, purgeAfter: c.purgeAfter?.toISOString() ?? null, pending: Object.keys(c.state) }));
+  async findMessages(id: string, beforeSeq: number | null, limit: number): Promise<MessagePage | null> {
+    const c = this.active(id);
+    if (!c) return null;
+    const older = c.messages.filter((m) => beforeSeq === null || m.seq < beforeSeq);
+    const page = pageOfMessages(older.slice(-(limit + 1)).map((m) => ({ ...m })), limit);
+    const shown = new Map(page.messages.map((m) => [m.id, m.seq]));
+    const artifacts = c.artifacts.filter((a) => a.messageId && shown.has(a.messageId)).map((a) => ({ ...a, messageSeq: shown.get(a.messageId!)! }));
+    return { ...page, artifacts };
+  }
+
+  async findActiveArtifact(conversationId: string, artifactId: string): Promise<ArtifactDetail | null> {
+    const artifact = this.active(conversationId)?.artifacts.find((a) => a.id === artifactId);
+    return artifact ? { ...artifact } : null;
+  }
+
+  async list(query: ConversationListQuery): Promise<ConversationListPage> {
+    const rows = [...this.conversations.values()]
+      .filter((c) => (query.deleted ? c.deletedAt !== null : c.deletedAt === null))
+      .filter((c) => !query.pending || c.state[query.pending] !== undefined)
+      .sort((a, b) => compareKey(b, a))
+      .filter((c) => !query.after || compareKey(c, query.after) < 0)
+      .slice(0, query.limit + 1);
+    const page = rows.slice(0, query.limit);
+    const last = page.at(-1);
+    return {
+      conversations: page.map((c) => ({
+        id: c.id, ...titleOf(c), updatedAt: c.updatedAt.toISOString(), deletedAt: c.deletedAt?.toISOString() ?? null,
+        purgeAfter: c.purgeAfter?.toISOString() ?? null, pending: Object.keys(c.state),
+      })),
+      next: rows.length > query.limit && last ? { updatedAt: last.updatedAt.toISOString(), id: last.id } : null,
+    };
+  }
+
+  async rename(id: string, displayTitle: string | null): Promise<RenamedConversation | null> {
+    const c = this.active(id);
+    if (!c) return null;
+    c.displayTitle = displayTitle;
+    return { id: c.id, ...titleOf(c) };
   }
 
   async softDelete(id: string, purgeAfterDays: number): Promise<boolean> {
@@ -184,7 +223,24 @@ export class InMemoryConversationStore implements ConversationStore {
     return c.artifacts.filter((a) => keep.has(a.id));
   }
 
+  private active(id: string): MemoryConversation | null {
+    const c = this.conversations.get(id);
+    return c && !c.deletedAt ? c : null;
+  }
+
   private seqOf(c: MemoryConversation, messageId: string | null): number | null {
     return messageId ? c.messages.find((m) => m.id === messageId)?.seq ?? null : null;
   }
+}
+
+function titleOf(c: MemoryConversation): { title: string | null; titleSource: TitleSource } {
+  return c.displayTitle !== null ? { title: c.displayTitle, titleSource: TitleSource.USER } : { title: c.title, titleSource: TitleSource.AUTO };
+}
+
+/** Same order as the SQL keyset: `(updated_at, id)`. */
+function compareKey(a: MemoryConversation, b: MemoryConversation | ConversationCursor): number {
+  const at = a.updatedAt.getTime();
+  const bt = b.updatedAt instanceof Date ? b.updatedAt.getTime() : Date.parse(b.updatedAt);
+  if (at !== bt) return at - bt;
+  return a.id.toLowerCase() < b.id.toLowerCase() ? -1 : a.id.toLowerCase() > b.id.toLowerCase() ? 1 : 0;
 }

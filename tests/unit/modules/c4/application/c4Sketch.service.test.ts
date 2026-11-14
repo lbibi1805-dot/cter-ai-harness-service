@@ -14,7 +14,8 @@ const CATALOG = new ModelCatalog(buildTestAiConfig({ defaultModels: DEFAULT_MODE
 const CHUNK = { chunkId: 'k1', text: 'Always draw an API gateway', source: 'rules/c4.md', heading: 'Rules', parentHeading: '', tokenCount: 5 };
 const PNG = Buffer.from('png');
 
-const SETTINGS: C4SketchSettings = { enabled: true, deadlineMs: 60_000, criticCutoffMs: 40_000, callTimeoutMs: 30_000, maxElements: 12 };
+/** The discussion step (plan 04 §5.3) has its own tests below; these scenarios count the other calls. */
+const SETTINGS: C4SketchSettings = { enabled: true, deadlineMs: 60_000, criticCutoffMs: 40_000, callTimeoutMs: 30_000, maxElements: 12, designDiscussionEnabled: false };
 
 /** A brief the gap analysis is happy with (no questions). */
 const CONFIDENT_BRIEF = JSON.stringify({ brief: {

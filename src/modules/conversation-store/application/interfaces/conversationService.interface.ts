@@ -1,4 +1,4 @@
-import type { ArtifactDetail, ConversationDetail } from '../../domain';
+import type { ArtifactDetail, ConversationDetail, ConversationListItem, MessagePage } from '../../domain';
 
 export interface ConversationServiceOptions {
   /** Restore window before a soft-deleted conversation is purged (CONVERSATION_PURGE_DAYS). */
@@ -8,7 +8,7 @@ export interface ConversationServiceOptions {
   /** Maintenance runs at most this often (piggyback on requests). */
   maintenanceIntervalMs: number;
   presignTtlSeconds: number;
-  /** Messages returned by GET /api/conversations/:id. */
+  /** Messages returned by GET /api/conversations/:id without `?messages=`. */
   maxMessages: number;
   now: () => number;
 }
@@ -26,4 +26,22 @@ export interface StoredObjectRef {
   objectKey: string;
   sha256: string;
   sizeBytes: number;
+}
+
+export interface ConversationListRequest {
+  limit: number;
+  deleted: boolean;
+  /** `?pending=` value (`c4`). */
+  pending?: string;
+  /** Opaque `?cursor=` from a previous page's `nextCursor`. */
+  cursor?: string;
+}
+
+export interface ConversationListView {
+  conversations: ConversationListItem[];
+  nextCursor: string | null;
+}
+
+export interface MessagePageView extends Omit<MessagePage, 'artifacts'> {
+  artifacts: ArtifactView[];
 }

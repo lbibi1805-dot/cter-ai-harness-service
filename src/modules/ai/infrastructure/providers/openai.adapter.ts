@@ -4,7 +4,10 @@ import { AIProvider, OpenAIApiMode } from '../../domain/enums/ai.enums';
 import { UnsupportedModelError } from '../../domain/errors/ai.errors';
 import type { AdapterCallOptions, AIAdapter, ProviderReply, ProviderUsage, TextDeltaListener } from '../../domain/interfaces/aiProvider.port';
 import type { ProviderTuning } from '../../domain/interfaces/latency.interface';
-import { streamChatCompletion, withUsage } from '../helpers/chatCompletionStream.helper';
+import { streamChatCompletion, withFinish, withUsage } from '../helpers/chatCompletionStream.helper';
+import { chatFinishReason, responsesFinishReason } from '../helpers/finishReason.helper';
+import { RESPONSES_INCOMPLETE_EVENT } from '../constants/finishReason.constants';
+import type { FinishReason } from '../../domain/enums/ai.enums';
 import { chatCompletionUsage, responsesUsage } from '../helpers/usage.helper';
 import { isOpenAIReasoningModel, openAITuningFields } from '../helpers/openaiTuning.helper';
 import { DIRECT_ALLOWED_MODELS } from '../../domain/constants/modelCatalog.constants';
@@ -44,7 +47,7 @@ export class OpenAIAdapter implements AIAdapter {
     };
     if (onDelta) return streamChatCompletion(this.client, { ...body, stream: true }, onDelta, options.signal);
     const response = await this.client.chat.completions.create(body, { signal: options.signal });
-    return withUsage({ text: response.choices[0]?.message.content ?? '', model }, chatCompletionUsage(response.usage));
+    return withFinish(withUsage({ text: response.choices[0]?.message.content ?? '', model }, chatCompletionUsage(response.usage)), chatFinishReason(response.choices[0]?.finish_reason));
   }
 
   private async viaResponses(content: PromptContent, systemPrompt: string, model: string, onDelta: TextDeltaListener | undefined, options: AdapterCallOptions): Promise<ProviderReply> {
@@ -62,16 +65,21 @@ export class OpenAIAdapter implements AIAdapter {
     };
     if (!onDelta) {
       const response = await this.client.responses.create(body, { signal: options.signal });
-      return withUsage({ text: response.output_text ?? '', model }, responsesUsage(response.usage));
+      return withFinish(withUsage({ text: response.output_text ?? '', model }, responsesUsage(response.usage)), responsesFinishReason(response.status, response.incomplete_details?.reason));
     }
     let text = '';
     let usage: ProviderUsage | undefined;
+    let finish: FinishReason | undefined;
     for await (const event of await this.client.responses.create({ ...body, stream: true }, { signal: options.signal })) {
-      if (event.type === RESPONSES_COMPLETED_EVENT) usage = responsesUsage(event.response.usage);
+      // A response cut by max_output_tokens ends with `response.incomplete` instead of `response.completed`.
+      if (event.type === RESPONSES_COMPLETED_EVENT || event.type === RESPONSES_INCOMPLETE_EVENT) {
+        usage = responsesUsage(event.response.usage);
+        finish = responsesFinishReason(event.response.status, event.response.incomplete_details?.reason);
+      }
       if (event.type !== RESPONSES_TEXT_DELTA_EVENT) continue;
       text += event.delta;
       onDelta(event.delta);
     }
-    return withUsage({ text, model }, usage);
+    return withFinish(withUsage({ text, model }, usage), finish);
   }
 }

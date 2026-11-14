@@ -1,6 +1,8 @@
 import {
   ACCEPT_ALL_ANSWERS,
   CLARIFY_MIN_CONFIDENCE,
+  CLOUD_SCOPE_WORDS,
+  CONDITIONAL_LOW_SLOTS,
   DEFAULT_ACCEPTED_CONFIDENCE,
   IMPACT_RANK,
   LEVEL_ANSWER_WORDS,
@@ -9,6 +11,8 @@ import {
   MAX_SUMMARY_BULLETS,
   NONE_ANSWERS,
   NUMBERED_ANSWER,
+  SINGLE_TENANT_ANSWER,
+  SINGLE_TENANT_SIGNAL,
   SLOT_RULES,
   SUMMARY_MAX_REQUIREMENTS,
   SlotDefaults,
@@ -18,7 +22,7 @@ import {
   USER_STATED_CONFIDENCE,
 } from './constants/problemBrief.constants';
 import { C4_LEVEL_ALIASES, C4_LEVEL_ORDER, DEFAULT_C4_LEVELS } from './constants/c4.constants';
-import { BriefSource, C4Slot, ClarifySkipReason, SlotImpact, type C4Level } from './enums/c4.enums';
+import { BriefSource, C4Slot, ClarifySkipReason, CloudScope, SlotImpact, type C4Level } from './enums/c4.enums';
 import type {
   BriefField,
   BriefOverride,
@@ -96,6 +100,19 @@ function levelsField(raw: unknown, source: BriefSource): BriefField<C4Level[]> {
   return field(value, confidenceOf(raw, value.length > 0), source);
 }
 
+/** "full-cloud" / "hybrid" / "on-prem" / free text → a cloud scope; unknown when nothing matches. */
+export function cloudScopeFromText(raw: unknown): CloudScope {
+  const value = str(raw);
+  const exact = Object.values(CloudScope).find((scope) => scope === value.toLowerCase());
+  if (exact) return exact;
+  return CLOUD_SCOPE_WORDS.find(([pattern]) => pattern.test(value))?.[1] ?? CloudScope.UNKNOWN;
+}
+
+function cloudScopeField(raw: unknown, source: BriefSource): BriefField<CloudScope> {
+  const value = cloudScopeFromText(valueOf(raw));
+  return field(value, value === CloudScope.UNKNOWN ? 0 : confidenceOf(raw, true), source);
+}
+
 function rubricOf(raw: unknown): BriefRubricItem[] {
   return (Array.isArray(raw) ? raw : [])
     .map((item): Record<string, unknown> => (item && typeof item === 'object' ? (item as Record<string, unknown>) : { criterion: item }))
@@ -115,6 +132,9 @@ export function emptyBrief(): ProblemBrief {
     techConstraints: field<string[]>([], 0, none),
     levels: field<C4Level[]>([], 0, none),
     rubric: [],
+    tenancySignals: field<string[]>([], 0, none),
+    cloudScope: field(CloudScope.UNKNOWN, 0, none),
+    scaleHints: [],
     userDesign: { present: false, imageIndexes: [] },
   };
 }
@@ -135,6 +155,9 @@ export function toProblemBrief(raw: Record<string, unknown> | undefined, source:
     techConstraints: listField(body.techConstraints ?? body.constraints, source),
     levels: levelsField(body.levels ?? (body.deliverables as Record<string, unknown> | undefined)?.levels ?? body.deliverables, source),
     rubric: rubricOf(body.rubric),
+    tenancySignals: listField(body.tenancySignals ?? body.tenancy, source),
+    cloudScope: cloudScopeField(body.cloudScope ?? body.deploymentTarget, source),
+    scaleHints: strings(body.scaleHints),
     userDesign: { present: design.present === true && indexes.length > 0, imageIndexes: [...new Set(indexes)] },
   };
 }
@@ -153,6 +176,9 @@ export function toBriefOverride(raw: Record<string, unknown> | undefined): Brief
   if (brief.functionalReqs.length) override.functionalReqs = brief.functionalReqs;
   if (brief.nonFunctionalReqs.length) override.nonFunctionalReqs = brief.nonFunctionalReqs;
   if (brief.rubric.length) override.rubric = brief.rubric;
+  if (brief.tenancySignals?.value.length) override.tenancySignals = brief.tenancySignals;
+  if (brief.cloudScope && brief.cloudScope.value !== CloudScope.UNKNOWN) override.cloudScope = brief.cloudScope;
+  if (brief.scaleHints?.length) override.scaleHints = brief.scaleHints;
   return override;
 }
 
@@ -194,6 +220,9 @@ export function mergeBrief(base: ProblemBrief, over: BriefOverride): ProblemBrie
     techConstraints: mergeList(base.techConstraints, over.techConstraints),
     levels: over.levels?.value.length ? over.levels : base.levels,
     rubric: over.rubric?.length ? over.rubric : base.rubric,
+    tenancySignals: mergeList(base.tenancySignals ?? emptyBrief().tenancySignals!, over.tenancySignals),
+    cloudScope: over.cloudScope && over.cloudScope.value !== CloudScope.UNKNOWN ? over.cloudScope : base.cloudScope ?? emptyBrief().cloudScope,
+    scaleHints: union(over.scaleHints ?? [], base.scaleHints ?? []),
     userDesign: over.userDesign
       ? { present: base.userDesign.present || over.userDesign.present, imageIndexes: [...new Set([...base.userDesign.imageIndexes, ...over.userDesign.imageIndexes])] }
       : base.userDesign,
@@ -222,6 +251,8 @@ export function slotConfidence(brief: ProblemBrief, slot: C4Slot): number {
     case C4Slot.LEVELS: return brief.levels.value.length ? brief.levels.confidence : 0;
     case C4Slot.TECH_CONSTRAINTS: return brief.techConstraints.confidence;
     case C4Slot.RUBRIC: return brief.rubric.length ? 1 : 0;
+    case C4Slot.TENANCY: return brief.tenancySignals?.value.length ? brief.tenancySignals.confidence : 0;
+    case C4Slot.DEPLOYMENT_TARGET: return brief.cloudScope && brief.cloudScope.value !== CloudScope.UNKNOWN ? brief.cloudScope.confidence : 0;
     default: return 0;
   }
 }
@@ -235,6 +266,8 @@ export function slotDefault(brief: ProblemBrief, slot: C4Slot): string {
     case C4Slot.LEVELS: return brief.levels.value.length ? levelLabel(brief.levels.value) : SlotDefaults.LEVELS;
     case C4Slot.TECH_CONSTRAINTS: return brief.techConstraints.value.length ? brief.techConstraints.value.join(', ') : SlotDefaults.TECH;
     case C4Slot.RUBRIC: return SlotDefaults.RUBRIC;
+    case C4Slot.TENANCY: return brief.tenancySignals?.value.length ? SlotDefaults.TENANCY_SIGNALS : SlotDefaults.TENANCY_NONE;
+    case C4Slot.DEPLOYMENT_TARGET: return brief.cloudScope && brief.cloudScope.value !== CloudScope.UNKNOWN ? brief.cloudScope.value : SlotDefaults.DEPLOYMENT;
     default: return '';
   }
 }
@@ -246,14 +279,20 @@ function levelLabel(levels: readonly C4Level[]): string {
 /**
  * Asking rules (note 05 §5): skip with `--fast`, for a review of a design that is present, and for a revision;
  * otherwise ask only slots with impact high/medium AND confidence < 0.6 — at most 3, highest impact first,
- * each with its default. Nothing below the threshold = every slot is confident enough.
+ * each with its default. Tenancy and deployment target (plan 04 §5.2, low impact) are asked only when the
+ * statement has a signal that stays unclear (0 < confidence < 0.6), after the others and within the 3.
+ * Nothing below the threshold = every slot is confident enough.
  */
 export function analyzeGaps(brief: ProblemBrief, options: GapAnalysisOptions): GapAnalysis {
   if (options.fast) return { questions: [], skipped: ClarifySkipReason.FAST };
   if (options.reviewWithDesign) return { questions: [], skipped: ClarifySkipReason.REVIEW_WITH_DESIGN };
   if (options.revise) return { questions: [], skipped: ClarifySkipReason.REVISE };
   const questions: ClarifyQuestion[] = SLOT_RULES
-    .filter((rule) => rule.impact !== SlotImpact.LOW && slotConfidence(brief, rule.slot) < CLARIFY_MIN_CONFIDENCE)
+    .filter((rule) => {
+      const confidence = slotConfidence(brief, rule.slot);
+      if (CONDITIONAL_LOW_SLOTS.has(rule.slot)) return confidence > 0 && confidence < CLARIFY_MIN_CONFIDENCE;
+      return rule.impact !== SlotImpact.LOW && confidence < CLARIFY_MIN_CONFIDENCE;
+    })
     .sort((a, b) => IMPACT_RANK[a.impact] - IMPACT_RANK[b.impact])
     .slice(0, MAX_CLARIFY_QUESTIONS)
     .map((rule) => ({ slot: rule.slot, question: rule.question, default: slotDefault(brief, rule.slot), ...(rule.options ? { options: [...rule.options] } : {}) }));
@@ -339,6 +378,14 @@ export function applyAnswers(brief: ProblemBrief, questions: readonly ClarifyQue
         break;
       }
       case C4Slot.TECH_CONSTRAINTS: if (stated) over.techConstraints = field(listAnswer(text), confidence, source); break;
+      case C4Slot.TENANCY:
+        over.tenancySignals = field([stated && SINGLE_TENANT_ANSWER.test(text) ? SINGLE_TENANT_SIGNAL : text], confidence, source);
+        break;
+      case C4Slot.DEPLOYMENT_TARGET: {
+        const scope = cloudScopeFromText(text);
+        if (scope !== CloudScope.UNKNOWN) over.cloudScope = field(scope, confidence, source);
+        break;
+      }
       default: break;
     }
   }
@@ -363,6 +410,9 @@ export function briefStatement(brief: ProblemBrief, typedText: string): string {
     brief.functionalReqs.length ? `Functional requirements:\n${brief.functionalReqs.map((r) => `- ${r}`).join('\n')}` : '',
     brief.nonFunctionalReqs.length ? `Non-functional requirements:\n${brief.nonFunctionalReqs.map((r) => `- ${r}`).join('\n')}` : '',
     brief.techConstraints.value.length ? `Technology constraints: ${brief.techConstraints.value.join('; ')}` : `Technology: ${SlotDefaults.TECH}`,
+    brief.tenancySignals?.value.length ? `Tenancy signals: ${brief.tenancySignals.value.join('; ')}` : '',
+    brief.cloudScope && brief.cloudScope.value !== CloudScope.UNKNOWN ? `Deployment target: ${brief.cloudScope.value}` : '',
+    brief.scaleHints?.length ? `Scale: ${brief.scaleHints.join('; ')}` : '',
   ].filter(Boolean);
   return typedText.trim() ? `${lines.join('\n')}\n\nUser's own words:\n${typedText.trim()}` : lines.join('\n');
 }

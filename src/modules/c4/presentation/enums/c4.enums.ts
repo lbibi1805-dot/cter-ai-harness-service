@@ -20,6 +20,10 @@ export enum C4StreamEvent {
   REVIEW_DELTA = 'review_delta',
   /** The full review (fixed frame) and its artifact: {review: {markdown, artifactId?, alias?}}. */
   REVIEW_DONE = 'review_done',
+  /** Design discussion T1–T7 as it is written (plan 04 §5.3): {text}. */
+  DISCUSSION_DELTA = 'discussion_delta',
+  /** The full discussion (seven-topic frame) and its artifact: {discussion: {markdown, artifactId?, alias?}}. */
+  DISCUSSION_DONE = 'discussion_done',
   /** Last event: the full result, including `confirmation` when the run paused for the user. */
   DONE = 'done',
 }

@@ -93,6 +93,11 @@ export class EssayStreamFilter {
     return this.emit(out);
   }
 
+  /** The continuation of a cut essay starts inside `<essay>` (08 Bước 4): forward from the first delta. */
+  resume(): void {
+    this.started = true;
+  }
+
   reset(): void {
     this.buffer = '';
     this.started = false;

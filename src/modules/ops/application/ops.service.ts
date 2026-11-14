@@ -90,8 +90,8 @@ export class OpsService {
     return this.source.prompts?.() ?? null;
   }
 
-  evals(): unknown {
-    return this.source.evals?.() ?? [];
+  evals(kind?: string): unknown {
+    return this.source.evals?.(kind) ?? [];
   }
 
   publicConfig(): Record<string, unknown> {

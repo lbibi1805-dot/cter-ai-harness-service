@@ -1,5 +1,5 @@
 import type { AIProvider } from '../../../ai';
-import type { C4Level, C4Requirement, ClarifyQuestion } from '../../domain';
+import type { C4Level, C4Requirement, ClarifyQuestion, ConnectivityIssue } from '../../domain';
 import type { C4ArtifactRef, C4Clarification } from '../../application/interfaces/c4Sketch.interface';
 
 export interface C4LevelDto {
@@ -14,6 +14,19 @@ export interface C4LevelDto {
   missing: string[];
   notes: string[];
   error: string | null;
+  /** Connectivity rules C1–C9 on the accepted spec (plan 04 §4.2); empty lists before a spec is accepted. */
+  connectivity: C4ConnectivityDto;
+}
+
+export interface C4ConnectivityDto {
+  errors: ConnectivityIssue[];
+  warnings: ConnectivityIssue[];
+}
+
+export interface C4DiscussionDto {
+  markdown: string;
+  artifactId?: string;
+  alias?: string;
 }
 
 export interface C4IntentDto {
@@ -62,6 +75,8 @@ export interface C4SketchDto {
   brief?: C4BriefDto;
   /** Review intents only: the review (null when it could not be written). */
   review?: { markdown: string } | null;
+  /** Design discussion T1–T7 (null when it could not be written; absent when skipped). */
+  discussion?: C4DiscussionDto | null;
   /** Artifacts this run created ("↩ Hỏi về cái này" chips). */
   artifacts?: C4ArtifactRef[];
   /** The critic's findings as readable sentences. */

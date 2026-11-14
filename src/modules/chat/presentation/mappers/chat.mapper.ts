@@ -86,6 +86,7 @@ export function toChatAnswerDto(chatAnswer: ChatAnswer, promptTrace?: PromptTrac
     sources,
     ...(answer.timings ? { timings: answer.timings } : {}),
     ...(essay ? { essay } : {}),
+    ...(answer.completeness ? { completeness: answer.completeness } : {}),
     ...(question.includeTrace ? { trace: { contexts: answer.contexts ?? [], ...(answer.agent ? { agent: answer.agent } : {}), ...(prompt ? { prompt } : {}) } } : {}),
   };
 }

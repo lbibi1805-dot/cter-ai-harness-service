@@ -1,8 +1,8 @@
 import { type BackoffOptions, type Sleep } from '../../../../shared/resilience';
 import type { FailureKind } from '../../../../shared/resilience/enums/resilience.enums';
 import type { CitedChunk } from '../../../retrieval/domain/interfaces/retrieval.interface';
-import { ModelRoute, type AIProvider } from '../../domain/enums/ai.enums';
-import type { ProgressListener } from '../../domain/interfaces/streamProgress.interface';
+import { ModelRoute, type AIProvider, type FinishReason } from '../../domain/enums/ai.enums';
+import type { AnswerEventListener, ProgressListener } from '../../domain/interfaces/streamProgress.interface';
 import type { AiConfig } from '../../domain/interfaces/aiConfig.interface';
 import type { AIAdapter, ProviderReply } from '../../domain/interfaces/aiProvider.port';
 import type { AnswerTimings, AttemptTiming } from '../../domain/interfaces/answerTimings.interface';
@@ -55,6 +55,8 @@ export interface AnswerStream {
   reset(): void;
   /** Optional: what the answer is doing while it has no text yet (model thinking, agent tool calls). */
   progress?: ProgressListener;
+  /** Optional: structural events of a long answer (plan, section, continuation, coverage — 12/11 plan 08). */
+  event?: AnswerEventListener;
 }
 
 export interface AIAnswer {
@@ -68,6 +70,8 @@ export interface AIAnswer {
   route?: ModelRoute;
   /** Latency breakdown and token usage (07 §3.1). */
   timings?: AnswerTimings;
+  /** Why the answering model stopped (08 Bước 2): `length` = cut by the output cap; absent = not reported. */
+  finishReason?: FinishReason;
 }
 
 /** One route of the plan: an adapter and the models to try on it, in order. */

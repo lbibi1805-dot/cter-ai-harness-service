@@ -1,13 +1,12 @@
 import { HttpHeader, HttpStatus } from '../../../shared/http/enums/http.enums';
 import { isAuthorized } from '../../../shared/http/auth';
+import { readJsonBody } from '../../../shared/http/body';
 import type { RouteContext } from '../../../shared/http/interfaces/router.interface';
 import { sendError, sendJson } from '../../../shared/http/response';
-import { ServiceDisabledError } from '../../../shared/errors';
+import { ServiceDisabledError, ValidationError } from '../../../shared/errors';
 import type { ConversationService } from '../application/conversation.service';
-import { ARTIFACTS_SEGMENT } from './enums/conversation.enums';
-
-const DEFAULT_LIST_LIMIT = 20;
-const MAX_LIST_LIMIT = 100;
+import { CONVERSATION_LIST_DEFAULT_LIMIT, INVALID_TITLE_ERROR } from '../application/constants/conversationService.constants';
+import { ARTIFACTS_SEGMENT, MAX_RENAME_BODY_BYTES } from './enums/conversation.enums';
 
 /** `/api/conversations*` — CHAT_API_TOKEN or ADMIN_TOKEN (monitoring UI) for everything; `?hard=true` needs ADMIN_TOKEN. */
 export class ConversationController {
@@ -17,13 +16,21 @@ export class ConversationController {
     private readonly adminToken: string | undefined,
   ) {}
 
+  /** `?limit=&cursor=&deleted=&pending=` → `{conversations, nextCursor}` (keyset, newest first). */
   list = async ({ res, query }: RouteContext): Promise<void> => {
-    const limit = Math.min(parseInt(query.limit ?? '', 10) || DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT);
-    sendJson(res, HttpStatus.OK, { conversations: await this.service().list(limit, query.deleted === 'true', query.pending || undefined) });
+    sendJson(res, HttpStatus.OK, await this.service().listPage({
+      limit: parseInt(query.limit ?? '', 10) || CONVERSATION_LIST_DEFAULT_LIMIT,
+      deleted: query.deleted === 'true',
+      pending: query.pending || undefined,
+      cursor: query.cursor || undefined,
+    }));
   };
 
-  /** `GET /api/conversations/:id` or `GET /api/conversations/:id/artifacts/:artifactId` (raw bytes). */
-  get = async ({ res, params }: RouteContext): Promise<void> => {
+  /**
+   * `GET /api/conversations/:id[?messages=N]` or `GET /api/conversations/:id/artifacts/:artifactId` (raw bytes).
+   * Without `messages` the newest 500 messages are returned (old clients).
+   */
+  get = async ({ res, params, query }: RouteContext): Promise<void> => {
     const [id, artifactId] = params.path.split(ARTIFACTS_SEGMENT);
     if (artifactId) {
       const { body, mime } = await this.service().readArtifact(id, artifactId);
@@ -31,7 +38,19 @@ export class ConversationController {
       res.end(body);
       return;
     }
-    sendJson(res, HttpStatus.OK, await this.service().get(id));
+    sendJson(res, HttpStatus.OK, await this.service().get(id, optionalInt(query.messages, 'messages')));
+  };
+
+  /** `GET /api/conversations/:id/messages?beforeSeq=&limit=40` → older messages + their artifacts. */
+  messages = async ({ res, params, query }: RouteContext): Promise<void> => {
+    sendJson(res, HttpStatus.OK, await this.service().messages(params.path, optionalInt(query.beforeSeq, 'beforeSeq'), optionalInt(query.limit, 'limit')));
+  };
+
+  /** `PATCH /api/conversations/:id` `{title: string | null}` → `{id, title, titleSource}`; never moves it in the list. */
+  rename = async ({ req, res, params }: RouteContext): Promise<void> => {
+    const body = await readJsonBody(req, MAX_RENAME_BODY_BYTES);
+    if (!body || typeof body !== 'object' || Array.isArray(body) || !('title' in body)) throw new ValidationError(INVALID_TITLE_ERROR);
+    sendJson(res, HttpStatus.OK, await this.service().rename(params.path, (body as { title: unknown }).title));
   };
 
   /**
@@ -57,4 +76,11 @@ export class ConversationController {
     if (!this.conversations) throw new ServiceDisabledError('Conversation store disabled: set CONVERSATION_STORE_ENABLED=true');
     return this.conversations;
   }
+}
+
+/** Absent/empty → undefined; anything but an integer → 400. Range checks belong to the service. */
+function optionalInt(value: string | undefined, name: string): number | undefined {
+  if (value === undefined || value === '') return undefined;
+  if (!/^-?\d+$/.test(value)) throw new ValidationError(`${name} must be an integer`);
+  return Number(value);
 }

@@ -42,7 +42,8 @@ export function readAiConfig(): AiConfig {
         ? readEnum('OPENROUTER_PROVIDER_SORT', OpenRouterProviderSort, OpenRouterProviderSort.PRICE)
         : undefined,
       allowProviderFallbacks: readBoolean('OPENROUTER_ALLOW_FALLBACKS', true),
-      maxTokens: readInt('OPENROUTER_MAX_TOKENS', OPENROUTER_DEFAULT_MAX_TOKENS),
+      // 08 Bước 2: same cap as the direct routes unless OPENROUTER_MAX_TOKENS is set.
+      maxTokens: readInt('OPENROUTER_MAX_TOKENS', readInt('AI_MAX_OUTPUT_TOKENS', OPENROUTER_DEFAULT_MAX_TOKENS)),
     },
     latency: readLatencySettings(),
     tuning: readProviderTuning(),

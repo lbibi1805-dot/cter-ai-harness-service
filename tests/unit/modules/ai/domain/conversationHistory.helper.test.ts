@@ -30,7 +30,10 @@ describe('normalizeHistory', () => {
     const long = 'x'.repeat(MAX_HISTORY_TURN_CHARS * 2);
     const turns = Array.from({ length: 10 }, (_, i) => (i % 2 === 0 ? user(long) : assistant(long)));
     const kept = normalizeHistory(turns);
-    expect(kept.every((turn) => turn.text.length < MAX_HISTORY_TURN_CHARS + 20)).toBe(true);
+    // 08 Bước 5: the newest assistant turn keeps up to HISTORY_ASSISTANT_TURN_MAX_CHARS (12 000), older turns 6000.
+    expect(kept.slice(0, -1).every((turn) => turn.text.length < MAX_HISTORY_TURN_CHARS + 20)).toBe(true);
+    expect(kept[kept.length - 1].text.length).toBeGreaterThan(MAX_HISTORY_TURN_CHARS + 20);
+    expect(kept[kept.length - 1].text.length).toBeLessThan(12_000 + 20);
     expect(kept.reduce((sum, turn) => sum + turn.text.length, 0)).toBeLessThanOrEqual(MAX_HISTORY_CHARS);
     expect(kept[0].role).toBe(ConversationRole.USER);
   });

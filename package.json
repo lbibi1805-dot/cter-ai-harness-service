@@ -21,6 +21,8 @@
     "eval:essay": "tsx scripts/eval-essay.ts",
     "eval:cache": "tsx scripts/eval-cache.ts",
     "eval:rules": "tsx scripts/eval-rules.ts",
+    "eval:answers": "tsx scripts/eval-answers.ts",
+    "eval:c4": "tsx scripts/eval-c4-design.ts",
     "prompts:legacy": "tsx scripts/generate-legacy-prompt.ts",
     "prompts:check": "tsx scripts/generate-legacy-prompt.ts --check"
   },

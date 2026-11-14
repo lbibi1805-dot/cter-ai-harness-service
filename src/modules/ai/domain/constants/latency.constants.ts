@@ -19,8 +19,14 @@ export const DEFAULT_AI_LATENCY: AiLatencySettings = {
   circuit: DEFAULT_CIRCUIT_BREAKER,
 };
 
-/** Output cap for Gemini/OpenAI (reasoning tokens count against it on reasoning models). */
-export const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
+/**
+ * AI_MAX_OUTPUT_TOKENS: output cap of every route (Gemini, OpenAI, Claude, Grok, OpenRouter, agent) — 08 Bước 2.
+ * Reasoning/thinking tokens count against it on reasoning models; clamped per model by MODEL_OUTPUT_LIMITS.
+ */
+export const DEFAULT_MAX_OUTPUT_TOKENS = 16_384;
+
+/** 08 Bước 2: the answer keeps at least this many tokens of the cap; a thinking level that leaves less is lowered. */
+export const MIN_ANSWER_TOKENS_AFTER_THINKING = 4_096;
 
 export const DEFAULT_PROVIDER_TUNING: ProviderTuning = {
   maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
