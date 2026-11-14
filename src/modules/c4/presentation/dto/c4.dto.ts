@@ -14,7 +14,7 @@ export interface C4LevelDto {
   missing: string[];
   notes: string[];
   error: string | null;
-  /** Connectivity rules C1–C9 on the accepted spec (plan 04 §4.2); empty lists before a spec is accepted. */
+  /** Connectivity rules C1–C11 on the accepted spec (plan 04 §4.2); empty lists before a spec is accepted. */
   connectivity: C4ConnectivityDto;
 }
 

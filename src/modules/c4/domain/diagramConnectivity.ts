@@ -5,8 +5,11 @@ import {
   CONSUMER_LABEL_PATTERN,
   DATABASE_PATTERN,
   DATALESS_SERVICE_PATTERN,
+  DISCOVERY_PATTERN,
   GATEWAY_PATTERN,
+  LAYER_PATTERNS,
   MICROSERVICE_PATTERN,
+  MODULAR_MONOLITH_PATTERN,
   ON_DEVICE_PATTERN,
   PRODUCER_LABEL_PATTERN,
 } from './constants/connectivity.constants';
@@ -44,7 +47,7 @@ export function emptyConnectivity(): ConnectivityReport {
   return { errors: [], warnings: [] };
 }
 
-/** C1–C9 on a validated spec (boundaries are not nodes; rules per level as in plan 04 §4.2). */
+/** C1–C11 on a validated spec (boundaries are not nodes; rules per level as in plan 04 §4.2). */
 export function checkConnectivity(spec: C4DiagramSpec, level: C4Level): ConnectivityReport {
   const nodes: ConnectivityNode[] = spec.elements.filter((e) => !isBoundary(e.kind)).map((e) => ({
     id: e.id,
@@ -78,6 +81,8 @@ export function checkGraph(graph: ConnectivityGraph, rules: ReadonlySet<Connecti
   run(ConnectivityCode.QUEUE_ONE_SIDED, () => ctx.queueOneSided());
   run(ConnectivityCode.COMPONENT_NO_OUTBOUND, () => ctx.componentNoOutbound());
   run(ConnectivityCode.MISSING_INSTANCES, () => ctx.missingInstances());
+  run(ConnectivityCode.MISSING_LAYER, () => ctx.missingLayer());
+  run(ConnectivityCode.MISSING_DISCOVERY, () => ctx.missingDiscovery());
   return {
     errors: issues.filter((i) => CONNECTIVITY_ERROR_CODES.has(i.code)),
     warnings: issues.filter((i) => !CONNECTIVITY_ERROR_CODES.has(i.code)),
@@ -286,6 +291,42 @@ class GraphContext {
       ConnectivityCode.MISSING_INSTANCES,
       `No "instances" on ${list(missing.map((n) => n.id))}: give each container its instance count ("3") or autoscaling range ("2..10").`,
       missing.map((n) => n.id),
+    )];
+  }
+
+  /** C10 (14/11 plan 02 L1): a layered component diagram (a controller, service or repository drawn) has all four layers. */
+  missingLayer(): ConnectivityIssue[] {
+    const components = this.nodes.filter((n) => n.kind === C4ElementKind.COMPONENT);
+    const has = LAYER_PATTERNS.map(({ layer, pattern }) => ({ layer, present: components.some((c) => pattern.test(c.text)) }));
+    const layered = has.filter((h) => h.present).length >= 2;
+    const missing = has.filter((h) => !h.present).map((h) => h.layer);
+    return !layered || missing.length === 0 ? [] : [issue(
+      ConnectivityCode.MISSING_LAYER,
+      `Layered component diagram without ${missing.join(', ')}: show all four layers Controller → Service → Domain Model ← Repository (Repository → database); never fold the Domain Model into the Service or Repository.`,
+      components.map((c) => c.id),
+    )];
+  }
+
+  /** C11 (14/11 plan 02 L2): a microservice design has a Discovery Service that every service registers with and the gateway resolves through. */
+  missingDiscovery(): ConnectivityIssue[] {
+    if (!this.microservices() || MODULAR_MONOLITH_PATTERN.test(this.text)) return [];
+    const discovery = this.nodes.filter((n) => n.kind === C4ElementKind.CONTAINER && DISCOVERY_PATTERN.test(n.text));
+    const services = this.nodes.filter((n) => this.isBackendService(n) && !DATALESS_SERVICE_PATTERN.test(n.text));
+    if (services.length < 2) return [];
+    if (discovery.length === 0) {
+      return [issue(
+        ConnectivityCode.MISSING_DISCOVERY,
+        'Microservice design without a "Discovery Service": add it, link every service to it ("Registers / sends heartbeat") and the gateway to it ("Resolves service instances").',
+        services.map((n) => n.id),
+      )];
+    }
+    const ids = new Set(discovery.map((n) => n.id));
+    const callers = [...services, ...this.nodes.filter((n) => this.isGateway(n))];
+    const unlinked = callers.filter((n) => ![...this.neighbours.get(n.id)!].some((id) => ids.has(id)));
+    return unlinked.length === 0 ? [] : [issue(
+      ConnectivityCode.MISSING_DISCOVERY,
+      `${list(unlinked.map((n) => n.id))} not linked to ${list([...ids])}: every service registers with the Discovery Service and the gateway resolves service instances through it.`,
+      unlinked.map((n) => n.id),
     )];
   }
 }

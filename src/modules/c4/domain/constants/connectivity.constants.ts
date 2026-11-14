@@ -20,6 +20,7 @@ export const CONNECTIVITY_RULES_BY_LEVEL: Readonly<Record<C4Level, ReadonlySet<C
     ConnectivityCode.GATEWAY_COVERAGE,
     ConnectivityCode.QUEUE_ONE_SIDED,
     ConnectivityCode.MISSING_INSTANCES,
+    ConnectivityCode.MISSING_DISCOVERY,
   ]),
   [C4Level.COMPONENT]: new Set([
     ConnectivityCode.ORPHAN_ELEMENT,
@@ -27,6 +28,7 @@ export const CONNECTIVITY_RULES_BY_LEVEL: Readonly<Record<C4Level, ReadonlySet<C
     ConnectivityCode.DB_WITHOUT_OWNER,
     ConnectivityCode.QUEUE_ONE_SIDED,
     ConnectivityCode.COMPONENT_NO_OUTBOUND,
+    ConnectivityCode.MISSING_LAYER,
   ]),
   [C4Level.SEQUENCE]: new Set([ConnectivityCode.ORPHAN_ELEMENT]),
 };
@@ -45,6 +47,20 @@ export const DATALESS_SERVICE_PATTERN = /discovery|registry|eureka|consul|config
 
 /** External systems that are managed databases (Neon, Supabase…): count as the owning service's database. */
 export const DATABASE_PATTERN = /database|\bdb\b|postgres|mysql|mongo|\bneon\b|supabase|dynamo|\bsql\b|cassandra|firestore|cơ sở dữ liệu/;
+
+/** C10: the four N-Tier layers and the component text that marks each (14/11 plan 02 L1). */
+export const LAYER_PATTERNS: ReadonlyArray<{ layer: string; pattern: RegExp }> = [
+  { layer: 'Controller', pattern: /controller|\bendpoints?\b|\bhandlers?\b|\bresource\b|rest api|\bapi layer\b|presentation/ },
+  { layer: 'Service', pattern: /\bservices?\b|use[ _-]?case|application layer|business logic/ },
+  { layer: 'Domain Model', pattern: /\bdomain\b|\bentit(?:y|ies)\b|\bmodels?\b|aggregate/ },
+  { layer: 'Repository', pattern: /repositor|\brepo\b|\bdao\b|data access|persistence/ },
+];
+
+/** C11: the service-discovery container (named `Discovery Service` by the domain rules). */
+export const DISCOVERY_PATTERN = /discovery|eureka|consul|service[ _-]?registry|registry[ _-]?service/;
+
+/** A modular monolith: modules share a process, no Discovery Service needed. */
+export const MODULAR_MONOLITH_PATTERN = /modular[ _-]?monolith|monolith/;
 
 /** The design calls itself a microservice architecture. */
 export const MICROSERVICE_PATTERN = /micro[ _-]?services?/;

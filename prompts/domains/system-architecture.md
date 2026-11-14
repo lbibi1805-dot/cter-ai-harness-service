@@ -1,6 +1,6 @@
 ---
 id: domain.system-architecture
-version: 1.5.0
+version: 1.6.0
 owner: course-system-architecture
 description: System Architecture exam guidance for C4 models and deployment boundaries
 order: 120
@@ -20,11 +20,18 @@ These rules are authoritative for System Architecture answers (precedence level 
 - **Modular monolith:** strictly model every module as its own Container, even when modules share one Java process. Keep each module's boundary explicit; do not collapse the modules into one undifferentiated application. This is the course's diagram boundary and does not imply that each module deploys independently. All modules in a modular monolith use one shared database; do not give each module a separate database. At Component level, zoom into one module and show its direct dependencies on other module Containers. For microservices, show direct dependencies on other service Containers.
 - **Module/service communication:** show specified vertical links between a gateway and the modules/services it routes to, as well as horizontal direct links between modules/services that communicate with one another. Do not show only gateway-to-module/service links or invent unsupported calls.
 - **Modular monolith module names and connections:** include an `Auth` module and show an explicit connection between `Auth` and `Security`. If the modular monolith has a gateway module, name it `Filtering`.
-- **Microservice discovery:** name the service-registry service `Discovery Service`; never label it `Registry Service` or `Service Registry`.
+- **Microservice discovery:** see mandatory check L2 below; name the service-registry service `Discovery Service`, never `Registry Service` or `Service Registry`.
 - **Component-level dependencies:** in a component diagram, show how the layers/components inside the focused Container connect to the other relevant Containers in the system and to relevant external systems. Draw each dependency from the calling component/layer to the Container or external system it calls, label its direction and purpose, and include the endpoint outside the focused Container boundary. Do not leave a layer/component or a required cross-system link isolated or missing. Do not invent calls or expand a peer Container's internal components.
 - **Microservice database ownership:** every microservice must own its own database. Show a separate database Container for each service and connect it only to its owning service; never have multiple services share a database.
 - **Database boundary:** a self-hosted database is an internal Container within the system boundary. A managed third-party database/service (for example Neon or Supabase) is an external system outside the boundary (an external component in the course's wording); identify the provider/service and show its communication with the owning service. Do not model a vendor-managed service as an internally hosted Container.
 - **System architecture design analysis format:** write explanations, reasoning and trade-offs as full-sentence paragraphs under clear headings. Use bullets only to list components, elements or options (for example the containers of a diagram or the steps of a deployment), not to replace explanation. This applies to architecture analysis, not to a requested diagram's required output format.
+
+<mandatory_checks>
+These two checks are mandatory (precedence level 2) and the parts students most often forget:
+- **L1 Layered completeness:** every component diagram of a backend service or module, and every N-Tier/layered design (component, class or package diagram, or a written architecture description), shows all four layers: Controller, Service, Domain Model and Repository. The Domain Model (entities and business rules) is its own layer: Controller → Service → Domain Model, the Service uses the Domain Model, and the Repository maps the Domain Model to and from the database (Repository → Domain Model, Repository → database). Never fold the Domain Model into the Service or the Repository, and never replace it with DTOs.
+- **L2 Discovery mandatory:** every microservice design has a `Discovery Service` container. Every service registers with it (label "Registers / sends heartbeat") and the gateway resolves service instances through it (label "Resolves service instances"). A modular monolith does not need it, because its modules run in one process.
+Before finishing any architecture answer, check both; if the design (yours or the user's) misses one, add it, or, when you review, revise or explain an existing design, report it as an error and propose the fix, even when the question only asks about something else in that design.
+</mandatory_checks>
 
 <design_discussion>
 Whenever you produce, revise or review a system design (any C4 level, a deployment view, or an architecture answer), the analysis MUST contain these seven sections, in this order, each under its own heading. Write each section as short full-sentence paragraphs; use bullets only to list components or options. If a topic does not apply, keep the heading and say why in one sentence (for example "Not needed: a single organisation uses the system, so no tenant isolation is required").
@@ -49,6 +56,8 @@ Diagram rules that follow from the discussion:
 - The gateway links to every backend service it exposes; clients do not bypass it.
 - Each producer and each consumer links to the Kafka topic or queue it uses; a queue has at least one of each.
 - Components link out to the containers and external systems they call, with the direction and purpose in the label.
+- Layers link in order: Controller → Service → Domain Model, Repository → Domain Model (maps), Repository → database.
+- In microservices, each service → `Discovery Service` ("Registers / sends heartbeat") and the gateway → `Discovery Service` ("Resolves service instances").
 </connectivity>
 
 <multi_tenancy>

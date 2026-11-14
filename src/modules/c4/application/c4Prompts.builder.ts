@@ -233,7 +233,7 @@ Return the full corrected specs (same shape as given):
 
   /**
    * One critic call; the rendered images are attached in the order of `specs`. `connectivity`: the validator's
-   * findings per level (C1–C9, plan 04 §4.2), given as facts for checks 5–7.
+   * findings per level (C1–C11, plan 04 §4.2 + 14/11 plan 02), given as facts for checks 5–9.
    */
   critic(specs: ReadonlyMap<C4Level, string>, requirementsJson: string, maxElements: number, connectivity?: ReadonlyMap<C4Level, ConnectivityReport>): string {
     const levels = [...specs.keys()];

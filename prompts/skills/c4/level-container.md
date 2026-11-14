@@ -1,6 +1,6 @@
 ---
 id: skill.c4.level-container
-version: 1.3.0
+version: 1.4.0
 owner: c4
 description: Rules for the container level (copy of LEVEL_RULES.container)
 order: 10
@@ -13,7 +13,9 @@ order: 10
   links or invent unsupported calls. One "system_boundary" for the system; its containers have "parent" = that boundary
   id. People and external systems stay outside (no parent). Self-hosted databases are kind "container" + variant "db";
   managed third-party databases are external systems with external=true. For a modular monolith, create one Container
-  per module even when modules share a process. In microservices every service owns its own database (one db container or
+  per module even when modules share a process. Microservices always include a "Discovery Service" container: every
+  service registers with it ("Registers / sends heartbeat") and the gateway resolves service instances through it
+  ("Resolves service instances"); a modular monolith does not need one. In microservices every service owns its own database (one db container or
   managed external database per service, connected only to its owning service; never shared). Brokers: variant "queue". No components.
   Add a queue/broker, cache, worker or storage only when a requirement or a non-functional requirement (scale, availability,
   asynchronous processing) needs it. Give every internal container "instances" (a count, or an autoscaling range with

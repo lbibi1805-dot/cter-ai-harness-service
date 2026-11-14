@@ -1,3 +1,37 @@
+# Thay đổi: Lưu ý bắt buộc khi làm bài kiến trúc — N-Tier đủ 4 layer, microservice có Discovery Service (14/11/2026)
+
+> Trạng thái: **chưa commit** (branch `feature/bach-planning-12112026-wave3`) · Plan: `planning/planning-14112026/02-architecture-mandatory-checks`
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | `prompts/domains/system-architecture.md` 1.5.0 → **1.6.0** | Khối `<mandatory_checks>`: **L1** mọi component diagram của backend service/module (và mọi design N-Tier) có đủ Controller, Service, Domain Model, Repository; **L2** mọi design microservice có `Discovery Service` (service register, gateway resolve). Modular monolith không cần. Review/sửa/giải thích design có sẵn cũng phải báo thiếu. `<connectivity>` thêm liên kết layer và discovery |
+| 2 | `skills/c4/level-component.md` 1.3.0, `level-container.md` 1.4.0, `critic-design.md` 1.1.0 (check 8, 9), `review.md` 1.2.0 (hàng "Mandatory checks") | TS fallback trong `c4Prompts.constants.ts` sửa giống hệt (parity test) |
+| 3 | Validator: **C10 `MISSING_LAYER`** (component level) và **C11 `MISSING_DISCOVERY`** (container level), cả hai là **warning** → vào critic, không vào repair | `diagramConnectivity.ts`, `connectivity.constants.ts`. Lint PlantUML trong chat không đổi (chỉ C1, C2, C7) |
+| 4 | Golden R15 (N-Tier layers), R16 (container có Discovery Service), R17 (review design thiếu discovery) | `evals/golden/rule-compliance.jsonl`; chưa chạy live |
+| 5 | `system-prompt.md` sinh lại | `promptVersion 0abfdce5e872` |
+
+**Biến môi trường:** không có biến mới. Không đổi API.
+
+**Kiểm thử:** `npm run prompts:check` sync; `tsc --noEmit` sạch; `vitest run` 970/970 (thêm test C10, C11; fixture microservice có Discovery Service). `eval:rules` R15–R17 chưa chạy (cần harness dev).
+
+---
+
+# Thay đổi: Photo capture — xoá từng ảnh bằng `deleteToken` (14/11/2026, chiều)
+
+> Trạng thái: **chưa commit** · Lý do: web app `cter-capture-client` thêm nút **Xoá** ảnh đã tick (góp ý người dùng 14/11).
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | Mới: `DELETE /api/captures/batches/{folder}/{index}/images/{name}` → `{ ok: true }` | Cho phép với `CAPTURE_API_KEY`/`ADMIN_TOKEN`, **hoặc** `deleteToken` của chính ảnh (`?token=` / `X-Delete-Token`). Sai/thiếu → 403. Ảnh không có → 404 |
+| 2 | Response upload ảnh thêm `deleteToken` | HMAC-SHA256(`CAPTURE_API_KEY`, `capture-image-delete:{folder}/{index}/{name}`), 16 byte base64url. Không lưu state; đổi `CAPTURE_API_KEY` = mọi token cũ hết hiệu lực |
+| 3 | `CaptureCatalog.removeImage` + `CaptureService.deleteImage` | Xoá object R2/local + bump `Batch.updatedAt` để người nhận dùng `since` thấy thay đổi |
+
+**Biến môi trường:** không có biến mới. CORS không đổi (`DELETE` đã có trong `ALLOWED_METHODS`; client gửi token qua query).
+
+**Kiểm thử:** `tests/unit/modules/capture` 13/13 (thêm ca token đúng / sai / token của ảnh khác / 404 lần hai / key đọc xoá được), `tsc --noEmit` sạch.
+
+---
+
 # Thay đổi: Photo capture — upload không cần key, `CAPTURE_API_KEY` chỉ để đọc (14/11/2026)
 
 > Trạng thái: **chưa commit** (branch `feature/bach-planning-12112026-wave3`) · Plan: `planning/planning-13112026-photo-capture/04-plan-public-upload`
