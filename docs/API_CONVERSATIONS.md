@@ -18,7 +18,7 @@ Mỗi turn chat tốn **tối đa 2 round-trip Neon**: 1 query đọc context, 1
 
 Thêm field `conversationId?` (UUID). Không có → server tạo mới. Có → server **bỏ qua `history`** và tự dựng context.
 Kết quả (JSON hoặc event `done`) thêm: `conversationId`, `messageId`, `persisted` (false khi ghi DB lỗi — câu trả lời vẫn trả về).
-`404` nếu conversation đã bị xoá mềm. `GET /api/chat/status` có `conversations: true` khi server hỗ trợ.
+`404` nếu conversation đã bị xoá mềm. `GET /api/chat/status` có `conversations: true` khi server hỗ trợ, và `limits.maxImages` (= `MAX_CHAT_IMAGES`, từ 14/11) để client biết số ảnh tối đa mỗi câu.
 
 Body thêm (08/11): `refArtifactIds[]` (chip "↩ Hỏi về cái này" ở client), `mode: "essay"` hoặc câu bắt đầu `/essay [strict] [Nđ]` (Essay Mode).
 Kết quả thêm: `sources[{file, heading, score|null}]` (không còn mục `## References` trong text), `timings`

@@ -63,6 +63,13 @@ describe('chat routes', () => {
     expect(body.models.openai).toContain('gpt-6-astra');
   });
 
+  it('GET /status reports the image limit (MAX_CHAT_IMAGES) for clients (plan 14/11-05 #5)', async () => {
+    expect((await call('GET', '/api/chat/status')).body.limits).toEqual({ maxImages: DEFAULT_MAX_CHAT_IMAGES });
+    const service = new ChatService({ answer }, CATALOG, { enabled: true, agentEnabled: true, isProviderConfigured: () => true });
+    router = new Router(createChatRoutes(new ChatController(service, { ...DEFAULT_CHAT_LIMITS, maxImages: 20 })), TOKEN);
+    expect((await call('GET', '/api/chat/status')).body.limits).toEqual({ maxImages: 20 });
+  });
+
   it('POST answers with the provider default model and single-shot mode', async () => {
     const { status, body } = await call('POST', '/api/chat', { provider: 'Gemini', question: '  What is TDD? ' });
     expect(status).toBe(200);

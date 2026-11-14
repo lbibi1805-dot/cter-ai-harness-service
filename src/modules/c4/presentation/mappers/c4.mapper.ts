@@ -13,6 +13,7 @@ import type {
   C4SketchRequest,
   C4SketchResult,
 } from '../../application/interfaces/c4Sketch.interface';
+import { DEFAULT_MAX_CHAT_IMAGES } from '../../../chat/presentation/constants/chat.constants';
 import { C4_GEMINI_INLINE_IMAGES_MAX_BYTES, MAX_DESCRIPTION_CHARS } from '../constants/c4.constants';
 import type { C4AnalysisDto, C4BriefDto, C4ClarifyDto, C4DiscussionDto, C4IntentDto, C4LevelDto, C4ReviewDto, C4SketchDto } from '../dto/c4.dto';
 
@@ -28,8 +29,11 @@ function parseIntent(raw: unknown): RequestIntent | null {
   throw new ValidationError(`intent must be one of ${[...CLIENT_INTENT_VALUES].join(', ')}`);
 }
 
-/** Shape validation of a `POST /api/c4` body; model rules are checked by C4SketchService. */
-export function toC4SketchRequest(body: unknown): C4SketchRequest {
+/**
+ * Shape validation of a `POST /api/c4` body; model rules are checked by C4SketchService.
+ * `maxImages` = MAX_CHAT_IMAGES (inline `images` plus already-expanded `imageIds`).
+ */
+export function toC4SketchRequest(body: unknown, maxImages: number = DEFAULT_MAX_CHAT_IMAGES): C4SketchRequest {
   if (!body || typeof body !== 'object') throw new ValidationError('Body must be a JSON object');
   const raw = body as Record<string, unknown>;
 
@@ -38,7 +42,7 @@ export function toC4SketchRequest(body: unknown): C4SketchRequest {
   const provider = parseAIProvider(rawProvider);
   if (!provider) throw new ValidationError(`Provider "${rawProvider}" is not servable (supported: ${AI_PROVIDERS.join(', ')})`);
 
-  const images = parseImages(raw.images);
+  const images = parseImages(raw.images, maxImages);
   if (provider === AIProvider.GEMINI) assertInlineImageBudget(images, C4_GEMINI_INLINE_IMAGES_MAX_BYTES, provider);
   const description = typeof raw.description === 'string' ? raw.description.trim() : '';
   if (!description && images.length === 0) throw new ValidationError('Missing description (the problem statement) or images of it');

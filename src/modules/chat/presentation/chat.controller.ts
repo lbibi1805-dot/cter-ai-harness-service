@@ -25,8 +25,9 @@ export class ChatController {
     private readonly promptTrace?: PromptTrace,
   ) {}
 
+  /** `limits.maxImages` (MAX_CHAT_IMAGES) lets clients size their image picker without the admin-only /api/config. */
   status = async ({ res }: RouteContext): Promise<void> => {
-    sendJson(res, HttpStatus.OK, { ok: true, ...this.chat.status() });
+    sendJson(res, HttpStatus.OK, { ok: true, ...this.chat.status(), limits: { maxImages: this.limits.maxImages } });
   };
 
   /** `POST /api/chat/images`: one raw `image/*` body, or JSON `{ images: [{ data, mimeType }] }` → `{ images: [{ imageId, … }] }`. */

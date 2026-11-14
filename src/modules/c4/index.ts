@@ -40,6 +40,8 @@ export interface C4Config {
 export interface C4ModuleConfig extends C4Config {
   /** Bearer token shared with `/api/chat`; unset disables the API (fails closed). */
   chatApiToken?: string;
+  /** MAX_CHAT_IMAGES (chat limits); absent = DEFAULT_MAX_CHAT_IMAGES. */
+  maxImages?: number;
 }
 
 export interface C4ModuleDeps {
@@ -123,7 +125,7 @@ export function createC4Module(config: C4ModuleConfig, deps: C4ModuleDeps): C4Mo
     },
   );
   const render = deps.render ?? new C4RenderService(enabled, renderer);
-  return { router: new Router(createC4Routes(new C4Controller(service, deps.uploads ?? null), new C4RenderController(render)), config.chatApiToken), service, render };
+  return { router: new Router(createC4Routes(new C4Controller(service, deps.uploads ?? null, config.maxImages), new C4RenderController(render)), config.chatApiToken), service, render };
 }
 
 export { C4SketchService } from './application/c4Sketch.service';

@@ -17,13 +17,15 @@ export class C4Controller {
     private readonly sketcher: C4SketchService,
     /** Upload-first images (`imageIds` from POST /api/chat/images); absent = only base64 `images`. */
     private readonly uploads: StagedImageService | null = null,
+    /** MAX_CHAT_IMAGES: inline `images` + `imageIds` per request, same limit as /api/chat. */
+    private readonly maxImages: number = DEFAULT_MAX_CHAT_IMAGES,
   ) {}
 
   sketch = async ({ req, res }: RouteContext): Promise<void> => {
     this.sketcher.ensureEnabled();
     const raw = await readJsonBody(req, MAX_C4_BODY_BYTES);
-    const { body, imageIds } = this.uploads ? await this.uploads.expandBody(raw, DEFAULT_MAX_CHAT_IMAGES) : { body: raw, imageIds: [] as string[] };
-    const request = toC4SketchRequest(body);
+    const { body, imageIds } = this.uploads ? await this.uploads.expandBody(raw, this.maxImages) : { body: raw, imageIds: [] as string[] };
+    const request = toC4SketchRequest(body, this.maxImages);
     if (!request.stream) {
       const result = await this.sketcher.sketch(request);
       if (imageIds.length) this.uploads?.consume(imageIds);

@@ -161,12 +161,12 @@ Dùng chung `CHAT_API_TOKEN` với `/api/chat` (không có token → 503). Rule 
 | `OPENAI_PROMPT_CACHE_KEY` | `conversation` | `conversation\|prompt_version\|off` |
 | `PROMPT_CACHE_CLAUDE` | `false` | `cache_control` cho Claude; chỉ bật khi đo hit rate ≥ 50% |
 | `PROMPT_CACHE_LAYOUT` | `v2` | v2 = system tĩnh (ăn KV cache); `v1` = bố cục cũ (rollback) |
-| `MAX_CHAT_IMAGES` | `10` | Số ảnh tối đa mỗi câu hỏi (`/api/chat`, `/api/c4`) |
+| `MAX_CHAT_IMAGES` | `10` | Số ảnh tối đa mỗi câu hỏi (`/api/chat`, `/api/chat/images`, `/api/c4`; `/api/c4` đọc biến này từ 14/11, trước đó cứng 10). Khuyến nghị **20** (plan 14/11-05 GĐ2), đi kèm `CONTEXT_MAX_PROMPT_IMAGES=24` |
 | `CHAT_MAX_BODY_MB` | `20` | Giới hạn body JSON `/api/chat` |
 | `GEMINI_INLINE_IMAGES_MAX_MB` | `15` | Tổng ảnh vượt → adapter Gemini direct upload qua **Files API** (URI cache RAM 47 h); 413 chỉ khi upload lỗi. `/api/c4` vẫn chặn inline riêng |
 | `CHAT_UPLOAD_TTL_MS` | `3600000` | Ảnh upload qua `POST /api/chat/images` (`tmp/uploads/`) phải được dùng trong khoảng này; metadata chỉ trong RAM |
 | `CONTEXT_HOT_WINDOW_TURNS` | `2` | Ảnh của N cặp user/assistant gần nhất nằm tại chỗ trong history (≤ 3 ảnh/turn, ăn KV cache). `0` = hành vi cũ (rollback) |
-| `CONTEXT_MAX_PROMPT_IMAGES` | `16` | Trần tổng ảnh mỗi prompt (hiện tại + window + JIT); vượt → bỏ ảnh window cũ nhất |
+| `CONTEXT_MAX_PROMPT_IMAGES` | `16` | Trần tổng ảnh mỗi prompt (hiện tại + window + JIT); vượt → bỏ ảnh window cũ nhất. Ảnh hiện tại không bao giờ bị cắt; nên đặt ≥ `MAX_CHAT_IMAGES` + 4 để còn chỗ cho window/JIT |
 | `PROMPT_REGISTRY_ENABLED` | bật nếu có `prompts/core/system.md` | `false` = dùng `system-prompt.md` như cũ (rollback) |
 | `PROMPTS_DIR` | `prompts` | Thư mục registry (image Docker đã copy `prompts/` + `evals/`) |
 | `ARTIFACT_RESOLVER_MODE` | `rules+aux` | `off` (hành vi cũ) \| `rules` \| `rules+aux` |

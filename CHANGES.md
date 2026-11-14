@@ -1,3 +1,32 @@
+# Thay đổi: `GET /api/chat/status` trả `limits.maxImages` (14/11/2026)
+
+> Trạng thái: **chưa commit** · Plan: `planning/planning-14112026/05-capture-image-selection` (giai đoạn 1, #5)
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | `GET /api/chat/status` thêm `limits: { maxImages }` (= `MAX_CHAT_IMAGES`) | Cloak đọc giới hạn ảnh bằng chat token. `GET /api/config` cần `ADMIN_TOKEN` nên client không dùng được. Field mới, client cũ bỏ qua |
+
+**Biến môi trường:** không có biến mới. Không đổi giá trị nào.
+
+**Kiểm thử:** `tests/unit/modules/chat/presentation/chat.routes.test.ts` thêm 1 test (30/30); `tsc --noEmit` sạch.
+
+---
+
+# Thay đổi: `/api/c4` theo `MAX_CHAT_IMAGES`; chuẩn bị nới giới hạn ảnh lên 20 (14/11/2026)
+
+> Trạng thái: **chưa commit** · Plan: `planning/planning-14112026/05-capture-image-selection` (giai đoạn 2)
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | `/api/c4` đọc `MAX_CHAT_IMAGES` thay vì hằng `DEFAULT_MAX_CHAT_IMAGES` (10) | Trước đây đổi env chỉ có tác dụng với `/api/chat`; `/api/c4` vẫn chặn ở 10 cả `images` lẫn `imageIds`. `C4ModuleConfig.maxImages` ← `config.chat.maxImages` (`main.ts`), `C4Controller`, `toC4SketchRequest(body, maxImages)` |
+| 2 | `.env.example`, `docs/DEPLOYMENT-GUIDE.md`: ghi giá trị khuyến nghị `MAX_CHAT_IMAGES=20`, `CONTEXT_MAX_PROMPT_IMAGES=24` | Mặc định trong code **không đổi** (10 / 16) |
+
+**Biến môi trường:** không có biến mới. Đổi giá trị hai biến đã có, **dev trước**: `MAX_CHAT_IMAGES` 10 → 20, `CONTEXT_MAX_PROMPT_IMAGES` 16 → 24. Prod theo handoff `planning/planning-14112026/handoff/04-image-limit-20-runbook`, không tự đổi. `render.yaml` giữ 10 tới khi đo TTFT xong.
+
+**Kiểm thử:** `tests/unit/modules/c4/presentation/c4ImageLimit.test.ts` (2 test); `tsc --noEmit` sạch.
+
+---
+
 # Thay đổi: CORS cache preflight `Access-Control-Max-Age: 600` (14/11/2026)
 
 > Trạng thái: **chưa commit** · Plan: `planning/planning-14112026/04-capture-camera-upload-slow`

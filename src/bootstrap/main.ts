@@ -122,7 +122,7 @@ export async function main(): Promise<void> {
   });
   const retrieveRouter = new Router(createRetrievalRoutes(new RetrievalController(retrievalQueries)), config.http.chatApiToken);
   const c4 = createC4Module(
-    { ...config.c4, chatApiToken: config.http.chatApiToken },
+    { ...config.c4, chatApiToken: config.http.chatApiToken, ...(config.chat ? { maxImages: config.chat.maxImages } : {}) },
     {
       invocation: ai.invocation,
       catalog: ai.catalog,
