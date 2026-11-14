@@ -17,7 +17,8 @@ import {
   WHITESPACE,
 } from '../constants/essay.constants';
 import { EssayVerb } from '../enums/essay.enums';
-import type { EssayAnalysis } from '../interfaces/essay.interface';
+import type { EssayAnalysis, EssayQuestionTarget } from '../interfaces/essay.interface';
+import { splitQuestions } from '../../../../shared/text';
 import { detectVerbs, extractQuestionPoints } from './essayCommand.helper';
 
 function wordCountOf(text: string): number {
@@ -38,7 +39,7 @@ function dedupe(items: string[]): string[] {
  * Fallback for step ①: split the question on list separators, then on "và"/"and" when both halves are
  * long enough to be separate asks ("So sánh black-box và white-box" stays one aspect). Never empty.
  */
-export function heuristicAnalysis(question: string): EssayAnalysis {
+export function heuristicAnalysis(question: string, maxAspects: number = MAX_ESSAY_ASPECTS): EssayAnalysis {
   const text = question.replace(QUESTION_POINTS, ' ').trim();
   const parts = text
     .split(ASPECT_SEPARATORS)
@@ -48,7 +49,7 @@ export function heuristicAnalysis(question: string): EssayAnalysis {
     })
     .map((part) => part.trim())
     .filter((part) => wordCountOf(part) > 0);
-  const aspects = dedupe(parts).slice(0, MAX_ESSAY_ASPECTS);
+  const aspects = dedupe(parts).slice(0, maxAspects);
   const points = extractQuestionPoints(question);
   return {
     subject: text.slice(0, SUBJECT_MAX_CHARS),
@@ -64,7 +65,7 @@ function positiveNumber(value: unknown, max: number): number | undefined {
 }
 
 /** The aux model's JSON (possibly fenced or wrapped in prose); null when unusable → heuristic. */
-export function parseAnalysisReply(raw: string, question: string): EssayAnalysis | null {
+export function parseAnalysisReply(raw: string, question: string, maxAspects: number = MAX_ESSAY_ASPECTS): EssayAnalysis | null {
   const json = JSON_OBJECT.exec(raw);
   if (!json) return null;
   let parsed: unknown;
@@ -73,15 +74,15 @@ export function parseAnalysisReply(raw: string, question: string): EssayAnalysis
   } catch {
     return null;
   }
-  return parseAnalysisObject(parsed, question);
+  return parseAnalysisObject(parsed, question, maxAspects);
 }
 
 /** An already-parsed analysis object (the `essay` block of the shared router answer); null when unusable → heuristic. */
-export function parseAnalysisObject(value: unknown, question: string): EssayAnalysis | null {
+export function parseAnalysisObject(value: unknown, question: string, maxAspects: number = MAX_ESSAY_ASPECTS): EssayAnalysis | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const parsed = value as Record<string, unknown>;
   const aspects = Array.isArray(parsed.aspects)
-    ? dedupe(parsed.aspects.filter((a): a is string => typeof a === 'string').map((a) => a.trim()).filter(Boolean)).slice(0, MAX_ESSAY_ASPECTS)
+    ? dedupe(parsed.aspects.filter((a): a is string => typeof a === 'string').map((a) => a.trim()).filter(Boolean)).slice(0, maxAspects)
     : [];
   if (aspects.length === 0) return null;
   const known = new Set<string>(Object.values(EssayVerb));
@@ -106,7 +107,18 @@ export function targetWordsFor(points: number | undefined, statedWords: number |
   return Math.min(MAX_TARGET_WORDS, Math.max(MIN_TARGET_WORDS, Math.round(raw)));
 }
 
-/** maxOutputTokens for the outline + essay call: sized to the target, never above the essay cap. */
-export function essayOutputTokens(targetWords: number): number {
-  return Math.min(MAX_ESSAY_OUTPUT_TOKENS, Math.ceil(targetWords * TOKENS_PER_WORD) + OUTLINE_TOKENS + THINKING_TOKENS);
+/** maxOutputTokens for the outline + essay call: sized to the target, never above the configured cap (AI_MAX_OUTPUT_TOKENS). */
+export function essayOutputTokens(targetWords: number, cap: number = MAX_ESSAY_OUTPUT_TOKENS): number {
+  return Math.min(cap, Math.ceil(targetWords * TOKENS_PER_WORD) + OUTLINE_TOKENS + THINKING_TOKENS);
+}
+
+/**
+ * 08 Bước 4: every "(N điểm)" counts. When the prompt has several numbered questions with their own marks, each
+ * gets points × words-per-point; empty when there are fewer than two such questions (the single target applies).
+ */
+export function questionTargets(question: string, wordsPerPoint: number): EssayQuestionTarget[] {
+  const split = splitQuestions(question);
+  const marked = split.questions.filter((q) => q.points !== undefined);
+  if (split.questions.length < 2 || marked.length < 2) return [];
+  return marked.map((q) => ({ label: q.label, points: q.points!, targetWords: Math.round(q.points! * wordsPerPoint) }));
 }

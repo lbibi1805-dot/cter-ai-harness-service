@@ -1,4 +1,4 @@
-import type { ArtifactKind, MessageKind, MessageRole, ResolvedRefSource } from '../enums/conversation.enums';
+import type { ArtifactKind, MessageKind, MessageRole, ResolvedRefSource, TitleSource } from '../enums/conversation.enums';
 
 /** What the artifact resolver picked for a question (`messages.resolved_refs`, monitoring/debug). */
 export interface ResolvedRefs {
@@ -90,7 +90,9 @@ export interface ConversationSnapshot {
 
 export interface ConversationListItem {
   id: string;
+  /** `COALESCE(display_title, title)`: the user's name when renamed, else the first question. */
   title: string | null;
+  titleSource: TitleSource;
   updatedAt: string;
   deletedAt: string | null;
   purgeAfter: string | null;
@@ -104,8 +106,52 @@ export interface ConversationDetail extends ConversationListItem {
   summaryUptoSeq: number;
   /** Pending workflows (`pendingC4`), as stored. */
   state: Record<string, unknown>;
+  /** Newest messages, oldest first. */
   messages: MessageDetail[];
   artifacts: ArtifactDetail[];
+  /** Older messages exist before `oldestSeq` (GET /api/conversations/:id/messages?beforeSeq=). */
+  hasMoreMessages: boolean;
+  /** Seq of the first returned message; null when there is none. */
+  oldestSeq: number | null;
+}
+
+/**
+ * Keyset position in the conversation list (`ORDER BY updated_at DESC, id DESC`).
+ * `updatedAt` is the database text of the timestamp (microseconds), never a JS Date.
+ */
+export interface ConversationCursor {
+  updatedAt: string;
+  id: string;
+}
+
+export interface ConversationListQuery {
+  limit: number;
+  deleted: boolean;
+  /** Only conversations whose state holds that key (e.g. `pendingC4`). */
+  pending?: string;
+  /** Rows strictly after this position. */
+  after?: ConversationCursor;
+}
+
+export interface ConversationListPage {
+  conversations: ConversationListItem[];
+  /** Position of the last row when more rows follow; null on the last page. */
+  next: ConversationCursor | null;
+}
+
+/** One page of older messages (GET /api/conversations/:id/messages). */
+export interface MessagePage {
+  messages: MessageDetail[];
+  /** Artifacts attached to the returned messages only. */
+  artifacts: ArtifactDetail[];
+  hasMoreMessages: boolean;
+  oldestSeq: number | null;
+}
+
+export interface RenamedConversation {
+  id: string;
+  title: string | null;
+  titleSource: TitleSource;
 }
 
 export interface NewMessage {

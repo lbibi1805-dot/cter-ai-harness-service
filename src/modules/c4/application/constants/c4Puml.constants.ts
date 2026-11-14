@@ -55,3 +55,12 @@ export const REPEATED_SPACES = / {2,}/g;
 export const DOUBLE_QUOTE = /"/g;
 
 export const TRAILING_SLASHES = /\/+$/;
+
+/** T7 (plan 04 §5.1): a fixed count goes into the box name ("API Service x 3"). */
+export const INSTANCE_COUNT_SUFFIX = (count: string) => ` x ${count}`;
+
+/** A range or "auto" goes on its own line of the description ("Instances: 2..10 (HPA)"); `\n` is PlantUML's line break. */
+export const INSTANCE_RANGE_LINE = (instances: string, scaling?: string) => `\\nInstances: ${instances}${scaling ? ` (${scaling.toUpperCase()})` : ''}`;
+
+/** A count of instances (not a range, not "auto"). */
+export const INSTANCE_COUNT = /^\d+$/;

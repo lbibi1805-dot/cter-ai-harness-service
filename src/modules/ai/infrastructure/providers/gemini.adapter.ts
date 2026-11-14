@@ -12,8 +12,10 @@ import { allPromptImages, currentUserParts, renderHistory } from '../../domain/h
 import type { RenderedPart } from '../../domain/interfaces/historyRender.interface';
 import { GeminiFileCache, sha256Of } from '../helpers/geminiFileCache.helper';
 import type { GeminiAdapterOptions, GeminiFileRef, GeminiFilesClient } from '../interfaces/geminiFiles.interface';
-import { withUsage } from '../helpers/chatCompletionStream.helper';
-import { geminiThinkingConfig } from '../helpers/geminiThinking.helper';
+import { withFinish, withUsage } from '../helpers/chatCompletionStream.helper';
+import { fitThinkingLevel, geminiThinkingConfig } from '../helpers/geminiThinking.helper';
+import { geminiFinishReason } from '../helpers/finishReason.helper';
+import type { FinishReason } from '../../domain/enums/ai.enums';
 import { geminiUsage } from '../helpers/usage.helper';
 import { DEFAULT_GEMINI_INLINE_IMAGES_MAX_BYTES, GEMINI_MODEL_ROLE, GEMINI_USER_ROLE } from '../constants/gemini.constants';
 
@@ -57,10 +59,13 @@ export class GeminiAdapter implements AIAdapter {
   }
 
   async process(content: PromptContent, systemPrompt: string, model: string, onDelta?: TextDeltaListener, options: AdapterCallOptions = {}): Promise<ProviderReply> {
+    const maxOutputTokens = options.maxOutputTokens ?? this.tuning.maxOutputTokens;
+    // Thinking shares the output cap: a level that would leave the answer < 4096 tokens is lowered (08 Bước 2).
+    const thinkingLevel = fitThinkingLevel(model, options.thinkingLevel ?? this.tuning.geminiThinkingLevel, maxOutputTokens);
     const config: GenerateContentConfig = {
       systemInstruction: systemPrompt,
-      maxOutputTokens: options.maxOutputTokens ?? this.tuning.maxOutputTokens,
-      thinkingConfig: geminiThinkingConfig(model, options.thinkingLevel ?? this.tuning.geminiThinkingLevel),
+      maxOutputTokens,
+      thinkingConfig: geminiThinkingConfig(model, thinkingLevel),
       abortSignal: options.signal,
       ...(!onDelta && this.timeoutMs ? { httpOptions: { timeout: this.timeoutMs } } : {}),
     };
@@ -68,18 +73,20 @@ export class GeminiAdapter implements AIAdapter {
     const params = { model, contents: toContents(content, fileRefs), config };
     if (!onDelta) {
       const response = await this.models.generateContent(params);
-      return replyOf(response.text ?? '', model, response.usageMetadata);
+      return replyOf(response.text ?? '', model, response.usageMetadata, geminiFinishReason(response.candidates?.[0]?.finishReason));
     }
     let text = '';
     let usage: GenerateContentResponseUsageMetadata | undefined;
+    let finish: FinishReason | undefined;
     for await (const chunk of await this.models.generateContentStream(params)) {
       if (chunk.usageMetadata) usage = chunk.usageMetadata;
+      finish = geminiFinishReason(chunk.candidates?.[0]?.finishReason) ?? finish;
       const delta = chunk.text;
       if (!delta) continue;
       text += delta;
       onDelta(delta);
     }
-    return replyOf(text, model, usage);
+    return replyOf(text, model, usage, finish);
   }
 
   /**
@@ -145,7 +152,7 @@ function toContents(content: PromptContent, fileRefs: Map<PromptImage, GeminiFil
 }
 
 /** An empty answer (safety block, output cap hit while thinking) is an error so the next model gets a turn. */
-function replyOf(text: string, model: string, usage: GenerateContentResponseUsageMetadata | undefined): ProviderReply {
+function replyOf(text: string, model: string, usage: GenerateContentResponseUsageMetadata | undefined, finish?: FinishReason): ProviderReply {
   if (!text) throw new EmptyProviderResponseError(`Gemini ${model} returned no text`);
-  return withUsage({ text, model }, geminiUsage(usage));
+  return withFinish(withUsage({ text, model }, geminiUsage(usage)), finish);
 }

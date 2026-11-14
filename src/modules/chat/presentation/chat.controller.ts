@@ -64,6 +64,8 @@ export class ChatController {
         stage: progress.stage,
         ...(progress.detail ? { detail: progress.detail } : {}),
       }),
+      // answer_plan / section / continuation / coverage (12/11 plan 08): `type` values equal ChatStreamEvent's.
+      event: (event) => out.write({ ...event }),
     });
     this.consume(imageIds);
     out.end({ type: ChatStreamEvent.DONE, ...toChatAnswerDto(answer, this.promptTrace) });

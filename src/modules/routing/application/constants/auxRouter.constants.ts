@@ -19,7 +19,7 @@ artifacts of the conversation the request refers to. Answer with ONE JSON object
 refs: aliases from the registry only (empty when the request is not about an earlier artifact). confidence: how sure you are.
 `.trim();
 
-/** With the essay block the answer carries a short analysis too (subject, ≤ 6 aspects): a larger cap, still far below a writing call. */
+/** With the essay block the answer carries a short analysis too (subject, ≤ 12 aspects): a larger cap, still far below a writing call. */
 export const ROUTER_AUX_ESSAY_MAX_OUTPUT_TOKENS = 1_024;
 
 /** `prompts/skills/routing/essay-analysis.md` (an exact copy of ROUTER_ESSAY_INSTRUCTIONS). */
@@ -33,7 +33,7 @@ export const ROUTER_ESSAY_INSTRUCTIONS = `
 The request is an exam essay question. In the SAME JSON object also add an "essay" key:
 "essay":{"subject":"...","aspects":["..."],"verbs":["explain"],"points":null,"targetWords":null}
 - subject: the course topic in a few words.
-- aspects: every distinct part the answer must cover, in order, each a short search query in the question's language (1-6).
+- aspects: every distinct part the answer must cover, in order, each a short search query in the question's language (1-12).
 - verbs: the instruction verbs, mapped to list | explain | analyze | compare | evaluate.
 - points: the marks of the question when stated (e.g. "(2 điểm)" -> 2), else null.
 - targetWords: expected length in words when the question states one, else null.

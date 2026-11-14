@@ -11,6 +11,7 @@ import type {
   C4ValidationRules,
   C4WorkflowStep,
   ClarifyQuestion,
+  ConnectivityReport,
   DesignSourceKind,
   DiagramRenderer,
   ProblemBrief,
@@ -43,6 +44,8 @@ export interface C4SketchRequest {
   intent?: RequestIntent | null;
   /** Explicit artifact refs ("A7" or ids) from the client: the design to revise/review. */
   refArtifactIds?: string[];
+  /** `noDiscussion: true`: skip the design discussion step (plan 04 §5.3); `fast` alone still writes it. */
+  noDiscussion?: boolean;
 }
 
 export interface C4LevelResult {
@@ -58,6 +61,8 @@ export interface C4LevelResult {
   /** Pipeline notes (repairs, critic verdict, deadline). */
   notes: string[];
   error?: string;
+  /** Connectivity findings of the accepted spec (plan 04 §4.2); absent before a spec is accepted. */
+  connectivity?: ConnectivityReport;
 }
 
 /** Old pause shape (kept in `done.confirmation` for older clients): question + what is drawn without an answer. */
@@ -90,6 +95,23 @@ export interface C4ReviewResult {
   designLabel?: string;
   artifactId?: string;
   alias?: string;
+}
+
+/** The design discussion T1–T7 (plan 04 §5.3), saved as a `design_discussion` artifact. */
+export interface C4DiscussionResult {
+  markdown: string;
+  artifactId?: string;
+  alias?: string;
+}
+
+/** RAM counters of the connectivity check on /c4 (`GET /api/metrics/latency` → `diagramGuard`). */
+export interface C4ConnectivityStats {
+  /** Levels whose first spec had an orphan element (C1). */
+  orphanFound: number;
+  /** Of those, levels whose final spec has none. */
+  orphanRepaired: number;
+  /** Connectivity errors (C1, C2, C3, C7) found in first specs. */
+  connectivityErrors: number;
 }
 
 /** An artifact the run created (alias = `A{ordinal}`, as on chat turns). */
@@ -125,6 +147,8 @@ export interface C4SketchResult {
   brief?: ProblemBrief;
   /** Set for review intents (null when the review could not be written). */
   review?: C4ReviewResult | null;
+  /** Design discussion of the drawn design (null when it could not be written; absent when skipped). */
+  discussion?: C4DiscussionResult | null;
   /** The critic's findings as readable sentences (instead of "review: ok"). */
   criticNotes?: string[];
   revision?: C4Revision;
@@ -164,6 +188,8 @@ export interface C4EventSink {
   clarify?(clarify: C4Clarify): void;
   reviewDelta?(text: string): void;
   reviewDone?(review: C4ReviewResult): void;
+  discussionDelta?(text: string): void;
+  discussionDone?(discussion: C4DiscussionResult): void;
 }
 
 /** A conversation artifact a run builds on (revise base or reviewed design), as persisted in the session. */
@@ -293,6 +319,10 @@ export interface C4SketchSettings {
   criticCutoffMs: number;
   /** Per-call cap so one stuck provider call cannot eat the whole budget. */
   callTimeoutMs: number;
+  /** C4_DESIGN_DISCUSSION_ENABLED (default true): the discussion writer step after the critic. */
+  designDiscussionEnabled?: boolean;
+  /** DIAGRAM_CONNECTIVITY_CHECK (default true): connectivity rules C1–C9 in the validator. */
+  connectivityCheck?: boolean;
 }
 
 export interface C4SketchDeps {

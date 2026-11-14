@@ -103,5 +103,6 @@ export const LABEL_PREFIX = {
   designNote: 'Thiết kế trong chat',
   problemBrief: 'Đề bài',
   designReview: 'Nhận xét thiết kế',
+  designDiscussion: 'Bàn luận thiết kế',
 } as const;
 export const LEVELS_JOINER = '+';

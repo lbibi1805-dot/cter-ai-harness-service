@@ -7,8 +7,10 @@ import { C4SkillId } from '../enums/c4Skill.enums';
  */
 export const C4_SYSTEM_PROMPT = `
 You are a senior software architect producing C4 model diagrams (rendered with C4-PlantUML) for an exam answer.
-The goal is always the SMALLEST set of elements and relationships that still covers every requirement of the problem
-statement: no decoration, no invented scope, no duplicate elements that mean the same thing.
+The goal is the smallest set of elements and relationships that covers every functional requirement of the problem
+statement, plus the infrastructure the design discussion relies on (message broker, identity/security service, gateway,
+observability) when a requirement or a non-functional requirement needs it. Never invent business scope; no duplicate
+elements that mean the same thing.
 You always answer with ONE JSON object only (no prose, no markdown outside an optional \`\`\`json fence).
 Write names, descriptions and labels in the same language as the problem statement; descriptions under 12 words,
 labels under 6 words.
@@ -37,7 +39,8 @@ export const SPEC_SHAPE = `
 { "title": "…",
   "elements": [ { "id": "…", "kind": "person|system|container|component|system_boundary|container_boundary",
                   "variant": "standard|db|queue", "external": false, "name": "…", "tech": "…", "desc": "…",
-                  "parent": "boundary id or null", "covers": ["R1"] } ],
+                  "parent": "boundary id or null", "covers": ["R1"],
+                  "instances": "3 or 2..10 (internal containers only)", "scaling": "fixed|hpa|serverless" } ],
   "rels": [ { "from": "…", "to": "…", "label": "…", "tech": "…", "dir": "D|U|L|R", "phase": "sequence only", "covers": ["R2"] } ] }
 `.trim();
 
@@ -48,6 +51,10 @@ Rules for every diagram:
   be an endpoint of a relationship that covers something; otherwise leave it out.
 - Every relationship has a short verb label; add "tech" (protocol) at container/component level.
 - Containers and components ALWAYS have "tech". People always have external=false.
+- Internal containers have "instances": a count ("3"), an autoscaling range ("2..10") or "auto"; add "scaling"
+  ("fixed", "hpa" or "serverless") when known. People, external systems and components have no "instances".
+- Connectivity (the connectivity rules above): every element has at least one relationship and the diagram is one
+  connected graph; each database links to the service that owns it; each queue has a producer and a consumer.
 - "dir" is a layout hint: "D" from people to the system, "R" towards external systems, "D" towards databases.
   Use it to avoid crossing lines; omit when unsure.
 `.trim();
@@ -64,7 +71,10 @@ export const LEVEL_RULES: Readonly<Record<C4Level, string>> = {
   id. People and external systems stay outside (no parent). Self-hosted databases are kind "container" + variant "db";
   managed third-party databases are external systems with external=true. For a modular monolith, create one Container
   per module even when modules share a process. In microservices every service owns its own database (one db container or
-  managed external database per service, connected only to its owning service; never shared). Brokers: variant "queue". No components.`,
+  managed external database per service, connected only to its owning service; never shared). Brokers: variant "queue". No components.
+  Add a queue/broker, cache, worker or storage only when a requirement or a non-functional requirement (scale, availability,
+  asynchronous processing) needs it. Give every internal container "instances" (a count, or an autoscaling range with
+  "scaling").`,
   [C4Level.COMPONENT]: `[component] One "container_boundary" for the most important container (usually the backend API); its components have
   "parent" = that boundary id. Components only for responsibilities a requirement needs (controller/service per feature area, repository,
   gateway client). Include peer Containers only for direct dependencies: other modules in a modular monolith, or other services in
@@ -105,10 +115,18 @@ where <brief> is:
   "techConstraints": {"value": ["…"], "confidence": 0.0},
   "levels": {"value": ["context", "container"], "confidence": 0.0},
   "rubric": [ {"criterion": "…", "weight": 1} ],
+  "tenancySignals": {"value": ["…"], "confidence": 0.0},
+  "cloudScope": {"value": "full-cloud|hybrid|on-prem|unknown", "confidence": 0.0},
+  "scaleHints": ["…"],
   "userDesign": {"present": false, "imageIndexes": []} }
 Rules: confidence 0..1 = how clearly the statement says it (0 = not stated at all, guessed). "levels" = the C4 levels
 the question asks to draw (context, container, component, sequence); leave [] with confidence 0 when it does not say.
 "externalSystems": [] with a high confidence only when the statement clearly has none. imageIndexes are 0-based.
+"nonFunctionalReqs": every quality requirement stated (availability, latency, throughput, scale, security, compliance,
+data residency, cost). "tenancySignals": phrases saying the system serves many customer organisations (SaaS, sign-up or
+billing per organisation, customers isolated from each other, white-label) or only one organisation; [] with confidence 0
+when the statement says nothing. "cloudScope": where the system runs or moves to; "unknown" with confidence 0 when not
+stated. "scaleHints": user counts, peak load, growth.
 Write values in the language of the statement; requirements short (under 15 words each); do not invent requirements.
 `.trim();
 
@@ -143,11 +161,16 @@ Evaluate the design below. Use EXACTLY these sections, in this order, with these
 |---|---|---|
 (one row per rubric criterion; score as "x/10"; the rubric comes from the problem, else the knowledge base, else the
 standard C4 rubric: requirement coverage, correct C4 notation per level, consistency between levels, minimality/clarity,
-technology choices)
+technology choices. After the rubric rows, always add one row per design discussion topic: Cloud data migration,
+Deployment strategy, Resilience (Kafka, circuit breaker, rate limiting, replication), Observability (Grafana/Datadog),
+Multi-tenancy, Security service, Instances and scaling, and one row "Connectivity" (every element connected, enough
+links). A topic that does not apply scores "N/A" with the reason in one sentence.)
 ## Yêu cầu chưa đáp ứng
-(bullets: requirements of the problem the design does not show; "- Không có" when none)
+(bullets: requirements of the problem the design does not show, and design discussion topics the design ignores although
+they apply; "- Không có" when none)
 ## Lỗi ký hiệu C4
-(bullets: wrong element kinds, missing technology on containers/components, unlabeled relationships, mixed levels…)
+(bullets: wrong element kinds, missing technology on containers/components, unlabeled relationships, mixed levels,
+orphan or disconnected elements…)
 ## Đề xuất sửa (ưu tiên)
 (numbered list, most important first, each concrete enough to apply)
 Judge only what is in the design; never invent elements it does not have.
@@ -166,3 +189,37 @@ export const CLARIFY_PARSE_MAX_OUTPUT_TOKENS = 400;
 
 /** Third retrieval query of a review: the marking rubric in the knowledge base. */
 export const REVIEW_RUBRIC_QUERY = 'C4 architecture design marking rubric, grading criteria, common notation mistakes';
+
+/** Design discussion: writer system prompt, markdown output (12/11 plan 04). */
+export const DISCUSSION_SYSTEM_PROMPT = `
+You are a senior software architect explaining the design decisions behind a C4 design for an exam answer. You
+follow the design discussion, connectivity and multi-tenancy rules of the System Architecture rules above, you write in
+the language of the problem statement (Vietnamese unless the statement is in another language), and you answer in
+markdown only.
+`.trim();
+
+/** Design discussion: fixed frame of the seven topics T1–T7 (12/11 plan 04). */
+export const DISCUSSION_INSTRUCTIONS = `
+Write the design discussion for the design below. Use EXACTLY these seven sections, in this order, with these headings:
+## 1. Chuyển dữ liệu lên cloud
+## 2. Chiến lược triển khai
+## 3. Khả năng chịu lỗi (Kafka, circuit breaker, rate limiting, replication)
+## 4. Giám sát (observability: Grafana, Datadog)
+## 5. Multi-tenancy
+## 6. Bảo mật (security service)
+## 7. Số instance và auto-scaling
+Cover in each section what the design discussion rules ask for that topic. Write short full-sentence paragraphs; use
+bullets only to list components or options. Base every statement on the problem and the design: name its containers,
+databases and external systems, and the instance counts the specs give. When a topic does not apply, keep its heading
+and give the reason in one sentence. When the design lacks something a topic needs (for example no instance count, or a
+connectivity warning below), say what to add. Do not repeat the requirement list and do not output the specs again.
+`.trim();
+
+/** Critic: design checks added after the four base checks (12/11 plan 04). */
+export const CRITIC_DESIGN_CHECKS = `
+5. Instances: every internal container has "instances" (a count, or an autoscaling range with "scaling").
+6. Infrastructure has a reason: a broker, cache, identity/security service or observability element is there because a
+   requirement or a non-functional requirement needs it, and it is connected.
+7. Connectivity: no orphan or disconnected element; fix every connectivity warning listed below unless the problem
+   statement makes it intentional (then say why in "issues").
+`.trim();

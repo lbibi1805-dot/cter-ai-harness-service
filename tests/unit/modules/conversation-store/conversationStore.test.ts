@@ -5,10 +5,12 @@ import {
   ConversationService,
   ConversationStateKey,
   InMemoryConversationStore,
+  TitleSource,
   MessageKind,
   MessageRole,
   NeonConversationStore,
   conversationPrefix,
+  type ConversationCursor,
   type ConversationStore,
   type TurnWrite,
 } from '../../../../src/modules/conversation-store';
@@ -95,8 +97,8 @@ describe.each(stores)('ConversationStore contract: %s', (_name, make) => {
     expect(await store.softDelete(id, 30)).toBe(true);
     expect(await store.softDelete(id, 30)).toBe(true);                        // idempotent
     expect(await store.findActive(id, 100)).toBeNull();
-    expect((await store.list(10, false)).map((c) => c.id)).not.toContain(id);
-    expect((await store.list(10, true)).map((c) => c.id)).toContain(id);
+    expect((await store.list({ limit: 10, deleted: false })).conversations.map((c) => c.id)).not.toContain(id);
+    expect((await store.list({ limit: 10, deleted: true })).conversations.map((c) => c.id)).toContain(id);
     expect((await store.load(id, 10, 10))?.deletedAt).not.toBeNull();
     expect(await store.findPurgeable(10)).toEqual([]);                        // 30-day window not over
 
@@ -143,9 +145,81 @@ describe.each(stores)('ConversationStore contract: %s', (_name, make) => {
     expect(detail!.messages.map((m) => [m.intent, m.intentConfidence])).toEqual([['c4_review', 0.75], ['c4_review', 0.75]]);
     expect(detail!.state).toEqual({ pendingC4: { id: 's1', step: 'clarify', questions: [{ slot: 'levels' }] } });
     expect((await store.findActive(idle, 50))!.messages[0]).toMatchObject({ intent: null, intentConfidence: null });
-    const pending = await store.list(10, false, ConversationStateKey.PENDING_C4);
+    const pending = (await store.list({ limit: 10, deleted: false, pending: ConversationStateKey.PENDING_C4 })).conversations;
     expect(pending.map((c) => [c.id, c.pending])).toEqual([[waiting, ['pendingC4']]]);
-    expect((await store.list(10, false)).map((c) => c.id).sort()).toEqual([waiting, idle].sort());
+    expect((await store.list({ limit: 10, deleted: false })).conversations.map((c) => c.id).sort()).toEqual([waiting, idle].sort());
+  });
+
+  it('009: keyset list pages through every conversation once, newest first, with a next position', async () => {
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i++) { const id = randomUUID(); ids.push(id); await store.recordTurn(turn(id, `q${i}`, 'a')); }
+    const seen: string[] = [];
+    let after: ConversationCursor | undefined;
+    for (let pageNo = 0; pageNo < 5; pageNo++) {
+      const page = await store.list({ limit: 2, deleted: false, after });
+      seen.push(...page.conversations.map((c) => c.id));
+      if (!page.next) break;
+      after = page.next;
+    }
+    expect(seen).toHaveLength(5);
+    expect(new Set(seen)).toEqual(new Set(ids));
+    const all = (await store.list({ limit: 10, deleted: false })).conversations;
+    expect(all.map((c) => c.id)).toEqual(seen);                               // same order as one big page
+    expect((await store.list({ limit: 5, deleted: false })).next).toBeNull();  // exact fit → no next page
+    expect(all.every((c) => c.titleSource === TitleSource.AUTO)).toBe(true);
+  });
+
+  it('009: rename sets/clears the user title, keeps updated_at and the generated title; deleted → null', async () => {
+    const older = randomUUID();
+    const newer = randomUUID();
+    await store.recordTurn(turn(older, 'first question', 'a'));
+    await new Promise((r) => setTimeout(r, 5));
+    await store.recordTurn(turn(newer, 'second', 'a'));
+    const before = (await store.list({ limit: 10, deleted: false })).conversations;
+
+    expect(await store.rename(older, 'Thiết kế vé')).toEqual({ id: older, title: 'Thiết kế vé', titleSource: TitleSource.USER });
+    const after = (await store.list({ limit: 10, deleted: false })).conversations;
+    expect(after.map((c) => [c.id, c.updatedAt])).toEqual(before.map((c) => [c.id, c.updatedAt]));   // not moved to the top
+    expect(after.find((c) => c.id === older)).toMatchObject({ title: 'Thiết kế vé', titleSource: TitleSource.USER });
+    expect(await store.findActive(older, 10)).toMatchObject({ title: 'Thiết kế vé', titleSource: TitleSource.USER });
+
+    expect(await store.rename(older, null)).toEqual({ id: older, title: 'first question', titleSource: TitleSource.AUTO });
+    await store.softDelete(newer, 30);
+    expect(await store.rename(newer, 'x')).toBeNull();
+    expect(await store.rename(randomUUID(), 'x')).toBeNull();
+  });
+
+  it('009: detail returns the newest N with hasMoreMessages/oldestSeq; findMessages pages older ones with their artifacts', async () => {
+    const id = randomUUID();
+    const imageIds: string[] = [];
+    for (let i = 1; i <= 3; i++) {
+      const t = turn(id, `q${i}`, `a${i}`);
+      const artifactId = randomUUID();
+      imageIds.push(artifactId);
+      t.artifacts = [{ id: artifactId, messageId: t.messages[0].id, kind: ArtifactKind.USER_IMAGE, objectKey: `conversations/${id}/${artifactId}.png`, mime: 'image/png' }];
+      await store.recordTurn(t);
+    }
+    const detail = (await store.findActive(id, 2))!;
+    expect(detail.messages.map((m) => m.seq)).toEqual([5, 6]);
+    expect(detail).toMatchObject({ hasMoreMessages: true, oldestSeq: 5 });
+    expect(detail.artifacts).toHaveLength(3);                                 // detail keeps every artifact (metadata only)
+    expect(await store.findActive(id, 6)).toMatchObject({ hasMoreMessages: false, oldestSeq: 1 });
+
+    const older = (await store.findMessages(id, 5, 3))!;
+    expect(older.messages.map((m) => m.seq)).toEqual([2, 3, 4]);
+    expect(older).toMatchObject({ hasMoreMessages: true, oldestSeq: 2 });
+    expect(older.artifacts.map((a) => [a.id, a.messageSeq])).toEqual([[imageIds[1], 3]]);   // seq 1's image is not on this page
+    const oldest = (await store.findMessages(id, 2, 40))!;
+    expect(oldest).toMatchObject({ hasMoreMessages: false, oldestSeq: 1 });
+    expect(oldest.artifacts.map((a) => a.id)).toEqual([imageIds[0]]);
+    expect(await store.findMessages(id, 1, 40)).toMatchObject({ messages: [], hasMoreMessages: false, oldestSeq: null });
+    expect((await store.findMessages(id, null, 2))!.messages.map((m) => m.seq)).toEqual([5, 6]);
+
+    expect(await store.findActiveArtifact(id, imageIds[2])).toMatchObject({ id: imageIds[2], objectKey: `conversations/${id}/${imageIds[2]}.png` });
+    expect(await store.findActiveArtifact(randomUUID(), imageIds[2])).toBeNull();
+    await store.softDelete(id, 30);
+    expect(await store.findMessages(id, null, 40)).toBeNull();
+    expect(await store.findActiveArtifact(id, imageIds[2])).toBeNull();
   });
 
   it('findActive returns full message rows (timings, sources)', async () => {
@@ -169,6 +243,50 @@ describe('NeonConversationStore budget (note 13: ≤ 2 round-trips per turn)', (
     t.artifacts = [{ id: randomUUID(), messageId: t.messages[0].id, kind: ArtifactKind.USER_IMAGE, objectKey: `conversations/${id}/i.png` }];
     await store.recordTurn(t);
     expect(pg.roundTrips).toBe(2);
+  });
+
+  it('009: list/rename/detail/messages/artifact are 1 round-trip each', async () => {
+    await pg.db.exec('DROP TABLE IF EXISTS artifacts; DROP TABLE IF EXISTS messages; DROP TABLE IF EXISTS conversations;');
+    const store = new NeonConversationStore(pg);
+    const id = randomUUID();
+    const t = turn(id, 'q', 'a');
+    const artifactId = randomUUID();
+    t.artifacts = [{ id: artifactId, messageId: t.messages[0].id, kind: ArtifactKind.USER_IMAGE, objectKey: `conversations/${id}/i.png` }];
+    await store.recordTurn(t);                                                // schema applied once per process
+    pg.resetCounters();
+
+    const page = await store.list({ limit: 3, deleted: false, after: { updatedAt: '2999-01-01T00:00:00.000000Z', id: randomUUID() } });
+    expect(pg.roundTrips).toBe(1);
+    await store.rename(id, 'Tên mới');
+    expect(pg.roundTrips).toBe(2);
+    await store.findActive(id, 40);
+    expect(pg.roundTrips).toBe(3);
+    await store.findMessages(id, 2, 40);
+    expect(pg.roundTrips).toBe(4);
+    await store.findActiveArtifact(id, artifactId);
+    expect(pg.roundTrips).toBe(5);
+    expect(page.conversations.map((c) => c.id)).toEqual([id]);
+  });
+
+  it('009: keyset is exact at a microsecond updated_at shared by several rows (id breaks the tie)', async () => {
+    await pg.db.exec('DROP TABLE IF EXISTS artifacts; DROP TABLE IF EXISTS messages; DROP TABLE IF EXISTS conversations;');
+    const store = new NeonConversationStore(pg);
+    const ids = Array.from({ length: 5 }, () => randomUUID());
+    for (const id of ids) await store.recordTurn(turn(id, 'q', 'a'));
+    await pg.db.query("UPDATE conversations SET updated_at = '2026-11-13 10:00:00.123456+00'");
+    await pg.db.query("UPDATE conversations SET updated_at = '2026-11-13 10:00:00.123457+00' WHERE id = $1::uuid", [ids[0]]);
+    const seen: string[] = [];
+    const cursors: ConversationCursor[] = [];
+    let after: ConversationCursor | undefined;
+    do {
+      const page = await store.list({ limit: 2, deleted: false, after });
+      seen.push(...page.conversations.map((c) => c.id));
+      after = page.next ?? undefined;
+      if (after) cursors.push(after);
+    } while (after);
+    expect(seen[0]).toBe(ids[0]);                                             // 1 µs newer than the rest
+    expect(seen.slice(1)).toEqual(ids.slice(1).sort().reverse());             // same timestamp → id DESC
+    expect(cursors[0].updatedAt).toBe('2026-11-13T10:00:00.123456Z');         // µs kept (a JS Date would lose them)
   });
 
   it('a failing statement rolls the whole turn back', async () => {
@@ -209,6 +327,32 @@ describe('ConversationService', () => {
     expect(storage.keys(conversationPrefix(id))).toHaveLength(1);              // files kept for restore
     await service.restore(id);
     expect((await service.readArtifact(id, artifactId)).body.toString()).toBe('png');
+  });
+
+  it('009: listPage returns an opaque nextCursor; a bad cursor is invalid_cursor', async () => {
+    for (let i = 0; i < 4; i++) { clock = i * 1000; await store.recordTurn(turn(randomUUID(), `q${i}`, 'a')); }
+    const first = await service.listPage({ limit: 3, deleted: false });
+    expect(first.conversations.map((c) => c.title)).toEqual(['q3', 'q2', 'q1']);
+    expect(first.nextCursor).toMatch(/^[A-Za-z0-9_-]+$/);
+    const second = await service.listPage({ limit: 20, deleted: false, cursor: first.nextCursor! });
+    expect(second).toMatchObject({ nextCursor: null });
+    expect(second.conversations.map((c) => c.title)).toEqual(['q0']);
+    for (const bad of ['%%%', 'abc', Buffer.from('2026-11-13|not-a-uuid').toString('base64url'), Buffer.from(`x'; DROP TABLE x|${randomUUID()}`).toString('base64url')]) {
+      await expect(service.listPage({ limit: 3, deleted: false, cursor: bad })).rejects.toThrow('invalid_cursor');
+    }
+  });
+
+  it('009: rename validates the title (trim, collapse, control chars, 1–80) and 404s a deleted conversation', async () => {
+    const id = randomUUID();
+    await store.recordTurn(turn(id, 'q', 'a'));
+    expect(await service.rename(id, '  Hệ thống\n\t đặt   vé \u0007 ')).toEqual({ id, title: 'Hệ thống đặt vé', titleSource: 'user' });
+    expect(await service.rename(id, '')).toEqual({ id, title: 'q', titleSource: 'auto' });
+    expect(await service.rename(id, 'x'.repeat(80))).toMatchObject({ title: 'x'.repeat(80) });
+    for (const bad of ['   ', 'x'.repeat(81), 42, undefined, { t: 1 }]) {
+      await expect(service.rename(id, bad)).rejects.toThrow('invalid_title');
+    }
+    await service.softDelete(id);
+    await expect(service.rename(id, 'x')).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('rejects ids that are not UUIDs', async () => {

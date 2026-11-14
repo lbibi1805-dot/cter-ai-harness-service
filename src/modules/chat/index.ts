@@ -91,3 +91,12 @@ export type { ImageResizer, StagedImageDto } from './application/interfaces/stag
 export { CHAT_OPENAPI_PATHS } from './presentation/constants/chatOpenApi.constants';
 export type { ChatTurns, ChatTurnInput, ChatTurnOutcome, ChatTurnRecord, PreparedChatTurn } from './application/interfaces/chatTurns.interface';
 export type { PromptTrace, PromptTraceEntry } from './presentation/interfaces/promptTrace.interface';
+export { AnswerOrchestrator } from './application/answerOrchestrator.service';
+export { AnswerMetrics } from './application/answerMetrics.service';
+export { DEFAULT_ANSWER_PROMPTS } from './application/constants/answerPrompts.constants';
+export { ANSWER_PROMPT_IDS, DEFAULT_ANSWER_COMPLETENESS } from './domain/constants/answerPlan.constants';
+export { buildAnswerPlan, checkCoverage, groupSections } from './domain/helpers/answerPlan.helper';
+export type { AnswerCompletenessSettings, AnswerMetricsSummary, AnswerPlan, AnswerPrompts, PlannedQuestion } from './domain/interfaces/answerPlan.interface';
+export { answerPromptsFrom } from './application/helpers/answerPrompts.helper';
+export { incompleteSentences, scoreAnswerCase } from './domain/helpers/answerEval.helper';
+export type { AnswerGoldenCase, AnswerGoldenScore } from './domain/interfaces/answerEval.interface';

@@ -7,9 +7,9 @@ Thiết kế: `planning/planning-06112026/03-conversation-store.md`, `04-context
 
 | Bảng / prefix | Nội dung |
 |---|---|
-| `conversations` | `title`, `summary` + `summary_upto_seq` (auto-compact), `state` (`pendingC4`), `deleted_at`, `purge_after` |
+| `conversations` | `title` (câu hỏi đầu, tự sinh), **009**: `display_title` (tên người dùng đặt; NULL = dùng `title`), `summary` + `summary_upto_seq` (auto-compact), `state` (`pendingC4`), `deleted_at`, `purge_after` |
 | `messages` | `seq`, `role`, `kind` (`chat`/`c4`), `text`, `provider`, `model`, `mode`, `prompt_version` (hash prefix tĩnh thật sự gửi cho model), `ttft_ms`, `latency_ms`, `tokens_in`, `tokens_out`, `sources`; **007**: `resolved_refs` `{ids, source: ui\|rule\|aux\|ambiguous\|none, scores}`, `tokens_cached`; **008**: `intent`, `intent_confidence` |
-| `artifacts` | `ordinal` (alias `[A3]`), `kind` (`user_image`, `c4_png`, `c4_puml`, `c4_spec`, `problem_brief`, `design_review`, `design_note`…), `object_key`, `caption`, `ocr_text`, `data_json`; **007**: `label`, `level`, `owner` (`user`/`assistant`), `parent_artifact_id` (chuỗi version), `version` |
+| `artifacts` | `ordinal` (alias `[A3]`), `kind` (`user_image`, `c4_png`, `c4_puml`, `c4_spec`, `problem_brief`, `design_review`, `design_discussion`, `design_note`…), `object_key`, `caption`, `ocr_text`, `data_json`; **007**: `label`, `level`, `owner` (`user`/`assistant`), `parent_artifact_id` (chuỗi version), `version` |
 | R2 `conversations/<id>/<artifactId>.<ext>` | Ảnh user gửi, PNG/PUML của C4 |
 
 Mỗi turn chat tốn **tối đa 2 round-trip Neon**: 1 query đọc context, 1 transaction ghi (tin nhắn + artifact). Caption/OCR ảnh và auto-compact chạy nền ngay sau đó (DB còn thức).
@@ -58,19 +58,27 @@ Từ 08/11 (C4 agent flow): body thêm `images` (≤ 10; `description` tuỳ ch�
 Intent Router (rule → aux) chọn workflow; Extract tạo `problem_brief`, gap analysis hỏi ≤ 3 câu (event `clarify`), Revise tạo `c4_spec` mới với `parent_artifact_id` + `version+1`,
 Review ghi artifact `design_review`. Từ 08/11 chiều body nhận thêm `imageIds[]` (từ `POST /api/chat/images`). Event stream mới: `intent`, `brief`, `clarify`, `review_delta`, `review_done`; `done` thêm `intent`, `brief`, `review`, `artifacts`, `criticNotes` (`confirmation` cũ giữ nguyên).
 
+Từ 13/11 (plan 04/05 12/11): sau critic có bước **bàn luận thiết kế** T1–T7 (cloud, triển khai, chịu lỗi, giám sát, multi-tenancy, bảo mật, instance) — event `discussion_delta {text}`, `discussion_done {discussion: {markdown, artifactId?, alias?}}`, `done.discussion`, artifact `design_discussion`. Chạy cả khi `fast`; body `noDiscussion: true` bỏ qua (hoặc `C4_DESIGN_DISCUSSION_ENABLED=false`). Event `level` thêm `connectivity: {errors[], warnings[]}` với mỗi mục `{code, message, elementIds[]}`; code: `ORPHAN_ELEMENT`, `DISCONNECTED_GRAPH`, `DB_WITHOUT_OWNER`, `QUEUE_ONE_SIDED` (error, đã qua vòng repair) và `SERVICE_WITHOUT_DB`, `SHARED_DB`, `GATEWAY_COVERAGE`, `COMPONENT_NO_OUTBOUND`, `MISSING_INSTANCES` (warning). Spec element có thêm `instances` (`"3"`, `"2..10"`, `"auto"`) và `scaling`. `brief` (artifact `problem_brief`) có thêm `tenancySignals`, `cloudScope`, `scaleHints`; slot clarify mới `tenancy`, `deployment_target`.
+
 ## Quản lý
 
 Auth: `Authorization: Bearer <CHAT_API_TOKEN>` (client) **hoặc** `Bearer <ADMIN_TOKEN>` (monitoring UI, trang Chats). Purge (`?hard=true`) chỉ nhận `ADMIN_TOKEN`.
 
 | Endpoint | Hành vi |
 |---|---|
-| `GET /api/conversations?limit=20&deleted=false` | Danh sách (mới nhất trước); `deleted=true` = thùng rác |
+| `GET /api/conversations?limit=20&cursor=&deleted=false` | Danh sách (mới nhất trước, keyset `updated_at DESC, id DESC`); `limit` 1–100 (mặc định 20); `deleted=true` = thùng rác. Trả `{conversations:[{id, title, titleSource, updatedAt, deletedAt, purgeAfter, pending[]}], nextCursor}` — `nextCursor` null ở trang cuối; truyền lại nguyên văn qua `?cursor=` để lấy trang sau. Cursor hỏng → `400 {error:"invalid_cursor"}` |
 | `GET /api/conversations?pending=c4` | Chỉ hội thoại có phiên C4 đang chờ trả lời; mỗi item có `pending[]` |
-| `GET /api/conversations/:id` | Messages + artifacts (kèm `url` presigned 10 phút, hoặc link `/artifacts/:artifactId` khi dev không có R2). Thêm `state.pendingC4` (đã lọc); message `resolvedRefs`, `tokensCached`, `intent`, `intentConfidence`; artifact `label`, `level`, `owner`, `parentArtifactId`, `version` |
+| `PATCH /api/conversations/:id` | Body `{title: string \| null}`. Đổi tên (trim, gộp khoảng trắng, bỏ ký tự điều khiển, 1–80 ký tự); `null` hoặc `""` = về tên tự sinh. Trả `200 {id, title, titleSource}`; `400 {error:"invalid_title"}`; `404` khi không có hoặc đã xoá mềm. **Không** đổi `updatedAt` (không nhảy lên đầu list) |
+| `GET /api/conversations/:id?messages=40` | Như dưới nhưng chỉ N tin mới nhất (1–500). Không truyền `messages` = 500 như cũ |
+| `GET /api/conversations/:id/messages?beforeSeq=&limit=40` | Tin cũ hơn `beforeSeq` (không truyền = trang mới nhất), `limit` 1–500 (mặc định 40). Trả `{messages, artifacts, hasMoreMessages, oldestSeq}`; `artifacts` chỉ gồm artifact của các tin trả về (cùng shape, có `url`) |
+| `GET /api/conversations/:id` | `title` (= `COALESCE(display_title, title)`), `titleSource` (`user`\|`auto`), `hasMoreMessages`, `oldestSeq` + messages + artifacts (mọi artifact, chỉ metadata) (kèm `url` presigned 10 phút, hoặc link `/artifacts/:artifactId` khi dev không có R2). Thêm `state.pendingC4` (đã lọc); message `resolvedRefs`, `tokensCached`, `intent`, `intentConfidence`; artifact `label`, `level`, `owner`, `parentArtifactId`, `version` |
 | `GET /api/conversations/:id/artifacts/:artifactId` | Bytes của artifact |
 | `DELETE /api/conversations/:id` | Xoá mềm → `204` (gọi lại vẫn `204`). File R2 giữ lại để khôi phục |
 | `POST /api/conversations/:id/restore` | Khôi phục trong `CONVERSATION_PURGE_DAYS` ngày; `404` nếu đã purge |
 | `DELETE /api/conversations/:id?hard=true` | Purge ngay. Cần `Authorization: Bearer <ADMIN_TOKEN>` |
+
+Mỗi lời gọi list / rename / detail / messages / artifact bytes = **1 query Neon** (list lấy `limit + 1` hàng, không `COUNT(*)`; artifact bytes dùng 1 JOIN nhẹ, không tải lại 500 tin).
+Client mới (13/11, plan 07): sidebar tải 3 mục, "Xem thêm" 20 mục/lần, detail `?messages=40` + "Tải tin cũ hơn"; các con số này là hằng số phía client.
 
 Purge tự động: chạy ké sau một turn đã ghi DB, tối đa 1 lần/24 h, tối đa 50 conversation; xoá prefix R2 trước rồi mới xoá row.
 
@@ -81,4 +89,5 @@ Purge tự động: chạy ké sau một turn đã ghi DB, tối đa 1 lần/24 
 Aux model không có key → không caption/OCR/compact (history bị cắt như cũ).
 Từ 08/11: `PROMPT_CACHE_LAYOUT` (v2), `ARTIFACT_RESOLVER_MODE` (rules+aux; `off` = hành vi cũ), `ARTIFACT_RESOLVER_MIN_SCORE` (2.5), `ARTIFACT_RESOLVER_MARGIN` (1.0),
 `ARTIFACT_RESOLVER_AUX_TIMEOUT_MS` (1500), `CONTEXT_PINNED_KINDS` (c4_spec,problem_brief,design_review,design_note). Migration 007/008 do SchemaGuard tự áp.
+Từ 13/11: không có biến mới; migration 009 (`display_title`, index `conversations_active_updated_id_idx`) do SchemaGuard tự áp.
 Từ 08/11 chiều: `CONTEXT_HOT_WINDOW_TURNS` (2; `0` = rollback), `CONTEXT_MAX_PROMPT_IMAGES` (16), `CHAT_UPLOAD_TTL_MS` (3600000).

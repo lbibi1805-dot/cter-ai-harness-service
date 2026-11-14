@@ -36,6 +36,9 @@ export class ValidateDiagramTool implements AgentTool {
     const source = stringArg(args, 'source');
     if (!source) throw new InvalidToolArgumentsError('"source" is required');
     const check = await this.validator.validate(source);
-    return { content: check.ok ? VALIDATE_DIAGRAM_OK : describeSyntaxError(source, check.error ?? 'unknown error', check.line), sources: [] };
+    const syntax = check.ok ? VALIDATE_DIAGRAM_OK : describeSyntaxError(source, check.error ?? 'unknown error', check.line);
+    // 12/11 plan 04 §4.3: connectivity findings so the agent connects orphan boxes before answering.
+    const issues = [...(check.connectivity?.errors ?? []).map((i) => `CONNECTIVITY ERROR ${i.code}: ${i.message}`), ...(check.connectivity?.warnings ?? []).map((i) => `CONNECTIVITY WARNING ${i.code}: ${i.message}`)];
+    return { content: [syntax, ...issues].join('\n'), sources: [] };
   }
 }

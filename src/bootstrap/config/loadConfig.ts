@@ -16,7 +16,10 @@ import { readStorageConfig } from './readers/storageConfig.reader';
 import { readCaptureConfig } from './readers/captureConfig.reader';
 import { readContextConfig } from './readers/contextConfig.reader';
 import { readEssayConfig } from './readers/essayConfig.reader';
+import { readAnswerConfig } from './readers/answerConfig.reader';
+import { DEFAULT_HISTORY_ASSISTANT_TURN_MAX_CHARS } from '../../modules/ai';
 import { DEFAULT_AGENT_BUDGET } from '../../modules/agent/domain/constants/agentBudget.constants';
+import { DEFAULT_DIAGRAM_CONNECTIVITY_CHECK } from '../../modules/c4';
 import { DEFAULT_AGENT_MAX_DIAGRAM_VALIDATIONS, DEFAULT_DIAGRAM_GUARD_ENABLED, DEFAULT_DIAGRAM_MAX_REPAIRS } from '../../modules/agent/application/constants/diagramGuard.constants';
 import { parseStorageProvider } from '../../shared/database/helpers/database.helper';
 
@@ -55,6 +58,7 @@ export function loadConfig(): AppConfig {
     diagramGuard: {
       enabled: readBoolean('DIAGRAM_SYNTAX_GUARD_ENABLED', DEFAULT_DIAGRAM_GUARD_ENABLED),
       maxRepairs: readInt('DIAGRAM_SYNTAX_MAX_REPAIRS', DEFAULT_DIAGRAM_MAX_REPAIRS),
+      connectivityCheck: readBoolean('DIAGRAM_CONNECTIVITY_CHECK', DEFAULT_DIAGRAM_CONNECTIVITY_CHECK),
     },
     c4: readC4Config(),
     database: {
@@ -65,6 +69,8 @@ export function loadConfig(): AppConfig {
     capture: readCaptureConfig(storage),
     context: readContextConfig(),
     essay: readEssayConfig(),
+    answers: readAnswerConfig(),
+    historyAssistantTurnMaxChars: readInt('HISTORY_ASSISTANT_TURN_MAX_CHARS', DEFAULT_HISTORY_ASSISTANT_TURN_MAX_CHARS),
     gmail: { user: readOptionalString('GMAIL_USER'), appPassword: readOptionalString('GMAIL_APP_PASSWORD') },
     heartbeat: {
       enabled: readBoolean('CRON_ENABLED', true),

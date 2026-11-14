@@ -75,6 +75,8 @@ export interface EssayPromptParts {
   subject: string;
   aspects: string[];
   targetWords: number;
+  /** Several questions with their own marks (08 Bước 4): one target line each. */
+  questionTargets?: { label: string; targetWords: number }[];
   question: string;
 }
 

@@ -42,6 +42,7 @@ import {
   REFERABLE_KINDS,
   RESOLVER_WEIGHTS,
   REVIEW_WORDS,
+  DISCUSSION_WORDS,
   TURN_PATTERN,
 } from './constants/artifactResolver.constants';
 import { ARTIFACT_ALIAS_PATTERN } from './constants/context.constants';
@@ -59,7 +60,7 @@ import type {
 } from './interfaces/artifactResolver.interface';
 
 const CUE_WORDS = [
-  ...DIAGRAM_WORDS, ...IMAGE_WORDS, ...DRAW_VERBS, ...DESIGN_WORDS, ...PROBLEM_WORDS, ...REVIEW_WORDS, ...Object.keys(LEVEL_WORDS),
+  ...DIAGRAM_WORDS, ...IMAGE_WORDS, ...DRAW_VERBS, ...DESIGN_WORDS, ...PROBLEM_WORDS, ...REVIEW_WORDS, ...DISCUSSION_WORDS, ...Object.keys(LEVEL_WORDS),
   ...OWNER_ASSISTANT_WORDS, ...OWNER_USER_WORDS, ...LATEST_WORDS, ...PREVIOUS_WORDS, ...FIRST_WORDS, ...COMPARE_WORDS, ...ANAPHORA_WORDS,
 ].flatMap(tokenize);
 /** Words that never identify a system: exact forms ("vẽ" ≠ "vé"), and accent-free forms for accent-free questions. */
@@ -100,6 +101,7 @@ export function extractSignals(question: string): ReferenceSignals {
   }
   if (has(PROBLEM_WORDS)) kinds.push(ArtifactKind.PROBLEM_BRIEF, ArtifactKind.USER_IMAGE);
   if (has(REVIEW_WORDS)) kinds.push(ArtifactKind.DESIGN_REVIEW);
+  if (has(DISCUSSION_WORDS)) kinds.push(ArtifactKind.DESIGN_DISCUSSION);
   if (kinds.length === 0 && levels.length > 0) kinds.push(ArtifactKind.C4_SPEC);
 
   const temporal = has(COMPARE_WORDS) ? TemporalCue.COMPARE

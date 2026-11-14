@@ -6,6 +6,7 @@ import { briefLevels, briefSummary, C4_LEVEL_ORDER, parseC4Level, type C4Level, 
 import type {
   C4ArchitectPlan,
   C4Clarify,
+  C4DiscussionResult,
   C4LevelResult,
   C4ResumeRequest,
   C4ReviewResult,
@@ -13,7 +14,7 @@ import type {
   C4SketchResult,
 } from '../../application/interfaces/c4Sketch.interface';
 import { C4_GEMINI_INLINE_IMAGES_MAX_BYTES, MAX_DESCRIPTION_CHARS } from '../constants/c4.constants';
-import type { C4AnalysisDto, C4BriefDto, C4ClarifyDto, C4IntentDto, C4LevelDto, C4ReviewDto, C4SketchDto } from '../dto/c4.dto';
+import type { C4AnalysisDto, C4BriefDto, C4ClarifyDto, C4DiscussionDto, C4IntentDto, C4LevelDto, C4ReviewDto, C4SketchDto } from '../dto/c4.dto';
 
 const CLIENT_INTENT_VALUES = new Set<string>(Object.values(ClientIntent));
 const REQUEST_INTENT_VALUES = new Set<string>(Object.values(RequestIntent));
@@ -64,6 +65,7 @@ export function toC4SketchRequest(body: unknown): C4SketchRequest {
     stream: raw.stream === true,
     images,
     review: raw.review === true,
+    ...(raw.noDiscussion === true ? { noDiscussion: true } : {}),
     ...(intent ? { intent } : {}),
     ...(refArtifactIds.length ? { refArtifactIds } : {}),
     ...(conversationId ? { conversationId } : {}),
@@ -107,6 +109,7 @@ export function toC4SketchDto(result: C4SketchResult, now: number = Date.now()):
     ...(result.intent ? { intent: toC4IntentDto(result.intent) } : {}),
     ...(result.brief ? { brief: toC4BriefDto(result.brief) } : {}),
     ...(result.review !== undefined ? { review: result.review ? { markdown: result.review.markdown } : null } : {}),
+    ...(result.discussion !== undefined ? { discussion: result.discussion ? toC4DiscussionDto(result.discussion) : null } : {}),
     ...(result.artifacts?.length ? { artifacts: result.artifacts } : {}),
     ...(result.criticNotes?.length ? { criticNotes: result.criticNotes } : {}),
   };
@@ -124,7 +127,12 @@ export function toC4LevelDto(level: C4LevelResult): C4LevelDto {
     missing: level.missing,
     notes: level.notes,
     error: level.error ?? null,
+    connectivity: { errors: level.connectivity?.errors ?? [], warnings: level.connectivity?.warnings ?? [] },
   };
+}
+
+export function toC4DiscussionDto(discussion: C4DiscussionResult): C4DiscussionDto {
+  return { markdown: discussion.markdown, ...(discussion.artifactId ? { artifactId: discussion.artifactId } : {}), ...(discussion.alias ? { alias: discussion.alias } : {}) };
 }
 
 export function toC4AnalysisDto(plan: C4ArchitectPlan, knowledgeSources: string[]): C4AnalysisDto {

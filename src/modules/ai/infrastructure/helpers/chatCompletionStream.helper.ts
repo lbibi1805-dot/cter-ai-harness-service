@@ -1,8 +1,10 @@
 import type OpenAI from 'openai';
 import { EmptyProviderResponseError } from '../../domain/errors/ai.errors';
+import type { FinishReason } from '../../domain/enums/ai.enums';
 import type { ProviderReply, ProviderUsage, TextDeltaListener } from '../../domain/interfaces/aiProvider.port';
 import type { OpenRouterErrorBody } from '../interfaces/openRouter.interface';
 import { chatCompletionUsage } from './usage.helper';
+import { chatFinishReason } from './finishReason.helper';
 
 /**
  * Streams a Chat Completions request (OpenAI, xAI and OpenRouter speak the same protocol), reporting each text
@@ -20,6 +22,7 @@ export async function streamChatCompletion(
   let text = '';
   let model = body.model;
   let usage: ProviderUsage | undefined;
+  let finish: FinishReason | undefined;
   for await (const chunk of stream) {
     const bodyError = (chunk as unknown as OpenRouterErrorBody).error;
     if (bodyError) {
@@ -27,13 +30,19 @@ export async function streamChatCompletion(
     }
     if (chunk.model) model = chunk.model;
     if (chunk.usage) usage = chatCompletionUsage(chunk.usage);
+    finish = chatFinishReason(chunk.choices?.[0]?.finish_reason) ?? finish;
     const delta = chunk.choices?.[0]?.delta?.content;
     if (!delta) continue;
     text += delta;
     onDelta(delta);
   }
   if (!text) throw new EmptyProviderResponseError(`${body.model} streamed no text`);
-  return withUsage({ text, model }, usage);
+  return withFinish(withUsage({ text, model }, usage), finish);
+}
+
+/** Adds `finishReason` only when the provider reported one (08 Bước 2). */
+export function withFinish(reply: ProviderReply, finishReason: FinishReason | undefined): ProviderReply {
+  return finishReason ? { ...reply, finishReason } : reply;
 }
 
 /** Adds `usage` only when the provider reported it. */

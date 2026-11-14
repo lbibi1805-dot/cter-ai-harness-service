@@ -34,7 +34,7 @@ export interface OpsStatusSource {
   /** Prompt registry files (`GET /api/prompts`, note 06): RAM. */
   prompts?: () => unknown;
   /** Golden-eval runs on local disk (`GET /api/evals`, notes 06/15). */
-  evals?: () => unknown;
+  evals?: (kind?: string) => unknown;
 }
 
 export interface MaskedAccount {

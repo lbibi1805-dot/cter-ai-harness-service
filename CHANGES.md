@@ -1,3 +1,125 @@
+# Thay đổi: Trả lời đủ dài, đủ câu, đủ mọi câu hỏi trong một lượt — answer plan, sinh theo phần, auto-continue, kiểm tra phủ (13/11/2026)
+
+> Trạng thái: **chưa commit** (branch `feature/bach-planning-12112026-wave3`) · Plan: `planning/planning-12112026/08-long-complete-answers` (Bước 1–5, 7 phía harness, 8)
+> · Client: `cter-interview-cloak-client` (hiện "Phần i/n", "đang viết tiếp…", cảnh báo `coverage.missing`) và `cter-monitoring-client-ui` (khối `answers`) làm riêng. Tương thích ngược: sự kiện NDJSON mới chỉ thêm `type` mới; `ANSWER_COMPLETENESS_ENABLED=false` trả về hành vi cũ.
+
+## Vì sao
+
+Câu trả lời tự luận ngắn, câu văn cụt; prompt nhiều câu hỏi bị cắt giữa chừng, người dùng phải nhắn "làm tiếp". Nguyên nhân đã xác minh: rule ép ngắn trong `prompts/`, trần output thấp (Claude 4096 cứng), không đọc `finish_reason`, không tách câu hỏi, deadline 90 s.
+
+## Thay đổi
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | `prompts/`: policy mới `policies/answer-completeness.md` (order 15, static); `core/system.md` 2.2.0 (bỏ "Keep it concise"); `policies/language.md` 1.1.0 (trả lời **cùng ngôn ngữ với câu hỏi**, bỏ "every sentence should earn its place"); `skills/essay/writer.md` 1.2.0; skill mới `skills/answer/{plan,section,continue,coverage-fix}.md`, `skills/essay/verb-expectations.md` (chuyển từ `essay.constants.ts`); `skills/routing/essay-analysis.md` 1.1.0 (1–12 ý) | `system-prompt.md` sinh lại (promptVersion đổi → KV cache prefix đổi 1 lần). `domains/system-architecture.md` do plan 04 sửa |
+| 2 | Mọi adapter trả `finishReason` (`stop` / `length` / `safety` / `other`): Gemini `MAX_TOKENS`, OpenAI `length` + Responses `response.incomplete`, Claude `max_tokens`, OpenRouter/Grok `length` | `AIAnswer.finishReason` |
+| 3 | Trần output đồng nhất: Claude dùng `AI_MAX_OUTPUT_TOKENS` (bỏ 4096 cứng), Grok gửi `max_tokens`, agent OpenAI Responses gửi `max_output_tokens`, OpenRouter mặc định theo `AI_MAX_OUTPUT_TOKENS` khi không đặt `OPENROUTER_MAX_TOKENS`; `MODEL_OUTPUT_LIMITS` kẹp theo model | Chỉ có giới hạn xác minh từ SDK (Claude Opus 4/4.1 non-streaming 8192); các model khác **chưa xác minh** → gửi đúng giá trị cấu hình |
+| 4 | Gemini: thinking ăn chung trần → nếu phần còn lại < 4096 token thì hạ mức thinking một bậc (log) | `fitThinkingLevel` |
+| 5 | `AnswerOrchestrator` (module chat) bọc chat single-shot + agent, trả lời hội thoại Canvas và file Q&A: tách câu hỏi bằng luật (0 lần gọi model) → khối `<answer_plan>` sau câu hỏi (lớp ⑦, không đụng prefix tĩnh) → sinh theo phần (≤ 3 câu/phần khi vượt ~6144 token/lần gọi) nối liền trong cùng stream → auto-continue khi `finishReason=length` hoặc lỗi sau khi đã stream chữ → kiểm tra phủ (nhãn "Câu i" + ≥ 60 % số từ) → 1 lần bổ sung phần thiếu | Lưu **một** tin assistant đã ghép, không thêm query Neon. `/c4` và Essay Mode không đi qua orchestrator |
+| 6 | NDJSON `/api/chat` thêm sự kiện: `answer_plan {total, questions:[{id,label}]}`, `section {index,total}` (1-based), `continuation {n}`, `coverage {missing:[ids]}` (mảng rỗng = đủ). DTO thêm `completeness` | Chữ vẫn đi bằng `delta`; client cũ phải bỏ qua `type` lạ (chưa xác minh trên client) |
+| 7 | Essay Mode: `ESSAY_MAX_ASPECTS` (mặc định 12, trước cố định 6); đọc **mọi** "(N điểm)" → `target_words` từng câu; bỏ kẹp 8192 (dùng `AI_MAX_OUTPUT_TOKENS`); `<essay>` không đóng hoặc bị cắt → viết tiếp (≤ `ANSWER_MAX_CONTINUATIONS`) | |
+| 8 | Lịch sử: lượt assistant **gần nhất** giữ tới `HISTORY_ASSISTANT_TURN_MAX_CHARS` ký tự (các lượt cũ 6000) | "làm tiếp" thấy đủ câu trả lời dài trước |
+| 9 | `GET /api/metrics/latency` thêm khối `answers: {turns, questionsPerTurnAvg, sectionsTotal, continuationsTotal, truncatedRemaining, completeRate, outputTokensAvg, longTurnP95Ms}` | RAM, 0 query DB, tính từ lúc khởi động |
+| 10 | `/api/config` thêm `AI_MAX_OUTPUT_TOKENS`, `ANSWER_*`, `LONG_ANSWER_DEADLINE_MS`, `ESSAY_MAX_ASPECTS`, `HISTORY_ASSISTANT_TURN_MAX_CHARS` | |
+| 11 | Eval: `evals/golden/multi-question.jsonl` (8 case: 3/5/8/12 câu, có/không điểm, trộn tự luận + tính + vẽ, a/b/c, 1 câu ngắn); `npm run eval:answers` (coverage, ≥ 80 % số từ, truncated, câu cụt, `--judge` 0–10; `--offline` chỉ kiểm bộ tách câu) | Live chỉ chạy vài case nhỏ trên dev |
+
+## Biến môi trường
+
+| Biến | Mặc định | Ghi chú |
+|---|---|---|
+| `AI_MAX_OUTPUT_TOKENS` (đổi default) | 8192 → `16384` | Nay áp cho cả Claude, Grok, agent; OpenRouter dùng khi không đặt `OPENROUTER_MAX_TOKENS` |
+| `ANSWER_COMPLETENESS_ENABLED` | `true` | `false` = rollback toàn bộ orchestrator |
+| `ANSWER_MIN_WORDS_PER_QUESTION` | `300` | Câu tự luận không ghi điểm; có điểm = điểm × `ESSAY_WORDS_PER_POINT` (175); câu ngắn/tính/vẽ không ép |
+| `ANSWER_SECTION_MAX_QUESTIONS` | `3` | |
+| `ANSWER_MAX_CONTINUATIONS` | `2` | Mỗi phần; cũng dùng cho Essay |
+| `ANSWER_COVERAGE_FIX` | `true` | |
+| `LONG_ANSWER_DEADLINE_MS` | `240000` | Cả lượt nhiều phần; mỗi lần gọi thêm vẫn có `CHAT_DEADLINE_MS` riêng |
+| `ESSAY_MAX_ASPECTS` | `12` | |
+| `HISTORY_ASSISTANT_TURN_MAX_CHARS` | `12000` | |
+
+Không có secret mới. `ESSAY_MODE_ENABLED` giữ `false` (bật sau khi `eval:answers` đạt).
+
+## Rollback
+
+`ANSWER_COMPLETENESS_ENABLED=false` (orchestrator chuyển thẳng request), `AI_MAX_OUTPUT_TOKENS=8192`, `ANSWER_MAX_CONTINUATIONS=0`. Không có migration.
+
+## Kiểm thử
+
+- Offline (provider giả): `tests/unit/modules/chat/answerOrchestrator.test.ts` (17), `answerEval.test.ts` (2), `tests/unit/shared/text/questionSplit.test.ts` (5), `tests/unit/modules/essay/essayCompleteness.test.ts` (4), `tests/unit/modules/ai/infrastructure/finishReason.test.ts` (4); cập nhật test history/OpenAI/OpenRouter/promptSources theo default mới.
+- `npm run eval:answers -- --offline`: 8/8 case tách đúng số câu.
+- **Chưa** chạy live (model thật, Neon dev); giới hạn output thật từng model chưa xác minh; client chưa kiểm với sự kiện mới.
+
+---
+
+# Thay đổi: Tiêu chí bàn luận design T1–T7, kiểm tra kết nối khối (B1), instances, multi-tenancy (13/11/2026)
+
+> Trạng thái: **chưa commit** (branch `feature/bach-planning-12112026-wave3`) · Plan: `planning/planning-12112026/04-design-discussion-rules.md` (§3, §4, §5.1–5.4, §7, §8) + `05-multi-tenancy-knowledge.md` (khối `<multi_tenancy>`). Bỏ §5.5 (level Deployment, P2).
+> · Client: `cter-interview-cloak-client` (bubble bàn luận, `noDiscussion`), `cter-monitoring-client-ui` (card Design compliance, counter orphan). Tương thích ngược: chỉ **thêm** event/trường.
+
+## Thay đổi
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | `prompts/domains/system-architecture.md` **1.5.0**: khối `<design_discussion>` (7 mục T1–T7, mục không áp dụng giữ heading + 1 câu lý do; circuit breaker bàn như Kafka; Kafka/security/observability chỉ vẽ khi cần), `<connectivity>`, `<multi_tenancy>`; phân tích kiến trúc viết đoạn văn đủ câu, bullet chỉ để liệt kê thành phần (plan 08) | Đến mọi path: chat, agent, essay, `/c4` |
+| 2 | Skill C4: `system` 2.1.0 (bỏ "SMALLEST… no decoration"), `level-container` 1.3.0, `universal-rules` 1.1.0, `spec-shape` 1.1.0, `extract` 1.1.0, `review` 1.1.0 (thêm hàng T1–T7 + Connectivity); **mới** `discussion-system`, `discussion`, `critic-design` 1.0.0 | TS fallback `c4Prompts.constants.ts` giữ y hệt (test parity) |
+| 3 | Validator kết nối C1–C9 (`c4/domain/diagramConnectivity.ts`): `ORPHAN_ELEMENT`, `DISCONNECTED_GRAPH`, `DB_WITHOUT_OWNER`, `QUEUE_ONE_SIDED` = error → vòng repair; `SERVICE_WITHOUT_DB`, `SHARED_DB`, `GATEWAY_COVERAGE`, `COMPONENT_NO_OUTBOUND`, `MISSING_INSTANCES` = warning → critic | Khối bị prune (không `covers`, không quan hệ) giờ ghi warning thay vì lặng lẽ; khối có `covers` mà mồ côi → error. Còn lỗi sau repair → vẫn trả diagram + dòng trong `criticNotes` |
+| 4 | Event `level` thêm `connectivity: {errors, warnings}` (`{code, message, elementIds}`) | |
+| 5 | Spec element thêm `instances` (`"3"`, `"2..10"`, `"auto"`) và `scaling` (`fixed\|hpa\|serverless`); PlantUML: `API Service x 3` hoặc dòng `Instances: 2..10 (HPA)` trong mô tả | Định dạng sai → error validator |
+| 6 | Bước **Discussion writer** sau critic, trước review: stream `discussion_delta {text}`, kết thúc `discussion_done {discussion: {markdown, artifactId?, alias?}}`; artifact mới `design_discussion`; `done.discussion` | Khung 7 heading do code ép (`discussionFrame.ts`): mục thiếu → "Chưa phân tích", không gọi lại model. Chạy cả khi `fast`; bỏ khi body `noDiscussion: true` |
+| 7 | Brief: `tenancySignals`, `cloudScope` (`full-cloud\|hybrid\|on-prem\|unknown`), `scaleHints`; slot `tenancy`, `deployment_target` (impact thấp, chỉ hỏi khi có tín hiệu nhưng chưa rõ, vẫn ≤ 3 câu) | Brief cũ trong session không có trường mới vẫn đọc được |
+| 8 | Chat/agent: guard PlantUML lint thêm C1/C2/C7 trên khối C4 (dùng chung lượt repair `DIAGRAM_SYNTAX_MAX_REPAIRS`); không sửa được → thêm 1 dòng cảnh báo dưới khối. Tool `validate_diagram` trả thêm dòng `CONNECTIVITY ERROR/WARNING` | |
+| 9 | `GET /api/metrics/latency` → `diagramGuard` thêm `orphanFound`, `orphanRepaired`, `connectivityErrors` (chat + /c4, RAM, 0 query DB) | |
+| 10 | Eval: R09–R14 trong `evals/golden/rule-compliance.jsonl` (R11 chấm bằng lint, `lint_connectivity`); `npm run eval:c4` (`scripts/eval-c4-design.ts`, 3 đề, `fast`, xoá conversation sau khi chạy) ghi `evals/results/<date>-design-<promptVersion>.json` kind `design-compliance`; `GET /api/evals?kind=` lọc theo kind | |
+
+## Biến môi trường mới
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `C4_DESIGN_DISCUSSION_ENABLED` | `true` | Bật bước bàn luận thiết kế T1–T7 trên `/c4` (+1 call model/run). `false` = rollback |
+| `DIAGRAM_CONNECTIVITY_CHECK` | `true` | Bật validator C1–C9 trên `/c4` và lint kết nối PlantUML trong chat/agent |
+
+Không có secret mới. Không có migration (artifact kind là TEXT tự do).
+
+# Thay đổi: Lazy history + đổi tên conversation — phân trang keyset, `PATCH /api/conversations/:id`, detail nhẹ (13/11/2026)
+
+> Trạng thái: **chưa commit** (branch `feature/bach-planning-12112026-wave3`) · Plan: `planning/planning-12112026/07-lazy-history-and-rename.md` (Bước 1, 2, 3, test Bước 6)
+> · Client: `cter-interview-cloak-client` (sidebar 3 mục + "Xem thêm" 20, rename inline), `cter-monitoring-client-ui` ("Tải thêm", Đổi tên). Tương thích ngược: chỉ **thêm** trường; client cũ không truyền `cursor`/`messages` vẫn chạy như trước.
+
+## Vì sao
+
+Sidebar chỉ cần 3 cuộc trò chuyện gần nhất, tải tiếp khi bấm "Xem thêm"; tin nhắn chỉ tải khi bấm vào; người dùng muốn đặt tên cho cuộc trò chuyện. Mỗi lời gọi vẫn 1 query Neon.
+
+## Thay đổi
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | `GET /api/conversations?limit=&cursor=` trả thêm `nextCursor` (keyset `(updated_at, id) DESC`, lấy `limit+1` hàng, không `COUNT`) | Cursor = base64url của `updated_at` (text µs từ SQL, không qua JS `Date`) + `id`. Cursor hỏng → `400 {error:"invalid_cursor"}`. `limit` kẹp 1–100 |
+| 2 | Cột `conversations.display_title` + `PATCH /api/conversations/:id` `{title: string\|null}` → `{id, title, titleSource}` | Trim, gộp khoảng trắng, bỏ ký tự điều khiển, 1–80 ký tự; `null`/`""` = về tên tự sinh. `400 invalid_title`, `404` khi không có/đã xoá mềm. **Không** đổi `updated_at` |
+| 3 | List + detail trả `title = COALESCE(display_title, title)` và `titleSource: user\|auto` | `title` tự sinh không bao giờ bị ghi đè |
+| 4 | `GET /api/conversations/:id?messages=N` (1–500) + `hasMoreMessages`, `oldestSeq` | Không truyền `messages` = 500 như cũ. Detail vẫn trả mọi artifact (metadata + url) |
+| 5 | Mới: `GET /api/conversations/:id/messages?beforeSeq=&limit=40` → `{messages, artifacts, hasMoreMessages, oldestSeq}` | `artifacts` chỉ của các tin trả về; 1 query (CTE) |
+| 6 | Route byte artifact dùng 1 JOIN nhẹ `artifacts ⨝ conversations` thay cho `findActive` (500 tin + mọi artifact mỗi ảnh) | Port mới `findActiveArtifact` |
+| 7 | `HttpMethod.PATCH`; CORS `Access-Control-Allow-Methods` thêm `PATCH` | Origin whitelist giữ nguyên |
+| 8 | Port `ConversationStore`: `list(query)` trả `{conversations, next}`; thêm `rename`, `findMessages`, `findActiveArtifact` (Neon + InMemory) | `ConversationService.list(limit, deleted, pending)` giữ nguyên chữ ký (trả trang đầu) |
+| 9 | Docs: `docs/API_CONVERSATIONS.md`, `docs/openapi.json` (thêm các path `/api/conversations*`) | |
+
+## Migration
+
+`migrations/009_conversation_title_paging.sql`: `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS display_title TEXT` + index `conversations_active_updated_id_idx (updated_at DESC, id DESC) WHERE deleted_at IS NULL`. Đã đăng ký trong `conversationSchema.constants.ts` → SchemaGuard tự áp lúc khởi động (idempotent, chỉ thêm). Index cũ `conversations_active_updated_idx` giữ lại (có thể drop sau). Prod: theo handoff.
+
+## Biến môi trường mới
+
+Không có. Hằng số: `CONVERSATION_LIST_DEFAULT_LIMIT = 20`, `CONVERSATION_LIST_MAX_LIMIT = 100`, `CONVERSATION_DETAIL_DEFAULT_MESSAGES = 40` (mặc định `limit` của `/messages`; client mới truyền `messages=40`), `CONVERSATION_MESSAGES_MAX = 500`, `CONVERSATION_TITLE_MAX = 80`. Client: 3 mục đầu, 20 mục/lần "Xem thêm".
+
+## Rollback
+
+Revert code; cột `display_title` và index mới vô hại với code cũ (code cũ không đọc chúng).
+
+## Kiểm thử
+
+- `tests/unit/modules/conversation-store/*` 42 test (thêm 10): keyset đi hết các trang không lặp/mất (cả 2 store), ranh giới cùng `updated_at` µs trên PGlite (id phá hoà, cursor giữ µs), cursor hỏng → 400, rename không đổi `updated_at` / `null` khôi phục / đã xoá → 404 / validate, detail `messages=N` + `/messages` kèm artifact đúng trang, PATCH 200/400/401/404, budget: list/rename/detail/messages/artifact mỗi lời gọi **1 round-trip**.
+- Chưa chạy migration trên Neon dev (chỉ PGlite offline).
+
 # Thay đổi: Photo capture — API `/api/captures` cho web app `cter-capture-client` (13/11/2026)
 
 > Trạng thái: **chưa commit** (branch `feature/bach-photo-capture`) · Plan: `planning/planning-13112026-photo-capture`

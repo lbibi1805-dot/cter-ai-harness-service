@@ -15,7 +15,8 @@ import { FakeObjectStorage } from '../../../../support/countingAdapters';
 
 const DEFAULT_MODELS: PerProvider<string> = { claude: 'claude-test', gemini: 'gemini-test', grok: 'grok-test', openai: 'openai-test' };
 const CATALOG = new ModelCatalog(buildTestAiConfig({ defaultModels: DEFAULT_MODELS }));
-const SETTINGS: C4SketchSettings = { enabled: true, deadlineMs: 60_000, criticCutoffMs: 40_000, callTimeoutMs: 30_000, maxElements: 12 };
+/** The discussion step (plan 04 §5.3) has its own tests below; these scenarios count the other calls. */
+const SETTINGS: C4SketchSettings = { enabled: true, deadlineMs: 60_000, criticCutoffMs: 40_000, callTimeoutMs: 30_000, maxElements: 12, designDiscussionEnabled: false };
 const BASE: C4SketchRequest = { provider: AIProvider.GEMINI, description: '', levels: [C4Level.CONTEXT], fast: true, stream: false, images: [] };
 
 function briefOf(systemName: string, confident = true): string {

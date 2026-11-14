@@ -137,6 +137,25 @@ services:
         value: "true"
       - key: ESSAY_MODE_ENABLED
         value: "false"
+      - key: ESSAY_MAX_ASPECTS
+        value: 12
+      # ── Long, complete answers (12/11 plan 08) ──
+      - key: AI_MAX_OUTPUT_TOKENS
+        value: 16384
+      - key: ANSWER_COMPLETENESS_ENABLED
+        value: "true"
+      - key: ANSWER_MIN_WORDS_PER_QUESTION
+        value: 300
+      - key: ANSWER_SECTION_MAX_QUESTIONS
+        value: 3
+      - key: ANSWER_MAX_CONTINUATIONS
+        value: 2
+      - key: ANSWER_COVERAGE_FIX
+        value: "true"
+      - key: LONG_ANSWER_DEADLINE_MS
+        value: 240000
+      - key: HISTORY_ASSISTANT_TURN_MAX_CHARS
+        value: 12000
       # ── Neon cost (13 §3.1) ──
       - key: POLL_CURSOR_FLUSH_MS
         value: 900000
@@ -164,6 +183,11 @@ services:
         value: true
       - key: DIAGRAM_SYNTAX_MAX_REPAIRS
         value: 1
+      # ── Design rules (12/11 plan 04): connectivity check C1–C9 + chat lint; /c4 design discussion T1–T7 ──
+      - key: DIAGRAM_CONNECTIVITY_CHECK
+        value: true
+      - key: C4_DESIGN_DISCUSSION_ENABLED
+        value: true
       # ── Reranking: none = cosine order only. Set pinecone once the Pinecone plan has rerank quota. ──
       - key: RERANK_PROVIDER
         value: none

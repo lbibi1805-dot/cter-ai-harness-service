@@ -43,7 +43,7 @@ import type { AssembleInput, AssembledContext, CompactionPlan, ContextSettings, 
 export { artifactAlias, turnOf } from './artifactMetadata';
 
 const IMAGE_KINDS = new Set<ArtifactKind>([ArtifactKind.USER_IMAGE, ArtifactKind.C4_PNG]);
-const TEXT_KINDS = new Set<ArtifactKind>([ArtifactKind.C4_SPEC, ArtifactKind.C4_PUML, ArtifactKind.PROBLEM_BRIEF, ArtifactKind.DESIGN_REVIEW, ArtifactKind.DESIGN_NOTE]);
+const TEXT_KINDS = new Set<ArtifactKind>([ArtifactKind.C4_SPEC, ArtifactKind.C4_PUML, ArtifactKind.PROBLEM_BRIEF, ArtifactKind.DESIGN_REVIEW, ArtifactKind.DESIGN_DISCUSSION, ArtifactKind.DESIGN_NOTE]);
 
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);

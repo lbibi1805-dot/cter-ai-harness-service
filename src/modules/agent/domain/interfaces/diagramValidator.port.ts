@@ -5,6 +5,23 @@ export interface DiagramCheck {
   error?: string;
   /** 1-based line of the error in the normalized source, when PlantUML reports it. */
   line?: number;
+  /**
+   * Connectivity lint of a C4 block (12/11 plan 04 §4.3: orphan elements, split diagram, one-sided queue);
+   * absent when DIAGRAM_CONNECTIVITY_CHECK=false or the block is not C4. `ok` is about rendering only.
+   */
+  connectivity?: DiagramConnectivity;
+}
+
+/** One connectivity finding (same shape as the C4 module's ConnectivityIssue). */
+export interface DiagramConnectivityIssue {
+  code: string;
+  message: string;
+  elementIds: string[];
+}
+
+export interface DiagramConnectivity {
+  errors: DiagramConnectivityIssue[];
+  warnings: DiagramConnectivityIssue[];
 }
 
 /** Renders PlantUML (C4RenderService: RAM cache + PlantUML server). Throws when the renderer itself fails. */

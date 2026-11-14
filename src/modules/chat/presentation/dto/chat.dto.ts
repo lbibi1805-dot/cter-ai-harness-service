@@ -1,3 +1,4 @@
+import type { AnswerCompletenessDetails } from '../../../agent/domain';
 import type { EssayDetails } from '../../../essay';
 import type { TurnArtifactRef } from '../../application/interfaces/chatTurns.interface';
 import { AnswerMode, type AnswerResult } from '../../../agent/domain';
@@ -41,5 +42,7 @@ export interface ChatAnswerDto {
   timings?: AnswerTimings;
   /** Essay Mode only: the outline (with `[c:<chunkId>]` citations), aspects, target words, coverage (15). */
   essay?: EssayDetails;
+  /** 12/11 plan 08: questions / sections / continuations / still-missing ids of an orchestrated answer. */
+  completeness?: AnswerCompletenessDetails;
   trace?: ChatTraceDto;
 }

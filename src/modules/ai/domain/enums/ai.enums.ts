@@ -34,3 +34,17 @@ export enum ConversationRole {
   USER = 'user',
   ASSISTANT = 'assistant',
 }
+
+/**
+ * Why the model stopped (08 Bước 2), normalized across vendors: Gemini `finishReason`, OpenAI `finish_reason` /
+ * Responses `incomplete_details.reason`, Claude `stop_reason`, OpenRouter/xAI `finish_reason`.
+ */
+export enum FinishReason {
+  /** Natural end of the answer. */
+  STOP = 'stop',
+  /** The output cap was hit: the answer is cut and should be continued. */
+  LENGTH = 'length',
+  /** Blocked by a safety / content filter. */
+  SAFETY = 'safety',
+  OTHER = 'other',
+}

@@ -15,4 +15,9 @@ export enum C4SkillId {
   REVIEW_SYSTEM = 'skill.c4.review-system',
   REVIEW = 'skill.c4.review',
   CLARIFY_PARSE = 'skill.c4.clarify-parse',
+  /** Design discussion T1–T7 (12/11 plan 04 §5.3). */
+  DISCUSSION_SYSTEM = 'skill.c4.discussion-system',
+  DISCUSSION = 'skill.c4.discussion',
+  /** Critic checks 5–7: instances, infrastructure with a reason, connectivity (plan 04 §5.4). */
+  CRITIC_DESIGN = 'skill.c4.critic-design',
 }

@@ -24,6 +24,8 @@ import {
   briefSummary,
   C4_LEVEL_ORDER,
   C4WorkflowStep,
+  ConnectivityCode,
+  describeConnectivity,
   isAcceptAll,
   isBoundary,
   levelsFromText,
@@ -37,6 +39,7 @@ import {
   type ProblemBrief,
 } from '../domain';
 import { C4BriefService } from './c4Brief.service';
+import { C4DiscussionService } from './c4Discussion.service';
 import { C4ModelCaller } from './c4ModelCaller';
 import { C4PromptBuilder } from './c4Prompts.builder';
 import { C4PumlBuilder } from './c4Puml.builder';
@@ -55,6 +58,7 @@ import {
 import { sourcesOf, toArchitectPlan, toCritiques, toSpecsByLevel } from './helpers/c4Answer.helper';
 import type {
   C4ArchitectPlan,
+  C4ConnectivityStats,
   C4DesignRef,
   C4DrawInput,
   C4EventSink,
@@ -94,8 +98,9 @@ interface RunState {
  * → Extract (problem images + typed text → ProblemBrief, typed text wins) → Gap analysis (ask ≤ 3 slots
  * with defaults, else go on) → [Clarify: pause in `conversations.state.pendingC4`, clock stopped]
  * → Generate (architect, or c4_revise from the base spec the resolver picked) → Validate/Render
- * → Repair → Critique (≤ 1 round, readable notes) → Review (c4_review / c4_generate_and_review)
- * → Respond (turn recorded: brief, diagrams, review as artifacts).
+ * → Repair → Critique (≤ 1 round, readable notes) → Discussion (T1–T7, plan 04 §5.3; also with `fast`,
+ * skipped only for `noDiscussion` or C4_DESIGN_DISCUSSION_ENABLED=false) → Review (c4_review /
+ * c4_generate_and_review) → Respond (turn recorded: brief, diagrams, discussion, review as artifacts).
  */
 export class C4SketchService {
   private readonly prompts: C4PromptBuilder;
@@ -104,6 +109,8 @@ export class C4SketchService {
   private readonly calls: C4ModelCaller;
   private readonly briefs: C4BriefService;
   private readonly reviewer: C4ReviewService;
+  private readonly discussions: C4DiscussionService;
+  private readonly connectivity: C4ConnectivityStats = { orphanFound: 0, orphanRepaired: 0, connectivityErrors: 0 };
   private sequence = 0;
 
   constructor(
@@ -116,6 +123,12 @@ export class C4SketchService {
     this.calls = new C4ModelCaller(deps.model, this.prompts, settings.callTimeoutMs, this.now);
     this.briefs = new C4BriefService(this.calls, this.prompts, deps.aux ?? null);
     this.reviewer = new C4ReviewService(this.calls, this.prompts, deps.conversations);
+    this.discussions = new C4DiscussionService(this.calls, this.prompts);
+  }
+
+  /** Connectivity counters since start (RAM only; `GET /api/metrics/latency` → `diagramGuard`). */
+  connectivityStats(): C4ConnectivityStats {
+    return { ...this.connectivity };
   }
 
   ensureEnabled(): void {
@@ -301,6 +314,12 @@ export class C4SketchService {
       const revise = intent.intent === RequestIntent.C4_REVISE && !!state.design && state.design.kind === ArtifactKind.C4_SPEC;
       result = await this.draw(ctx, { request, brief, answers: state.answers, design: state.design, revise }, state.knowledge, state.activeMsBefore, state.segmentStart);
     }
+    // Discussion (plan 04 §5.3): after the critic, before the review; with `fast` too, skipped only on request.
+    let discussion: C4SketchResult['discussion'];
+    if (this.discussionWanted(request) && C4DiscussionService.hasDesign(result.levels)) {
+      const discussionCtx = { ...ctx, deadline: Math.max(ctx.deadline, this.now() + this.settings.callTimeoutMs) };
+      discussion = await this.discussions.discuss(discussionCtx, { brief, typedText: request.description, levels: result.levels });
+    }
     let review: C4SketchResult['review'];
     if (REVIEWING_INTENTS.includes(intent.intent)) {
       const generated = intent.intent === RequestIntent.C4_GENERATE_AND_REVIEW ? result.levels : undefined;
@@ -314,11 +333,18 @@ export class C4SketchService {
       elapsedMs,
       intent,
       brief,
+      ...(discussion !== undefined ? { discussion } : {}),
       ...(review !== undefined ? { review } : {}),
     };
     const recorded = await this.recorded(finished, request, { userText: state.userText, images: state.images, paused: false, recordBrief: state.recordBrief });
+    if (recorded.discussion) ctx.sink?.discussionDone?.(recorded.discussion);
     if (recorded.review) ctx.sink?.reviewDone?.(recorded.review);
     return recorded;
+  }
+
+  /** C4_DESIGN_DISCUSSION_ENABLED and not `noDiscussion` (the user's decision 12/11: `fast` does not skip it). */
+  private discussionWanted(request: C4SketchRequest): boolean {
+    return this.settings.designDiscussionEnabled !== false && !request.noDiscussion;
   }
 
   /**
@@ -335,12 +361,14 @@ export class C4SketchService {
     }
     const artifacts = saved.value.artifacts ?? [];
     const reviewRef = artifacts.find((a) => a.kind === ArtifactKind.DESIGN_REVIEW);
+    const discussionRef = artifacts.find((a) => a.kind === ArtifactKind.DESIGN_DISCUSSION);
     return {
       ...result,
       conversationId: request.conversationId,
       messageId: saved.value.messageId,
       ...(artifacts.length ? { artifacts } : {}),
       ...(result.review && reviewRef ? { review: { ...result.review, artifactId: reviewRef.id, alias: reviewRef.alias } } : {}),
+      ...(result.discussion && discussionRef ? { discussion: { ...result.discussion, artifactId: discussionRef.id, alias: discussionRef.alias } } : {}),
     };
   }
 
@@ -391,7 +419,8 @@ export class C4SketchService {
 
   /** Steps 2–4 of a draw: drafts for missing levels, render, one repair call, one critic call. */
   private async drawLevels(ctx: C4RunContext, statement: string, images: PromptImage[], levels: C4Level[], plan: C4ArchitectPlan, critic: boolean) {
-    const { requirements, rules } = plan;
+    const { requirements } = plan;
+    const rules: C4ValidationRules = { ...plan.rules, connectivity: this.settings.connectivityCheck !== false };
     const drafted = new Map<C4Level, C4DiagramSpec>([...plan.drafted].filter(([level]) => levels.includes(level)));
     const states = new Map<C4Level, C4LevelState>(levels.map((level) => [level, this.newState(level)]));
     const { maxElements } = this.settings;
@@ -410,6 +439,7 @@ export class C4SketchService {
     // 3. Validate and render; validator/PlantUML problems are collected for one repair call.
     ctx.sink?.progress(C4Progress.RENDER);
     await Promise.all([...drafted].map(([level, spec]) => this.tryAccept(ctx, states.get(level)!, validateDiagram(spec, level, requirements, rules))));
+    const firstConnectivity = new Map([...states].map(([level, s]) => [level, s.candidate?.connectivity.errors ?? []] as const));
 
     const broken = [...states].filter(([, s]) => s.candidate && s.problems.length > 0);
     if (broken.length > 0 && this.calls.timeLeft(ctx) > 0) {
@@ -441,7 +471,27 @@ export class C4SketchService {
         criticNotes.push(...await this.critique(ctx, rendered, requirements, requirementsJson, rules));
       }
     }
+    criticNotes.push(...this.countConnectivity(states, firstConnectivity));
     return { states, criticNotes };
+  }
+
+  /**
+   * Counters (orphans found/repaired, errors found) and a critic note per level whose rendered spec still
+   * has connectivity errors after repair/critic: the diagram is still returned (plan 04 §4.2).
+   */
+  private countConnectivity(states: Map<C4Level, C4LevelState>, first: Map<C4Level, readonly { code: ConnectivityCode }[]>): string[] {
+    const notes: string[] = [];
+    for (const [level, s] of states) {
+      const initial = first.get(level) ?? [];
+      const remaining = s.candidate?.connectivity.errors ?? [];
+      this.connectivity.connectivityErrors += initial.length;
+      if (initial.some((i) => i.code === ConnectivityCode.ORPHAN_ELEMENT)) {
+        this.connectivity.orphanFound++;
+        if (!remaining.some((i) => i.code === ConnectivityCode.ORPHAN_ELEMENT)) this.connectivity.orphanRepaired++;
+      }
+      if (s.result.png && remaining.length > 0) notes.push(CriticNotes.CONNECTIVITY(level, describeConnectivity(remaining)));
+    }
+    return notes;
   }
 
   /** The critic round; returns its findings as readable sentences. */
@@ -454,7 +504,8 @@ export class C4SketchService {
   ): Promise<string[]> {
     const specs = new Map(rendered.map(([level, s]) => [level, JSON.stringify(s.candidate!.spec)]));
     const images: PromptImage[] = rendered.map(([, s]) => ({ data: s.result.png!, mimeType: PNG_MIME_TYPE }));
-    const critique = await attempt(() => this.calls.askJson(ctx, this.prompts.critic(specs, requirementsJson, this.settings.maxElements), images, C4Step.CRITIC));
+    const connectivity = new Map(rendered.map(([level, s]) => [level, s.candidate!.connectivity]));
+    const critique = await attempt(() => this.calls.askJson(ctx, this.prompts.critic(specs, requirementsJson, this.settings.maxElements, connectivity), images, C4Step.CRITIC));
     if (!critique.ok) {
       logger.warn(`[c4] ${ctx.label} critic failed: ${errorMessage(critique.error)}`);
       return [CriticNotes.FAILED];
@@ -511,6 +562,7 @@ export class C4SketchService {
       missing: candidate.missing,
       notes: note ? [...state.result.notes, note] : state.result.notes,
       error: undefined,
+      connectivity: candidate.connectivity,
     };
     ctx.sink?.level(state.result);
     return true;

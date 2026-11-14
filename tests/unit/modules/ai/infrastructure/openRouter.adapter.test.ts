@@ -56,7 +56,7 @@ describe('OpenRouter fallback adapter (real SDK against a fake OpenRouter)', () 
     server.responder = () => ({ text: '# Answer' });
     const reply = await factory.openRouter(AIProvider.CLAUDE)!.process(CONTENT, 'system rules', CLAUDE_PRIMARY);
 
-    expect(reply).toEqual({ text: '# Answer', model: CLAUDE_PRIMARY, usage: { inputTokens: 100, outputTokens: 20, cachedTokens: 0 } });
+    expect(reply).toEqual({ text: '# Answer', model: CLAUDE_PRIMARY, usage: { inputTokens: 100, outputTokens: 20, cachedTokens: 0 }, finishReason: 'stop' });
     const sent = server.requests[0];
     expect(sent.model).toBe(CLAUDE_PRIMARY);
     expect(sent.models).toEqual([CLAUDE_PRIMARY, ...CLAUDE_FALLBACKS]);

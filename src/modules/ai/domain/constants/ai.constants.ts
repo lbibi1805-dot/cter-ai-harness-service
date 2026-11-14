@@ -10,17 +10,17 @@ export const DEFAULT_MAX_RETRY_COUNT = 2;
 /** A rate-limited model gets this many tries before the chain moves on. */
 export const RATE_LIMIT_ATTEMPTS_PER_MODEL = 2;
 
-/** Anthropic requires an explicit output cap; long exam answers fit in this. */
-export const CLAUDE_MAX_OUTPUT_TOKENS = 4096;
-
 export const GROK_DEFAULT_BASE_URL = 'https://api.x.ai/v1';
 
 export const GEMINI_MODELS_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export const OPENROUTER_DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
 
-/** Without a cap OpenRouter reserves the model's full output window (64k+) and answers 402 on low credit. */
-export const OPENROUTER_DEFAULT_MAX_TOKENS = 8192;
+/**
+ * Without a cap OpenRouter reserves the model's full output window (64k+) and answers 402 on low credit.
+ * Only used when neither OPENROUTER_MAX_TOKENS nor AI_MAX_OUTPUT_TOKENS is set (08 Bước 2: same cap as direct routes).
+ */
+export const OPENROUTER_DEFAULT_MAX_TOKENS = 16_384;
 
 /** OpenRouter rejects (400) a `models` array longer than this, primary included. */
 export const OPENROUTER_MAX_ROUTED_MODELS = 3;

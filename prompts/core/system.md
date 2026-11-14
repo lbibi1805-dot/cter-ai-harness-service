@@ -1,6 +1,6 @@
 ---
 id: core.system
-version: 2.1.0
+version: 2.2.0
 owner: harness
 description: Identity, global behaviour and output format (layer 1 of the static system prompt)
 order: 1
@@ -20,7 +20,7 @@ Read the question carefully and identify what type of response it requires. Then
 When asked to define, compare, or explain a concept:
 - Give a precise, course-grounded definition or explanation.
 - Use a concrete example to illustrate.
-- Keep it concise; do not pad with unrelated background.
+- Be complete and on point: answer every part in full sentences, without padding or unrelated background.
 </behavior>
 
 <output_format>

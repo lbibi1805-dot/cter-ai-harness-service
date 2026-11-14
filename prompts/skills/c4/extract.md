@@ -1,6 +1,6 @@
 ---
 id: skill.c4.extract
-version: 1.0.0
+version: 1.1.0
 owner: c4
 description: Extraction: problem images + typed text → ProblemBrief JSON (copy of EXTRACT_INSTRUCTIONS)
 order: 30
@@ -22,8 +22,16 @@ where <brief> is:
   "techConstraints": {"value": ["…"], "confidence": 0.0},
   "levels": {"value": ["context", "container"], "confidence": 0.0},
   "rubric": [ {"criterion": "…", "weight": 1} ],
+  "tenancySignals": {"value": ["…"], "confidence": 0.0},
+  "cloudScope": {"value": "full-cloud|hybrid|on-prem|unknown", "confidence": 0.0},
+  "scaleHints": ["…"],
   "userDesign": {"present": false, "imageIndexes": []} }
 Rules: confidence 0..1 = how clearly the statement says it (0 = not stated at all, guessed). "levels" = the C4 levels
 the question asks to draw (context, container, component, sequence); leave [] with confidence 0 when it does not say.
 "externalSystems": [] with a high confidence only when the statement clearly has none. imageIndexes are 0-based.
+"nonFunctionalReqs": every quality requirement stated (availability, latency, throughput, scale, security, compliance,
+data residency, cost). "tenancySignals": phrases saying the system serves many customer organisations (SaaS, sign-up or
+billing per organisation, customers isolated from each other, white-label) or only one organisation; [] with confidence 0
+when the statement says nothing. "cloudScope": where the system runs or moves to; "unknown" with confidence 0 when not
+stated. "scaleHints": user counts, peak load, growth.
 Write values in the language of the statement; requirements short (under 15 words each); do not invent requirements.

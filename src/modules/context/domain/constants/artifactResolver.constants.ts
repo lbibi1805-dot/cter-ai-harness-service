@@ -40,6 +40,7 @@ export const REFERABLE_KINDS: readonly ArtifactKind[] = [
   ArtifactKind.DESIGN_NOTE,
   ArtifactKind.PROBLEM_BRIEF,
   ArtifactKind.DESIGN_REVIEW,
+  ArtifactKind.DESIGN_DISCUSSION,
   ArtifactKind.USER_IMAGE,
 ];
 
@@ -71,6 +72,9 @@ export const DRAW_VERBS: readonly string[] = ['vẽ', 'draw', 'drew', 'drawn'];
 export const DESIGN_WORDS: readonly string[] = ['thiết kế', 'kiến trúc', 'design', 'spec', 'architecture', 'c4'];
 export const PROBLEM_WORDS: readonly string[] = ['đề', 'đề bài', 'bài tập', 'yêu cầu', 'problem', 'requirement', 'requirements', 'exam'];
 export const REVIEW_WORDS: readonly string[] = ['nhận xét', 'đánh giá', 'review', 'góp ý'];
+
+/** "phần bàn luận", "discussion" → the /c4 design discussion (plan 04 §5.3). */
+export const DISCUSSION_WORDS: readonly string[] = ['bàn luận', 'thảo luận', 'discussion'];
 
 export const LEVEL_WORDS: Readonly<Record<string, string>> = {
   context: 'context',

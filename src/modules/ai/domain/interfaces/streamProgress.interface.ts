@@ -1,3 +1,4 @@
+import type { AnswerEventType } from '../enums/streamProgress.enums';
 import type { ProgressStage } from '../enums/streamProgress.enums';
 
 /**
@@ -12,3 +13,12 @@ export interface StreamProgress {
 }
 
 export type ProgressListener = (progress: StreamProgress) => void;
+
+/** One structural event of a long answer (12/11 plan 08); the HTTP layer writes it as an NDJSON line `{ type, … }`. */
+export type AnswerStreamEvent =
+  | { type: AnswerEventType.ANSWER_PLAN; total: number; questions: { id: string; label: string }[] }
+  | { type: AnswerEventType.SECTION; index: number; total: number }
+  | { type: AnswerEventType.CONTINUATION; n: number }
+  | { type: AnswerEventType.COVERAGE; missing: string[] };
+
+export type AnswerEventListener = (event: AnswerStreamEvent) => void;

@@ -1,7 +1,15 @@
 import { ConversationRole } from '../enums/ai.enums';
 import { ConversationTurn, PromptContent } from '../interfaces/promptContent.interface';
 import type { HistoryLike } from '../interfaces/historyRender.interface';
-import { MAX_HISTORY_CHARS, MAX_HISTORY_TURNS, MAX_HISTORY_TURN_CHARS, TRUNCATED_TURN_SUFFIX } from '../constants/conversation.constants';
+import { DEFAULT_HISTORY_ASSISTANT_TURN_MAX_CHARS, MAX_HISTORY_CHARS, MAX_HISTORY_TURNS, MAX_HISTORY_TURN_CHARS, TRUNCATED_TURN_SUFFIX } from '../constants/conversation.constants';
+
+/** Process-wide history limits (HISTORY_ASSISTANT_TURN_MAX_CHARS is set once at startup by `configureHistoryLimits`). */
+const historyLimits = { lastAssistantTurnMaxChars: DEFAULT_HISTORY_ASSISTANT_TURN_MAX_CHARS };
+
+/** Startup: HISTORY_ASSISTANT_TURN_MAX_CHARS (08 Bước 5). Values below MAX_HISTORY_TURN_CHARS are raised to it. */
+export function configureHistoryLimits(settings: { lastAssistantTurnMaxChars?: number }): void {
+  if (settings.lastAssistantTurnMaxChars !== undefined) historyLimits.lastAssistantTurnMaxChars = Math.max(MAX_HISTORY_TURN_CHARS, settings.lastAssistantTurnMaxChars);
+}
 
 /**
  * Makes client-sent history safe for every vendor API: drops empty turns,
@@ -27,8 +35,10 @@ export function normalizeHistory<T extends HistoryLike = ConversationTurn>(turns
 
   const kept: T[] = [];
   let chars = 0;
+  // The newest assistant turn (the answer a follow-up continues) gets the larger limit (08 Bước 5).
+  const lastAssistant = merged.length - 1;
   for (let i = merged.length - 1; i >= 0 && kept.length < MAX_HISTORY_TURNS; i--) {
-    const text = truncateTurn(merged[i].text);
+    const text = truncateTurn(merged[i].text, i === lastAssistant ? historyLimits.lastAssistantTurnMaxChars : MAX_HISTORY_TURN_CHARS);
     if (chars + text.length > MAX_HISTORY_CHARS) break;
     chars += text.length;
     kept.unshift({ ...merged[i], text });
@@ -47,6 +57,6 @@ export function retrievalQuery(content: PromptContent): string {
   return previous ? `${previous.text}\n${question}` : question;
 }
 
-function truncateTurn(text: string): string {
-  return text.length > MAX_HISTORY_TURN_CHARS ? text.slice(0, MAX_HISTORY_TURN_CHARS) + TRUNCATED_TURN_SUFFIX : text;
+function truncateTurn(text: string, maxChars: number): string {
+  return text.length > maxChars ? text.slice(0, maxChars) + TRUNCATED_TURN_SUFFIX : text;
 }

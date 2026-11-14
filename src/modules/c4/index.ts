@@ -3,7 +3,7 @@ import { logger } from '../../shared/logging/logger';
 import type { AIInvocationService, ModelCatalog } from '../ai';
 import type { ChunkRetriever } from '../rerank';
 import { C4SketchService } from './application/c4Sketch.service';
-import { CRITIC_CUTOFF_RATIO, MAX_C4_DEADLINE_MS, MIN_C4_DEADLINE_MS } from './application/constants/c4Sketch.constants';
+import { CRITIC_CUTOFF_RATIO, DEFAULT_C4_DESIGN_DISCUSSION_ENABLED, DEFAULT_DIAGRAM_CONNECTIVITY_CHECK, MAX_C4_DEADLINE_MS, MIN_C4_DEADLINE_MS } from './application/constants/c4Sketch.constants';
 import type { C4AuxGateway, C4ConversationRecorder, C4KnowledgeSource, C4ModelGateway, C4SessionRepository, C4SkillSource } from './application/interfaces/c4Sketch.interface';
 import type { ResolverSettings } from '../context';
 import type { IntentRouter } from '../routing';
@@ -31,6 +31,10 @@ export interface C4Config {
   callTimeoutMs: number;
   maxElements: number;
   showLegend: boolean;
+  /** C4_DESIGN_DISCUSSION_ENABLED (default true): discussion writer step T1–T7 (12/11 plan 04 §5.3). */
+  designDiscussionEnabled?: boolean;
+  /** DIAGRAM_CONNECTIVITY_CHECK (default true): connectivity rules C1–C9 (plan 04 §4). */
+  connectivityCheck?: boolean;
 }
 
 export interface C4ModuleConfig extends C4Config {
@@ -93,6 +97,8 @@ export function createC4Module(config: C4ModuleConfig, deps: C4ModuleDeps): C4Mo
       criticCutoffMs: deadlineMs * CRITIC_CUTOFF_RATIO,
       callTimeoutMs: config.callTimeoutMs,
       maxElements: Math.min(MAX_MAX_ELEMENTS, Math.max(MIN_MAX_ELEMENTS, config.maxElements)),
+      designDiscussionEnabled: config.designDiscussionEnabled ?? DEFAULT_C4_DESIGN_DISCUSSION_ENABLED,
+      connectivityCheck: config.connectivityCheck ?? DEFAULT_DIAGRAM_CONNECTIVITY_CHECK,
     },
     {
       catalog: deps.catalog,
@@ -126,8 +132,10 @@ export { MAX_RENDER_SOURCE_CHARS } from './application/constants/c4Render.consta
 export { C4_OPENAPI_PATHS } from './presentation/constants/c4OpenApi.constants';
 export { C4PumlBuilder } from './application/c4Puml.builder';
 export { DEFAULT_C4_INCLUDE_BASE } from './application/constants/c4Puml.constants';
-export { DEFAULT_C4_CALL_TIMEOUT_MS, DEFAULT_C4_DEADLINE_MS } from './application/constants/c4Sketch.constants';
-export type { C4ResumeRequest, C4SketchRequest, C4SketchResult, C4Session, C4EventSink, C4ReviewResult, C4Clarify, C4ImageStaging, C4StagedImage } from './application/interfaces/c4Sketch.interface';
+export { DEFAULT_C4_CALL_TIMEOUT_MS, DEFAULT_C4_DEADLINE_MS, DEFAULT_C4_DESIGN_DISCUSSION_ENABLED, DEFAULT_DIAGRAM_CONNECTIVITY_CHECK } from './application/constants/c4Sketch.constants';
+export { lintPlantUmlConnectivity, checkConnectivity, ensureDiscussionFrame, discussionTopicsPresent, ConnectivityCode, toDiagramSpec, DISCUSSION_SECTIONS } from './domain';
+export type { ConnectivityIssue, ConnectivityReport } from './domain';
+export type { C4ResumeRequest, C4SketchRequest, C4SketchResult, C4Session, C4EventSink, C4ReviewResult, C4Clarify, C4ImageStaging, C4StagedImage, C4DiscussionResult, C4ConnectivityStats } from './application/interfaces/c4Sketch.interface';
 export { ObjectStorageC4ImageStaging } from './infrastructure/objectStorageC4ImageStaging.adapter';
 export { C4_PENDING_IMAGE_PREFIX } from './infrastructure/constants/c4ImageStaging.constants';
 export { C4SkillId } from './application/enums/c4Skill.enums';

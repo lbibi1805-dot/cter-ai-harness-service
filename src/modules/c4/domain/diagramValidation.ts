@@ -1,14 +1,18 @@
 import { ALLOWED_KINDS, KINDS_NEEDING_TECH, LEVELS_SHOWING_ACTORS } from './constants/c4.constants';
-import { C4ElementKind, C4Level } from './enums/c4.enums';
+import { INSTANCES_PATTERN } from './constants/connectivity.constants';
+import { checkConnectivity, describeConnectivity, emptyConnectivity } from './diagramConnectivity';
+import { C4ElementKind, C4Level, ConnectivityCode } from './enums/c4.enums';
 import { isBoundary } from './helpers/c4.helper';
 import { flattenForSequence, hasParentCycle, pruneUnused } from './helpers/diagramValidation.helper';
-import type { C4DiagramSpec, C4Requirement, C4Validation, C4ValidationRules } from './interfaces/c4.interface';
+import type { C4DiagramSpec, C4Requirement, C4Validation, C4ValidationRules, ConnectivityReport } from './interfaces/c4.interface';
 
 /**
  * Deterministic checks between the model calls. Applies the c4-diagrams skill rules (unique ids,
  * technology on containers/components, no boundaries/_Ext in sequence diagrams), requires every
- * requirement of the level to be claimed by an element or relationship, and prunes elements that cover
- * nothing and connect to nothing — "minimal but sufficient". Returns a fixed copy; the input is untouched.
+ * requirement of the level to be claimed by an element or relationship, prunes elements that cover
+ * nothing and connect to nothing — "minimal but sufficient" — and runs the connectivity rules C1–C9
+ * (plan 04 §4.2: errors join `errors` for the repair round, warnings go to the critic). Returns a fixed
+ * copy; the input is untouched.
  */
 export function validateDiagram(
   input: C4DiagramSpec,
@@ -48,6 +52,9 @@ export function validateDiagram(
     if (!e.desc && !isBoundary(e.kind) && level !== C4Level.SEQUENCE) errors.push(`Element '${e.id}' needs a short description (desc).`);
     if (KINDS_NEEDING_TECH.has(e.kind) && !e.tech) errors.push(`${e.kind} '${e.id}' needs a technology (tech).`);
     if (!ALLOWED_KINDS[level].has(e.kind)) errors.push(`Element '${e.id}' of kind '${e.kind}' does not belong in a ${level} diagram.`);
+    if (e.instances !== undefined && !INSTANCES_PATTERN.test(e.instances)) {
+      errors.push(`Element '${e.id}' has instances "${e.instances}": write a count ("3"), a range ("2..10") or "auto".`);
+    }
   }
   for (const r of spec.rels) {
     if (!ids.has(r.from)) errors.push(`Relationship '${r.label}' starts at unknown id '${r.from}'.`);
@@ -55,7 +62,15 @@ export function validateDiagram(
     if (!r.label) errors.push(`Relationship ${r.from} -> ${r.to} needs a label.`);
   }
 
-  pruneUnused(spec);
+  const pruned = pruneUnused(spec);
+  const connectivity: ConnectivityReport = rules.connectivity === false ? emptyConnectivity() : checkConnectivity(spec, level);
+  if (rules.connectivity !== false && pruned.length > 0) {
+    connectivity.warnings.unshift({
+      code: ConnectivityCode.ORPHAN_ELEMENT,
+      message: `Removed ${pruned.map((id) => `'${id}'`).join(', ')}: no relationship and no requirement covered.`,
+      elementIds: pruned,
+    });
+  }
 
   const nodes = spec.elements.filter((e) => !isBoundary(e.kind)).length;
   if (nodes === 0) errors.push('The diagram has no elements.');
@@ -64,6 +79,7 @@ export function validateDiagram(
     errors.push(`Too many elements (${nodes} > ${rules.maxElements}): merge or drop elements that no requirement needs.`);
   }
 
+  const unlinkedRequired = new Set<string>();
   // Coverage claims alone can be gamed (a container "covering" SSO login); actors and external systems are checked by id.
   if (LEVELS_SHOWING_ACTORS.has(level)) {
     const present = new Set(spec.elements.map((e) => e.id));
@@ -73,9 +89,13 @@ export function validateDiagram(
         errors.push(`'${required.name}' (id ${required.id}) from the shared model is missing: ${level} diagrams show every actor and external system, connected by a relationship.`);
       } else if (!linked.has(required.id)) {
         errors.push(`'${required.name}' (id ${required.id}) has no relationship: connect it to the element it uses or that uses it.`);
+        unlinkedRequired.add(required.id);
       }
     }
   }
+
+  // Connectivity errors join the repair problems; an orphan already reported above is not repeated.
+  errors.push(...describeConnectivity(connectivity.errors.filter((i) => !(i.code === ConnectivityCode.ORPHAN_ELEMENT && i.elementIds.every((id) => unlinkedRequired.has(id))))));
 
   // Coverage: every requirement of this level must be claimed somewhere.
   const levelRequirements = requirements.filter((req) => req.levels.length === 0 || req.levels.includes(level));
@@ -84,5 +104,5 @@ export function validateDiagram(
   const missing = levelRequirements.filter((req) => !claimed.has(req.id.toLowerCase()));
   for (const req of missing) errors.push(`Requirement ${req.id} is not covered: ${req.text}`);
 
-  return { spec, errors, covered, missing: missing.map((req) => req.id), score: errors.length + missing.length };
+  return { spec, errors, connectivity, covered, missing: missing.map((req) => req.id), score: errors.length + missing.length };
 }

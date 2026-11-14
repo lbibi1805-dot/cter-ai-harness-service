@@ -17,6 +17,8 @@ export enum ArtifactKind {
   C4_SPEC = 'c4_spec',
   PROBLEM_BRIEF = 'problem_brief',
   DESIGN_REVIEW = 'design_review',
+  /** /c4 design discussion T1–T7 (12/11 plan 04 §5.3): {markdown, systemName}. */
+  DESIGN_DISCUSSION = 'design_discussion',
   /** A design answered in normal chat (markdown, not /c4): {systemName, elements[], decisions[]}. */
   DESIGN_NOTE = 'design_note',
 }
@@ -38,4 +40,12 @@ export enum ResolvedRefSource {
 /** Keys of `conversations.state` (pending workflows). */
 export enum ConversationStateKey {
   PENDING_C4 = 'pendingC4',
+}
+
+/** Where `conversations.title` shown to clients comes from (migration 009). */
+export enum TitleSource {
+  /** Renamed by the user (`display_title`, PATCH /api/conversations/:id). */
+  USER = 'user',
+  /** Generated from the first question (`title`). */
+  AUTO = 'auto',
 }

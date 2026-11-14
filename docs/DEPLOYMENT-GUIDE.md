@@ -140,6 +140,8 @@ Nguồn sự thật là `src/bootstrap/config/loadConfig.ts`; bảng dưới li�
 | `C4_CALL_TIMEOUT_MS` | `150000` | Trần một bước gọi model (kể cả retry/fallback OpenRouter) = min(giá trị này, thời gian còn lại của `C4_DEADLINE_MS`). Từ 08/11 chiều có hiệu lực thật (trước bị kẹp 90 s bởi `CHAT_DEADLINE_MS`) |
 | `C4_MAX_ELEMENTS` | `12` | Element tối đa mỗi diagram (kẹp 4–30) |
 | `C4_SHOW_LEGEND` | `false` | Thêm `SHOW_LEGEND()` vào diagram |
+| `C4_DESIGN_DISCUSSION_ENABLED` | `true` | (13/11) Bước bàn luận thiết kế T1–T7 sau critic (+1 call model/run, cả khi `fast`). `false` = rollback |
+| `DIAGRAM_CONNECTIVITY_CHECK` | `true` | (13/11) Validator kết nối C1–C9 trên `/c4` + lint khối mồ côi trong PlantUML của chat/agent (0 token) |
 
 Dùng chung `CHAT_API_TOKEN` với `/api/chat` (không có token → 503). Rule thiết kế/lưu ý thi: upload file `.md` vào vault; mỗi lần vẽ server tìm trong RAG theo đề bài + truy vấn "C4 design rules" và đưa cho mọi agent.
 

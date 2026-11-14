@@ -1,4 +1,4 @@
-import { C4Slot, SlotImpact } from '../enums/c4.enums';
+import { C4Slot, CloudScope, SlotImpact } from '../enums/c4.enums';
 import type { SlotRule } from '../interfaces/problemBrief.interface';
 
 /** HITL rule (note 05 §5): a slot is asked only below this confidence. */
@@ -32,7 +32,31 @@ export const SLOT_RULES: readonly SlotRule[] = [
   },
   { slot: C4Slot.TECH_CONSTRAINTS, impact: SlotImpact.MEDIUM, question: 'Có ràng buộc công nghệ nào không (ngôn ngữ, framework, cloud…)?' },
   { slot: C4Slot.RUBRIC, impact: SlotImpact.LOW, question: 'Bài được chấm theo tiêu chí nào?' },
+  {
+    slot: C4Slot.TENANCY, impact: SlotImpact.LOW,
+    question: 'Hệ thống phục vụ nhiều tổ chức khách hàng (multi-tenant) hay chỉ một tổ chức?', options: ['Nhiều tổ chức', 'Một tổ chức'],
+  },
+  {
+    slot: C4Slot.DEPLOYMENT_TARGET, impact: SlotImpact.LOW,
+    question: 'Hệ thống chạy ở đâu: toàn bộ trên cloud, hybrid (một phần on-prem) hay on-prem?', options: ['Cloud', 'Hybrid', 'On-prem'],
+  },
 ];
+
+/**
+ * Low-impact slots asked only when the statement's signals are unclear (plan 04 §5.2): they have a signal
+ * (confidence > 0) but below CLARIFY_MIN_CONFIDENCE. A statement that says nothing gets the default.
+ */
+export const CONDITIONAL_LOW_SLOTS: ReadonlySet<C4Slot> = new Set([C4Slot.TENANCY, C4Slot.DEPLOYMENT_TARGET]);
+
+/** Free-text answer / extraction value → cloud scope (first match wins). */
+export const CLOUD_SCOPE_WORDS: ReadonlyArray<readonly [RegExp, CloudScope]> = [
+  [/hybrid|lai|kết hợp/i, CloudScope.HYBRID],
+  [/on[- ]?prem|tại chỗ|nội bộ|máy chủ riêng|self[- ]hosted/i, CloudScope.ON_PREM],
+  [/full[- ]?cloud|cloud|đám mây|aws|azure|gcp|google cloud/i, CloudScope.FULL_CLOUD],
+];
+
+/** Answers meaning "one organisation" for the tenancy slot. */
+export const SINGLE_TENANT_ANSWER = /một tổ chức|mot to chuc|single|một công ty|nội bộ|internal|không cần|khong can|^không$|^no$/i;
 
 /** Impact order for sorting the questions. */
 export const IMPACT_RANK: Readonly<Record<SlotImpact, number>> = {
@@ -49,7 +73,13 @@ export const SlotDefaults = {
   LEVELS: 'Context + Container',
   TECH: 'Stack phổ biến (ghi rõ là giả định)',
   RUBRIC: 'Rubric C4 chuẩn từ knowledge base',
+  TENANCY_NONE: 'Một tổ chức: không cần multi-tenancy (phân quyền bằng RBAC)',
+  TENANCY_SIGNALS: 'Nhiều tổ chức: pool (tenant_id + row-level security), nâng lên silo cho khách lớn',
+  DEPLOYMENT: 'Toàn bộ trên cloud (container trên Kubernetes managed), ghi rõ là giả định',
 } as const;
+
+/** Tenancy value stated by the user's answer "một tổ chức" (kept as a signal so the discussion reads it). */
+export const SINGLE_TENANT_SIGNAL = 'Một tổ chức (người dùng trả lời): không cần multi-tenancy';
 
 /** Bullet prefixes of the brief summary. */
 export const SummaryLabels = {
@@ -59,6 +89,8 @@ export const SummaryLabels = {
   EXTERNAL: 'Hệ thống ngoài',
   REQUIREMENTS: 'Yêu cầu chính',
   LEVELS: 'Cần vẽ',
+  TENANCY: 'Multi-tenancy',
+  CLOUD: 'Nơi chạy',
   UNKNOWN: '(chưa rõ)',
 } as const;
 

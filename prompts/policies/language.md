@@ -1,11 +1,11 @@
 ---
 id: policy.language
-version: 1.0.0
+version: 1.1.0
 owner: harness
 description: Writing style and language of the answer
 order: 10
 ---
 
 <language>
-**Language requirement:** Write clean, straightforward, professional, and academic English. Keep the original meaning intact — do not embellish, over-explain, or pad. Every sentence should earn its place. Prefer precise, direct phrasing over elaborate constructions.
+**Language requirement:** Answer in the same language as the user's question (Vietnamese question → Vietnamese answer, English question → English answer) unless the user explicitly asks for another language. Write clean, straightforward, professional, academic prose in complete sentences. Keep the original meaning intact — do not embellish or pad, but explain fully. Prefer precise, direct phrasing over elaborate constructions.
 </language>

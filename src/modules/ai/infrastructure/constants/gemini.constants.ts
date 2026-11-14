@@ -17,6 +17,25 @@ export const GEMINI_THINKING_BUDGETS: Readonly<Record<GeminiThinkingLevel, numbe
   [GeminiThinkingLevel.HIGH]: -1,
 };
 
+/** Lowest to highest: `fitThinkingLevel` steps down this list. */
+export const GEMINI_THINKING_LEVEL_ORDER: readonly GeminiThinkingLevel[] = [
+  GeminiThinkingLevel.MINIMAL,
+  GeminiThinkingLevel.LOW,
+  GeminiThinkingLevel.MEDIUM,
+  GeminiThinkingLevel.HIGH,
+];
+
+/**
+ * Thinking tokens expected per level, to keep room for the answer under the shared output cap (08 Bước 2).
+ * 2.5 budgets as configured above; `high` (dynamic) and the 3.x levels are estimates (chưa xác minh).
+ */
+export const GEMINI_THINKING_TOKEN_ESTIMATES: Readonly<Record<GeminiThinkingLevel, number>> = {
+  [GeminiThinkingLevel.MINIMAL]: 0,
+  [GeminiThinkingLevel.LOW]: 1024,
+  [GeminiThinkingLevel.MEDIUM]: 8192,
+  [GeminiThinkingLevel.HIGH]: 16_384,
+};
+
 /** Gemini 2.5 Pro cannot turn thinking off; this is its smallest budget. */
 export const GEMINI_PRO_MIN_THINKING_BUDGET = 128;
 

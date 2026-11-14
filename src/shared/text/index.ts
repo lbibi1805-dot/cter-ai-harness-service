@@ -6,3 +6,6 @@ export { normalizeMathDelimiters } from './mathNormalizer';
 export { sanitizeMermaidFences, sanitizeMermaidGlyphs, sanitizeMermaidSource } from './mermaidSanitizer';
 export { extractJsonObject } from './helpers/jsonObject.helper';
 export { extractPlantUmlBlocks, fencePlantUmlBlocks, normalizePlantUmlSource, plantUmlC4Level } from './plantUml';
+export { allQuestionPoints, classifyQuestion, continuationTail, countWords, questionPoints, splitQuestions } from './helpers/questionSplit.helper';
+export { QuestionKind, QuestionMarker } from './enums/questionSplit.enums';
+export type { QuestionSplit, SplitQuestion } from './interfaces/questionSplit.interface';

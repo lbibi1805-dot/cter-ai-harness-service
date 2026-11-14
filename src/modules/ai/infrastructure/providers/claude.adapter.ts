@@ -1,6 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { SDK_MAX_RETRIES } from '../../../../shared/resilience/constants/sdk.constants';
-import { CLAUDE_MAX_OUTPUT_TOKENS } from '../../domain/constants/ai.constants';
 import { ConversationRole } from '../../domain/enums/ai.enums';
 import { EmptyProviderResponseError } from '../../domain/errors/ai.errors';
 import type { AdapterCallOptions, AIAdapter, ProviderReply, TextDeltaListener } from '../../domain/interfaces/aiProvider.port';
@@ -12,12 +11,15 @@ import { currentUserParts, renderHistory } from '../../domain/helpers/historyRen
 import type { RenderedPart, RenderedTurn } from '../../domain/interfaces/historyRender.interface';
 import { ClaudeImageMediaType } from '../interfaces/claude.interface';
 import { CLAUDE_CACHE_CONTROL, CLAUDE_TEXT_BLOCK } from '../constants/claude.constants';
-import { withUsage } from '../helpers/chatCompletionStream.helper';
+import { withFinish, withUsage } from '../helpers/chatCompletionStream.helper';
+import { claudeFinishReason } from '../helpers/finishReason.helper';
+import { clampOutputTokens } from '../../domain/helpers/outputLimit.helper';
 import { claudeUsage } from '../helpers/usage.helper';
 
 /**
  * Direct Anthropic. With PROMPT_CACHE_CLAUDE=true two `cache_control` breakpoints are set (end of the system
  * prompt, end of the history) so the next turn of the conversation reads them from the cache (18 §3).
+ * Output cap = AI_MAX_OUTPUT_TOKENS like every other route (08 Bước 2; was a hard-coded 4096), clamped per model.
  */
 export class ClaudeAdapter implements AIAdapter {
   private readonly client: Anthropic;
@@ -36,7 +38,7 @@ export class ClaudeAdapter implements AIAdapter {
     const rendered = renderHistory(content.history);
     const params: Anthropic.MessageCreateParamsNonStreaming = {
       model,
-      max_tokens: options.maxOutputTokens ?? CLAUDE_MAX_OUTPUT_TOKENS,
+      max_tokens: clampOutputTokens(model, options.maxOutputTokens ?? this.tuning.maxOutputTokens, !!onDelta),
       system: this.system(systemPrompt),
       messages: [...this.history(rendered.turns), { role: 'user', content: toBlocks(currentUserParts(content, rendered.lead)) }],
     };
@@ -46,7 +48,7 @@ export class ClaudeAdapter implements AIAdapter {
       : await this.client.messages.create(params, requestOptions);
     const textBlock = response.content.find((block) => block.type === CLAUDE_TEXT_BLOCK);
     if (!textBlock || textBlock.type !== CLAUDE_TEXT_BLOCK) throw new EmptyProviderResponseError(`Claude ${model} returned no text`);
-    return withUsage({ text: textBlock.text, model }, claudeUsage(response.usage));
+    return withFinish(withUsage({ text: textBlock.text, model }, claudeUsage(response.usage)), claudeFinishReason(response.stop_reason));
   }
 
   private system(systemPrompt: string): Anthropic.MessageCreateParams['system'] {

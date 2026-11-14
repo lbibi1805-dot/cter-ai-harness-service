@@ -1,5 +1,5 @@
 /**
- * Idempotent schema for server-side conversations (mirrors migrations/005 + 007 + 008).
+ * Idempotent schema for server-side conversations (mirrors migrations/005 + 007 + 008 + 009).
  * Applied once per process as one transaction. Files live on object storage
  * under `conversations/<id>/`; rows only keep ids, text and metadata.
  */
@@ -65,4 +65,7 @@ export const CONVERSATION_SCHEMA_STATEMENTS: readonly string[] = [
   // 008: C4 agent flow (note 05): intent router decision per C4 message. Additive, idempotent.
   'ALTER TABLE messages ADD COLUMN IF NOT EXISTS intent TEXT',
   'ALTER TABLE messages ADD COLUMN IF NOT EXISTS intent_confidence REAL',
+  // 009: rename (user title, kept apart from the generated one) + keyset list paging (planning-12112026/07). Additive, idempotent.
+  'ALTER TABLE conversations ADD COLUMN IF NOT EXISTS display_title TEXT',
+  'CREATE INDEX IF NOT EXISTS conversations_active_updated_id_idx ON conversations (updated_at DESC, id DESC) WHERE deleted_at IS NULL',
 ];

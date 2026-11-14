@@ -1,5 +1,6 @@
+import { INSTANCES_COUNT_INPUT, INSTANCES_RANGE_INPUT } from '../constants/connectivity.constants';
 import { BOUNDARY_KINDS, C4_KIND_ALIASES, C4_LEVEL_ALIASES, ID_DIGIT_PREFIX, C4_KIND_IMPLIED_VARIANT, KIND_SEPARATORS, LEADING_DIGIT, NON_ID_CHARS } from '../constants/c4.constants';
-import { C4Direction, C4ElementKind, C4ElementVariant, type C4Level } from '../enums/c4.enums';
+import { C4Direction, C4ElementKind, C4ElementVariant, C4Scaling, type C4Level } from '../enums/c4.enums';
 import type { C4DiagramSpec, C4Element, C4KindParse, C4ModelElement, C4Relationship } from '../interfaces/c4.interface';
 
 export function parseC4Level(raw: unknown): C4Level | undefined {
@@ -46,6 +47,25 @@ function toDirection(raw: unknown): C4Direction | undefined {
   return Object.values(C4Direction).find((dir) => dir === value);
 }
 
+/**
+ * `instances` as the model wrote it → "3" | "2..10" | "auto" (other shapes are kept as written, so the
+ * validator reports them). Absent/empty → undefined.
+ */
+export function toInstances(raw: unknown): string | undefined {
+  const value = text(raw).replace(/\s+/g, ' ');
+  if (!value) return undefined;
+  const range = INSTANCES_RANGE_INPUT.exec(value);
+  if (range) return `${range[1]}..${range[2]}`;
+  const count = INSTANCES_COUNT_INPUT.exec(value);
+  if (count) return count[1];
+  return value.toLowerCase() === 'auto' ? 'auto' : value;
+}
+
+function toScaling(raw: unknown): C4Scaling | undefined {
+  const value = text(raw).toLowerCase();
+  return Object.values(C4Scaling).find((s) => s === value);
+}
+
 /** Actors/external systems of the architect's shared model, ids sanitised like diagram ids. */
 export function toModelElements(raw: unknown): C4ModelElement[] {
   return (Array.isArray(raw) ? raw : [])
@@ -61,6 +81,8 @@ export function toDiagramSpec(raw: unknown): C4DiagramSpec {
     const e = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
     const { kind, impliedVariant } = toKind(e.kind);
     const parent = optionalText(e.parent);
+    const instances = toInstances(e.instances ?? e.replicas);
+    const scaling = toScaling(e.scaling);
     return {
       id: safeId(e.id),
       kind,
@@ -71,6 +93,8 @@ export function toDiagramSpec(raw: unknown): C4DiagramSpec {
       tech: optionalText(e.tech ?? e.technology),
       parent: parent && parent !== 'null' ? safeId(parent) : undefined,
       covers: stringList(e.covers),
+      ...(instances ? { instances } : {}),
+      ...(scaling ? { scaling } : {}),
     };
   });
   const rels = (Array.isArray(body.rels) ? body.rels : Array.isArray(body.relationships) ? body.relationships : []).map((item): C4Relationship => {

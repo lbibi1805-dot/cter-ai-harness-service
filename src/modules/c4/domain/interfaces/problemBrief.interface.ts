@@ -1,4 +1,4 @@
-import type { BriefSource, C4Level, C4Slot, SlotImpact } from '../enums/c4.enums';
+import type { BriefSource, C4Level, C4Slot, CloudScope, SlotImpact } from '../enums/c4.enums';
 
 /** One brief field with how sure the extraction is (0..1) and where it came from. */
 export interface BriefField<T> {
@@ -26,6 +26,15 @@ export interface ProblemBrief {
   /** Deliverables: the C4 levels to draw. */
   levels: BriefField<C4Level[]>;
   rubric: BriefRubricItem[];
+  /**
+   * Plan 04 §5.2 (T5): statement phrases that point to (or away from) multi-tenancy ("SaaS for many
+   * universities", "internal system of company X"). Optional: briefs saved before 13/11 lack it.
+   */
+  tenancySignals?: BriefField<string[]>;
+  /** Plan 04 §5.2 (T1): where the system runs; `unknown` with confidence 0 when the statement says nothing. */
+  cloudScope?: BriefField<CloudScope>;
+  /** Plan 04 §5.2 (T7): users, peak load, growth ("10k concurrent users at 9am"). */
+  scaleHints?: string[];
   /** The user's own design among the images (0-based indexes into the request images). */
   userDesign: { present: boolean; imageIndexes: number[] };
 }

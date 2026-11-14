@@ -49,6 +49,13 @@ export class C4ConversationRecorderAdapter implements C4ConversationRecorder {
         dataJson: { markdown: result.review.markdown, designSource: result.review.designSource, designLabel: result.review.designLabel ?? null, systemName: result.systemName },
       });
     }
+    if (result.discussion) {
+      artifacts.push({
+        kind: ArtifactKind.DESIGN_DISCUSSION, owner: MessageRole.ASSISTANT, systemName: result.systemName || undefined,
+        caption: `Bàn luận thiết kế · ${result.systemName}`,
+        dataJson: { markdown: result.discussion.markdown, systemName: result.systemName },
+      });
+    }
     const reviewOnly = result.intent?.intent === REVIEW_ONLY_INTENT;
     const record = await this.turns.record({
       conversationId: input.conversationId,
@@ -122,6 +129,7 @@ export function summarize(result: C4SketchResult, paused: boolean): string {
       lines.push(`- ${level.level} "${level.title ?? ''}": ${elements.join(', ')}${level.missing.length ? ` · thiếu: ${level.missing.join(', ')}` : ''}`);
     }
     if (result.criticNotes?.length) lines.push(`Critic: ${result.criticNotes.join(' | ')}`);
+    if (result.discussion) lines.push('Đã viết phần bàn luận thiết kế (cloud, triển khai, chịu lỗi, giám sát, multi-tenancy, bảo mật, instance).');
   }
   if (result.review) {
     const summary = result.review.markdown.split(/\n## /)[0].replace(/^## [^\n]*\n+/, '').trim().slice(0, REVIEW_SUMMARY_MAX_CHARS);

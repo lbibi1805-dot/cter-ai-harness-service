@@ -5,15 +5,35 @@ import { sha256Hex, type ObjectStorage } from '../../../shared/storage';
 import {
   artifactObjectKey,
   conversationPrefix,
+  decodeConversationCursor,
+  encodeConversationCursor,
   extensionForMime,
   isUuid,
+  normalizeDisplayTitle,
   PENDING_FILTERS,
-  type ConversationDetail,
+  type ArtifactDetail,
   type ConversationListItem,
   type ConversationStore,
+  type RenamedConversation,
 } from '../domain';
-import type { ArtifactView, ConversationServiceOptions, ConversationView, StoredObjectRef } from './interfaces/conversationService.interface';
-import { DEFAULT_CONVERSATION_SERVICE_OPTIONS, PENDING_STATE_PUBLIC_FIELDS } from './constants/conversationService.constants';
+import type {
+  ArtifactView,
+  ConversationListRequest,
+  ConversationListView,
+  ConversationServiceOptions,
+  ConversationView,
+  MessagePageView,
+  StoredObjectRef,
+} from './interfaces/conversationService.interface';
+import {
+  CONVERSATION_DETAIL_DEFAULT_MESSAGES,
+  CONVERSATION_LIST_MAX_LIMIT,
+  CONVERSATION_MESSAGES_MAX,
+  DEFAULT_CONVERSATION_SERVICE_OPTIONS,
+  INVALID_CURSOR_ERROR,
+  INVALID_TITLE_ERROR,
+  PENDING_STATE_PUBLIC_FIELDS,
+} from './constants/conversationService.constants';
 
 /**
  * Conversation API use cases (read, list, soft delete, restore, purge) and the
@@ -38,18 +58,46 @@ export class ConversationService {
     return this.options.purgeDays;
   }
 
-  async get(id: string): Promise<ConversationView> {
-    const detail = await this.requireActive(id);
-    const artifacts = await Promise.all(detail.artifacts.map((a) => this.toArtifactView(detail.id, a)));
+  /** `messages`: newest N (1–500); absent = `maxMessages` (500, what old clients always got). */
+  async get(id: string, messages?: number): Promise<ConversationView> {
+    assertId(id);
+    const detail = await this.store.findActive(id, messages === undefined ? this.options.maxMessages : messageLimit(messages));
+    if (!detail) throw new NotFoundError('Conversation not found');
+    const artifacts = await this.toArtifactViews(detail.id, detail.artifacts);
     return { ...detail, state: publicState(detail.state), artifacts };
   }
 
-  /** `pending`: a `?pending=` value (`c4`); unknown values are a 400. */
+  /** Older messages (seq < `beforeSeq`; newest page when absent) with the artifacts of those messages. */
+  async messages(id: string, beforeSeq: number | undefined, limit = CONVERSATION_DETAIL_DEFAULT_MESSAGES): Promise<MessagePageView> {
+    assertId(id);
+    if (beforeSeq !== undefined && (!Number.isInteger(beforeSeq) || beforeSeq < 1)) throw new ValidationError('beforeSeq must be a positive integer');
+    const page = await this.store.findMessages(id, beforeSeq ?? null, messageLimit(limit));
+    if (!page) throw new NotFoundError('Conversation not found');
+    return { ...page, artifacts: await this.toArtifactViews(id, page.artifacts) };
+  }
+
+  /** One keyset page, newest first. Bad cursor → 400 `invalid_cursor`; unknown `pending` → 400. */
+  async listPage(request: ConversationListRequest): Promise<ConversationListView> {
+    const after = request.cursor === undefined ? undefined : decodeConversationCursor(request.cursor);
+    if (after === null) throw new ValidationError(INVALID_CURSOR_ERROR);
+    const limit = Math.min(Math.max(Math.trunc(request.limit) || 1, 1), CONVERSATION_LIST_MAX_LIMIT);
+    const page = await this.store.list({ limit, deleted: request.deleted, pending: pendingKey(request.pending), after });
+    return { conversations: page.conversations, nextCursor: page.next ? encodeConversationCursor(page.next) : null };
+  }
+
+  /** First page only (callers that do not page). */
   async list(limit: number, deleted: boolean, pending?: string): Promise<ConversationListItem[]> {
-    if (pending === undefined) return this.store.list(limit, deleted);
-    const key = PENDING_FILTERS[pending];
-    if (!key) throw new ValidationError(`pending must be one of: ${Object.keys(PENDING_FILTERS).join(', ')}`);
-    return this.store.list(limit, deleted, key);
+    return (await this.listPage({ limit, deleted, pending })).conversations;
+  }
+
+  /** User title (`null`/`""` = back to the generated one). Does not move the conversation in the list. */
+  async rename(id: string, title: unknown): Promise<RenamedConversation> {
+    assertId(id);
+    const displayTitle = normalizeDisplayTitle(title);
+    if (displayTitle === undefined) throw new ValidationError(INVALID_TITLE_ERROR);
+    const renamed = await this.store.rename(id, displayTitle);
+    if (!renamed) throw new NotFoundError('Conversation not found');
+    return renamed;
   }
 
   /** Soft delete (idempotent). Objects stay until the purge so a restore gets every image back. */
@@ -72,8 +120,9 @@ export class ConversationService {
 
   /** Bytes of one artifact (dev fallback when object storage has no presigned URLs). */
   async readArtifact(conversationId: string, artifactId: string): Promise<{ body: Buffer; mime: string }> {
-    const detail = await this.requireActive(conversationId);
-    const artifact = detail.artifacts.find((a) => a.id === artifactId);
+    assertId(conversationId);
+    if (!isUuid(artifactId)) throw new NotFoundError('Artifact not found');
+    const artifact = await this.store.findActiveArtifact(conversationId, artifactId);
     if (!artifact?.objectKey) throw new NotFoundError('Artifact not found');
     const object = await this.storage.get(artifact.objectKey);
     if (!object) throw new NotFoundError('Artifact object missing');
@@ -116,14 +165,11 @@ export class ConversationService {
     return this.store.deleteRows(cleaned);
   }
 
-  private async requireActive(id: string): Promise<ConversationDetail> {
-    assertId(id);
-    const detail = await this.store.findActive(id, this.options.maxMessages);
-    if (!detail) throw new NotFoundError('Conversation not found');
-    return detail;
+  private toArtifactViews(conversationId: string, artifacts: ArtifactDetail[]): Promise<ArtifactView[]> {
+    return Promise.all(artifacts.map((a) => this.toArtifactView(conversationId, a)));
   }
 
-  private async toArtifactView(conversationId: string, artifact: ConversationDetail['artifacts'][number]): Promise<ArtifactView> {
+  private async toArtifactView(conversationId: string, artifact: ArtifactDetail): Promise<ArtifactView> {
     if (!artifact.objectKey) return { ...artifact, url: null };
     const url = await attempt(() => this.storage.presignGet(artifact.objectKey!, this.options.presignTtlSeconds));
     const presigned = url.ok ? url.value : null;
@@ -140,6 +186,20 @@ function publicState(state: Record<string, unknown>): Record<string, unknown> {
     view[key] = Object.fromEntries(PENDING_STATE_PUBLIC_FIELDS.filter((f) => pending[f] !== undefined).map((f) => [f, pending[f]]));
   }
   return view;
+}
+
+/** `?pending=` value → state key; unknown values are a 400. */
+function pendingKey(pending: string | undefined): string | undefined {
+  if (pending === undefined) return undefined;
+  const key = PENDING_FILTERS[pending];
+  if (!key) throw new ValidationError(`pending must be one of: ${Object.keys(PENDING_FILTERS).join(', ')}`);
+  return key;
+}
+
+/** Messages per page: 1–500 (larger values are capped). */
+function messageLimit(value: number): number {
+  if (!Number.isInteger(value) || value < 1) throw new ValidationError(`messages/limit must be an integer between 1 and ${CONVERSATION_MESSAGES_MAX}`);
+  return Math.min(value, CONVERSATION_MESSAGES_MAX);
 }
 
 function assertId(id: string): void {

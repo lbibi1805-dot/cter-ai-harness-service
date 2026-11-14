@@ -91,6 +91,7 @@ export function artifactLabel(input: LabelInput): string {
     case ArtifactKind.DESIGN_NOTE: return join(LABEL_PREFIX.designNote, system || turn, version);
     case ArtifactKind.PROBLEM_BRIEF: return join(LABEL_PREFIX.problemBrief, system || turn);
     case ArtifactKind.DESIGN_REVIEW: return join(LABEL_PREFIX.designReview, system || turn);
+    case ArtifactKind.DESIGN_DISCUSSION: return join(LABEL_PREFIX.designDiscussion, system || turn);
     default: return join(String(input.kind), system || turn);
   }
 }

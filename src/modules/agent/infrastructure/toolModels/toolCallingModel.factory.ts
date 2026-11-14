@@ -51,7 +51,7 @@ export function createOpenRouterToolModelFactory(options: OpenRouterToolModelOpt
  */
 export function createToolCallingModelFactory(config: AiConfig, openRouterClient: OpenAI | null): ToolCallingModelFactory | null {
   const apiKey = config.keys[AIProvider.OPENAI];
-  const direct = apiKey ? createOpenAIToolModelFactory({ apiKey, timeoutMs: config.timeoutMs }) : null;
+  const direct = apiKey ? createOpenAIToolModelFactory({ apiKey, timeoutMs: config.timeoutMs, ...(config.tuning?.maxOutputTokens ? { maxOutputTokens: config.tuning.maxOutputTokens } : {}) }) : null;
   const viaOpenRouter = openRouterClient ? createOpenRouterToolModelFactory({ client: openRouterClient, config }) : null;
   if (!direct && !viaOpenRouter) return null;
   return async (provider, model) => {

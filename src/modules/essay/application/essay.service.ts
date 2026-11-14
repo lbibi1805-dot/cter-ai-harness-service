@@ -2,7 +2,8 @@ import { errorMessage } from '../../../shared/errors';
 import { logger } from '../../../shared/logging/logger';
 import { attempt } from '../../../shared/resilience/attempt';
 import { withTimeout } from '../../../shared/resilience/withTimeout';
-import type { AIAnswer, AnswerStream } from '../../ai';
+import { AnswerEventType, ConversationRole, FinishReason, type AIAnswer, type AnswerStream, type PromptContent } from '../../ai';
+import { continuationTail } from '../../../shared/text';
 import { placeMemory, withReminder } from '../../ai/domain/helpers/promptLayers.helper';
 import { reciprocalRankFusion, type CitedChunk } from '../../retrieval';
 import {
@@ -12,6 +13,13 @@ import {
   DEFAULT_ESSAY_WRITER,
   DOMAIN_ID_PREFIX,
   ESSAY_BLOCK,
+  ESSAY_CLOSE,
+  ESSAY_CONTINUE_SKILL_ID,
+  ESSAY_OPEN,
+  ESSAY_VERB_SKILL_ID,
+  MAX_ESSAY_ASPECTS,
+  MAX_ESSAY_OUTPUT_TOKENS,
+  MAX_TARGET_WORDS,
   ESSAY_MIN_CHUNKS_PER_ASPECT,
   ESSAY_PER_QUERY_TOP_K,
   ESSAY_RERANK_LABEL,
@@ -23,7 +31,7 @@ import {
   SELF_CHECK_SYSTEM_PROMPT,
 } from '../domain/constants/essay.constants';
 import { EssayCallPurpose } from '../domain/enums/essay.enums';
-import { essayOutputTokens, heuristicAnalysis, parseAnalysisObject, parseAnalysisReply, targetWordsFor } from '../domain/helpers/essayAnalysis.helper';
+import { essayOutputTokens, heuristicAnalysis, parseAnalysisObject, parseAnalysisReply, questionTargets, targetWordsFor } from '../domain/helpers/essayAnalysis.helper';
 import {
   EssayStreamFilter,
   checkCitations,
@@ -34,7 +42,8 @@ import {
 } from '../domain/helpers/essayOutput.helper';
 import { selectEssayChunks } from '../domain/helpers/essaySelection.helper';
 import type { EssayAnalysis, EssaySettings } from '../domain/interfaces/essay.interface';
-import { buildEssayUserContent, buildSelfCheckInput, verbExpectationLines } from './helpers/essayPrompt.helper';
+import { buildEssayUserContent, buildSelfCheckInput, parseVerbExpectations, verbExpectationLines } from './helpers/essayPrompt.helper';
+import { ESSAY_CONTINUE_FALLBACK } from './constants/essayContinue.constants';
 import type { EssayAnswer, EssayRequest, EssayRubricChoice, EssayServiceDeps } from './interfaces/essayService.interface';
 
 /**
@@ -65,9 +74,13 @@ export class EssayService {
     // ① Analysis: the request's shared aux call (router) when given, else our own aux call; heuristic fallback.
     const analysed = await this.analysis(request, question);
     llmCalls += analysed.calls;
-    const analysis = analysed.analysis ?? heuristicAnalysis(question);
+    const analysis = analysed.analysis ?? heuristicAnalysis(question, this.maxAspects);
     const points = request.options.points ?? analysis.points;
-    const targetWords = targetWordsFor(points, analysis.targetWords, this.settings.wordsPerPoint);
+    // 08 Bước 4: several questions with their own "(N điểm)" → one target each, summed (an explicit `/essay 3đ` wins).
+    const perQuestion = request.options.points === undefined ? questionTargets(question, this.settings.wordsPerPoint) : [];
+    const targetWords = perQuestion.length
+      ? Math.min(MAX_TARGET_WORDS, perQuestion.reduce((sum, q) => sum + q.targetWords, 0))
+      : targetWordsFor(points, analysis.targetWords, this.settings.wordsPerPoint);
 
     // ②–④ Retrieval
     const retrievalStarted = this.now();
@@ -83,19 +96,21 @@ export class EssayService {
     const userContent = buildEssayUserContent({
       chunks: selection.chunks,
       rubric,
-      verbLines: verbExpectationLines(analysis.verbs),
+      verbLines: verbExpectationLines(analysis.verbs, parseVerbExpectations(this.deps.registry?.skill(ESSAY_VERB_SKILL_ID)?.body)),
       exemplar,
       subject: analysis.subject,
       aspects: analysis.aspects,
       targetWords,
+      ...(perQuestion.length ? { questionTargets: perQuestion.map(({ label, targetWords: words }) => ({ label, targetWords: words })) } : {}),
       question,
     });
     const system = this.deps.registry?.skill(ESSAY_WRITER_SKILL_ID)?.body ?? DEFAULT_ESSAY_WRITER;
     const placed = placeMemory(`${this.deps.systemPrompt}\n\n${system}`, { ...request.content, textContent: userContent }, this.deps.promptLayout);
     const content = { ...request.content, textContent: withReminder(placed.textContent, this.deps.reminder) };
     const filter = new EssayStreamFilter();
+    const shown = request.stream ? recordingStream(request.stream) : null;
     llmCalls++;
-    const written = await this.deps.invocation.answerPrepared(
+    const first = await this.deps.invocation.answerPrepared(
       {
         provider: request.provider,
         model: request.model,
@@ -103,13 +118,17 @@ export class EssayService {
         label: request.label,
         purpose: EssayCallPurpose.WRITE,
         thinkingLevel: this.settings.thinkingLevel,
-        maxOutputTokens: essayOutputTokens(targetWords),
-        ...(request.stream ? { stream: filteredStream(request.stream, filter) } : {}),
+        maxOutputTokens: essayOutputTokens(targetWords, this.outputCap),
+        ...(shown ? { stream: filteredStream(shown.stream, filter) } : {}),
         ...(request.cacheKey ? { cacheKey: request.cacheKey } : {}),
         ...(request.signal ? { signal: request.signal } : {}),
       },
       { systemPrompt: placed.systemPrompt, content, contexts: selection.chunks },
     );
+    // 08 Bước 4: an unclosed `<essay>` or a reply cut by the output cap is continued where it stopped.
+    const continued = await this.continueEssay(request, first, content, placed.systemPrompt, selection.chunks, targetWords, shown, filter);
+    llmCalls += continued.calls;
+    const written = { ...first, text: continued.text, ...(continued.finishReason ? { finishReason: continued.finishReason } : {}) };
 
     // Citation check (code, no LLM): unknown ids are dropped from the outline and from sources.
     const output = splitEssayOutput(written.text);
@@ -118,10 +137,10 @@ export class EssayService {
     if (citations.unknown.length) logger.warn(`[essay] ${request.label} cited ${citations.unknown.length} unknown chunk id(s), dropped: ${citations.unknown.join(', ')}`);
     const outline = dropUnknownCitations(output.outline, known);
     let essay = stripCitationMarkers(output.essay).trim();
-    if (request.stream) {
-      const tail = filter.flush();
-      if (tail) request.stream.delta(tail);
-      if (!filter.emitted() && essay) request.stream.delta(essay);
+    if (request.stream && shown) {
+      const tail = continued.filter.flush();
+      if (tail) shown.stream.delta(tail);
+      if (!shown.text() && essay) request.stream.delta(essay);
     }
 
     // ⑦ Self-check (aux) — one revise pass
@@ -159,6 +178,79 @@ export class EssayService {
     };
   }
 
+  private get maxAspects(): number {
+    return this.settings.maxAspects ?? MAX_ESSAY_ASPECTS;
+  }
+
+  private get outputCap(): number {
+    return this.settings.maxOutputTokens ?? MAX_ESSAY_OUTPUT_TOKENS;
+  }
+
+  /**
+   * 08 Bước 4: while the writing reply is cut (output cap, or `<essay>` never closed) and ANSWER_MAX_CONTINUATIONS
+   * allows, ask the same model to continue exactly where it stopped (the cut reply is the previous assistant turn).
+   * A failed continuation keeps what was written.
+   */
+  private async continueEssay(
+    request: EssayRequest,
+    first: AIAnswer,
+    content: PromptContent,
+    systemPrompt: string,
+    chunks: CitedChunk[],
+    targetWords: number,
+    shown: RecordingStream | null,
+    firstFilter: EssayStreamFilter,
+  ): Promise<{ text: string; calls: number; finishReason?: FinishReason; filter: EssayStreamFilter }> {
+    let text = first.text;
+    let finishReason = first.finishReason;
+    let filter = firstFilter;
+    let calls = 0;
+    const max = this.settings.maxContinuations ?? 0;
+    const instruction = this.deps.registry?.skill(ESSAY_CONTINUE_SKILL_ID)?.body?.trim() || ESSAY_CONTINUE_FALLBACK;
+    while (calls < max && (finishReason === FinishReason.LENGTH || isUnclosedEssay(text))) {
+      calls++;
+      request.stream?.event?.({ type: AnswerEventType.CONTINUATION, n: calls });
+      // Flush what the previous filter still holds, then a fresh filter already inside `<essay>` when it was opened.
+      const held = filter.flush();
+      if (held && shown) shown.stream.delta(held);
+      filter = new EssayStreamFilter();
+      if (text.includes(ESSAY_OPEN)) filter.resume();
+      const replay = shown?.text() ?? '';
+      const next: PromptContent = {
+        ...content,
+        history: [...(content.history ?? []), { role: ConversationRole.USER, text: content.textContent }, { role: ConversationRole.ASSISTANT, text }],
+        textContent: instruction,
+        imageBuffers: [],
+      };
+      const stream: AnswerStream | undefined = shown && request.stream
+        ? filteredStream({ ...shown.stream, reset: () => { shown.reset(); request.stream!.reset(); if (replay) shown.stream.delta(replay); } }, filter)
+        : undefined;
+      const reply = await attempt(() => this.deps.invocation.answerPrepared(
+        {
+          provider: request.provider,
+          model: request.model,
+          content: next,
+          label: `${request.label}-continue${calls}`,
+          purpose: EssayCallPurpose.WRITE,
+          thinkingLevel: this.settings.thinkingLevel,
+          maxOutputTokens: essayOutputTokens(targetWords, this.outputCap),
+          ...(stream ? { stream } : {}),
+          ...(request.cacheKey ? { cacheKey: request.cacheKey } : {}),
+          ...(request.signal ? { signal: request.signal } : {}),
+        },
+        { systemPrompt, content: next, contexts: chunks },
+      ));
+      if (!reply.ok) {
+        logger.warn(`[essay] ${request.label} continuation ${calls} failed — essay kept as written (${errorMessage(reply.error)})`);
+        break;
+      }
+      text += continuationTail(text, reply.value.text);
+      finishReason = reply.value.finishReason;
+    }
+    if (calls) logger.info(`[essay] ${request.label} continued ${calls}×${isUnclosedEssay(text) || finishReason === FinishReason.LENGTH ? ' (still cut)' : ''}`);
+    return { text, calls, filter, ...(finishReason ? { finishReason } : {}) };
+  }
+
   /**
    * Step ①: the shared router call answers it (1 aux call for routing + analysis); only when that call
    * failed does the pipeline make its own analysis call. An answer without a usable block → heuristic.
@@ -169,7 +261,7 @@ export class EssayService {
       const shared = await attempt(() => request.sharedAnalysis!.essayAnalysis(question));
       calls++;
       if (shared.ok && !shared.value.failed) {
-        const parsed = parseAnalysisObject(shared.value.block, question);
+        const parsed = parseAnalysisObject(shared.value.block, question, this.maxAspects);
         if (!parsed) logger.info(`[essay] ${request.label} shared analysis block unusable — heuristic`);
         return { analysis: parsed, calls };
       }
@@ -185,7 +277,7 @@ export class EssayService {
       logger.info(`[essay] ${request.label} analysis failed — heuristic (${errorMessage(reply.error)})`);
       return null;
     }
-    const parsed = parseAnalysisReply(reply.value.text, question);
+    const parsed = parseAnalysisReply(reply.value.text, question, this.maxAspects);
     if (!parsed) logger.info(`[essay] ${request.label} analysis reply unusable — heuristic`);
     return parsed;
   }
@@ -193,7 +285,7 @@ export class EssayService {
   /** The revised essay, or null when the check passed or failed. */
   private async selfCheck(request: EssayRequest, analysis: EssayAnalysis, targetWords: number, outline: string, essay: string): Promise<string | null> {
     const input = buildSelfCheckInput(analysis, targetWords, outline, essay);
-    const reply = await attempt(() => this.auxCall(request, SELF_CHECK_SYSTEM_PROMPT, input, EssayCallPurpose.SELF_CHECK, this.settings.selfCheckTimeoutMs, essayOutputTokens(targetWords)));
+    const reply = await attempt(() => this.auxCall(request, SELF_CHECK_SYSTEM_PROMPT, input, EssayCallPurpose.SELF_CHECK, this.settings.selfCheckTimeoutMs, essayOutputTokens(targetWords, this.outputCap)));
     if (!reply.ok) {
       logger.info(`[essay] ${request.label} self-check failed — essay kept (${errorMessage(reply.error)})`);
       return null;
@@ -255,6 +347,42 @@ export class EssayService {
   }
 }
 
+/** `<essay>` opened but never closed: the reply was cut (08 Bước 4). */
+function isUnclosedEssay(text: string): boolean {
+  const open = text.lastIndexOf(ESSAY_OPEN);
+  return open >= 0 && text.indexOf(ESSAY_CLOSE, open) < 0;
+}
+
+interface RecordingStream {
+  stream: AnswerStream;
+  /** Text the client currently shows (since its last reset). */
+  text(): string;
+  reset(): void;
+}
+
+/** Remembers what the client shows, so a continuation's retry can reset and replay it. */
+function recordingStream(stream: AnswerStream): RecordingStream {
+  let shown = '';
+  return {
+    stream: {
+      delta: (text) => {
+        shown += text;
+        stream.delta(text);
+      },
+      reset: () => {
+        shown = '';
+        stream.reset();
+      },
+      ...(stream.progress ? { progress: stream.progress } : {}),
+      ...(stream.event ? { event: stream.event } : {}),
+    },
+    text: () => shown,
+    reset: () => {
+      shown = '';
+    },
+  };
+}
+
 /** The client sees only the `<essay>` part; resets clear the filter too (a retry restarts the output). */
 function filteredStream(stream: AnswerStream, filter: EssayStreamFilter): AnswerStream {
   return {
@@ -267,5 +395,6 @@ function filteredStream(stream: AnswerStream, filter: EssayStreamFilter): Answer
       stream.reset();
     },
     ...(stream.progress ? { progress: stream.progress } : {}),
+    ...(stream.event ? { event: stream.event } : {}),
   };
 }

@@ -97,7 +97,7 @@ describe('OpenAIAdapter', () => {
     const reply = await adapter.process(CONTENT, 'sys', 'gpt-5', undefined, { signal, cacheKey: 'abc' });
     expect(reply.usage).toEqual({ inputTokens: 2000, outputTokens: 9, cachedTokens: 1024 });
     const [body, options] = fake.chatCreate.mock.calls[0] as unknown as [Record<string, unknown>, { signal: AbortSignal }];
-    expect(body).toMatchObject({ model: 'gpt-5', reasoning_effort: 'low', max_completion_tokens: 8192, service_tier: 'priority', prompt_cache_key: 'conv-abc' });
+    expect(body).toMatchObject({ model: 'gpt-5', reasoning_effort: 'low', max_completion_tokens: 16384, service_tier: 'priority', prompt_cache_key: 'conv-abc' });
     expect(options.signal).toBe(signal);
   });
 
@@ -120,7 +120,7 @@ describe('OpenAIAdapter', () => {
     const streamed = await adapter.process(CONTENT, 'sys', 'gpt-6-astra', () => undefined);
     expect(streamed.usage).toEqual({ inputTokens: 3000, outputTokens: 7, cachedTokens: 2048 });
     const [body] = fake.responsesCreate.mock.calls[0] as unknown as [Record<string, unknown>];
-    expect(body).toMatchObject({ reasoning: { effort: 'low' }, max_output_tokens: 8192 });
+    expect(body).toMatchObject({ reasoning: { effort: 'low' }, max_output_tokens: 16384 });
     expect(body.prompt_cache_key).toBeUndefined();
   });
 
