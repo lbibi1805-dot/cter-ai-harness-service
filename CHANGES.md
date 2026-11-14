@@ -1,3 +1,17 @@
+# Thay đổi: CORS cache preflight `Access-Control-Max-Age: 600` (14/11/2026)
+
+> Trạng thái: **chưa commit** · Plan: `planning/planning-14112026/04-capture-camera-upload-slow`
+
+| # | Thay đổi | Ghi chú |
+|---|---|---|
+| 1 | `applyCors` thêm `Access-Control-Max-Age: 600` (hằng `CORS_MAX_AGE_SECONDS`) | Trước đây không có, Safari chỉ nhớ preflight khoảng 5 s nên ảnh chụp từ `cter-capture-client` lên lẻ tẻ thì mỗi ảnh tốn thêm một `OPTIONS` tới Render. Áp dụng mọi route; WebKit giới hạn 600 s |
+
+**Biến môi trường:** không có biến mới. Không đổi API. Hệ quả: đổi `ALLOWED_HEADERS`/`ALLOWED_METHODS` sau này thì trình duyệt cần tối đa 10 phút mới thấy.
+
+**Kiểm thử:** `tests/unit/shared/http/cors.test.ts` (2 test) pass; `tsc --noEmit` sạch.
+
+---
+
 # Thay đổi: Lưu ý bắt buộc khi làm bài kiến trúc — N-Tier đủ 4 layer, microservice có Discovery Service (14/11/2026)
 
 > Trạng thái: **chưa commit** (branch `feature/bach-planning-12112026-wave3`) · Plan: `planning/planning-14112026/02-architecture-mandatory-checks`

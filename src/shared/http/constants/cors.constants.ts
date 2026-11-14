@@ -7,3 +7,9 @@ export const VERCEL_PREVIEW_SUFFIX = '.vercel.app';
 export const ALLOWED_HEADERS = 'Authorization, Content-Type, X-Confirm, X-Capture-Key';
 
 export const ALLOWED_METHODS = 'GET, POST, PATCH, DELETE, OPTIONS';
+
+/**
+ * Preflight cache. Without it Safari re-sends OPTIONS about every 5 s, so photos uploaded one by one from the
+ * capture camera each paid an extra round trip to Render (planning-14112026/04). WebKit caps this at 600 s.
+ */
+export const CORS_MAX_AGE_SECONDS = 600;

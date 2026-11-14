@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { withoutTrailingSlash, isVercelPreview } from './helpers/cors.helper';
-import { ALLOWED_HEADERS, ALLOW_ANY_ORIGIN, ALLOWED_METHODS } from './constants/cors.constants';
+import { ALLOWED_HEADERS, ALLOW_ANY_ORIGIN, ALLOWED_METHODS, CORS_MAX_AGE_SECONDS } from './constants/cors.constants';
 
 /**
  * The origin echoed in Access-Control-Allow-Origin. With no allow-list every
@@ -22,5 +22,6 @@ export function applyCors(req: IncomingMessage, res: ServerResponse, allowList: 
   res.setHeader('Access-Control-Allow-Origin', resolveAllowedOrigin(req.headers.origin ?? '', allowList));
   res.setHeader('Access-Control-Allow-Headers', ALLOWED_HEADERS);
   res.setHeader('Access-Control-Allow-Methods', ALLOWED_METHODS);
+  res.setHeader('Access-Control-Max-Age', String(CORS_MAX_AGE_SECONDS));
   res.setHeader('Vary', 'Origin');
 }
