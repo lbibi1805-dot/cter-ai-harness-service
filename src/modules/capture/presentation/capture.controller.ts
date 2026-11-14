@@ -4,9 +4,10 @@ import { HttpHeader, HttpStatus } from '../../../shared/http/enums/http.enums';
 import type { RouteContext } from '../../../shared/http/interfaces/router.interface';
 import { sendError, sendJson } from '../../../shared/http/response';
 import type { CaptureService } from '../application/capture.service';
+import { normalizeFolder, parseBatchIndex } from '../domain';
 import { CAPTURE_DEFAULT_LIST_LIMIT, CAPTURE_JSON_BODY_LIMIT, CAPTURE_MAX_LIST_LIMIT, CAPTURE_PRIVATE_CACHE } from './constants/capture.constants';
 import { CaptureApiPath } from './enums/capture.enums';
-import { hasCaptureAccess, presentedKey } from './helpers/captureAuth.helper';
+import { hasCaptureAccess, hasImageDeleteToken, imageDeleteToken, presentedDeleteToken, presentedKey } from './helpers/captureAuth.helper';
 import type { CaptureKeys } from './interfaces/captureKeys.interface';
 
 /** `since`: ISO date or epoch ms. */
@@ -17,12 +18,17 @@ function parseSince(raw: string | undefined): number | undefined {
   return value;
 }
 
-/** `folder/index` or `folder/index/name` from the wildcard part of the path. */
+const PATH_SHAPES: Record<number, string> = { 2: '{folder}/{index}', 3: '{folder}/{index}/{name}', 4: '{folder}/{index}/images/{name}' };
+
+/** `folder/index`, `folder/index/name` or `folder/index/images/name` from the wildcard part of the path. */
 function splitPath(path: string, parts: number): string[] {
   const segments = path.split('/');
-  if (segments.length !== parts || segments.some((s) => !s)) throw new ValidationError(`expected ${parts === 2 ? '{folder}/{index}' : '{folder}/{index}/{name}'} in the path`);
+  if (segments.length !== parts || segments.some((s) => !s)) throw new ValidationError(`expected ${PATH_SHAPES[parts]} in the path`);
   return segments;
 }
+
+/** Id an image delete token is bound to: normalized `folder/index/name`. */
+const imageId = (folder: string, index: string, name: string) => `${normalizeFolder(folder)}/${parseBatchIndex(index)}/${name}`;
 
 /**
  * `/api/captures*` (the phone UI is the separate `cter-capture-client` web app; planning-13112026-photo-capture/04).
@@ -63,13 +69,36 @@ export class CaptureController {
     sendJson(ctx.res, HttpStatus.CREATED, await service.createBatch(folder));
   };
 
-  /** `POST /api/captures/batches/{folder}/{index}/images` with a raw image body → 201 image. */
+  /**
+   * `POST /api/captures/batches/{folder}/{index}/images` with a raw image body → 201 image + `deleteToken`
+   * (lets the uploader, who holds no key, delete this one image again).
+   */
   addImage = async (ctx: RouteContext): Promise<void> => {
     const service = this.enabled();
     const [folder, index] = splitPath(ctx.params.path, 2);
     const body = await readRawBody(ctx.req, this.maxImageBytes);
     if (body.length === 0) throw new ValidationError('empty body: send the image bytes (Content-Type: image/jpeg)');
-    sendJson(ctx.res, HttpStatus.CREATED, await service.addImage(folder, index, body));
+    const image = await service.addImage(folder, index, body);
+    // enabled() guarantees apiKey is set.
+    sendJson(ctx.res, HttpStatus.CREATED, { ...image, deleteToken: imageDeleteToken(this.keys.apiKey!, imageId(folder, index, image.name)) });
+  };
+
+  /**
+   * `DELETE /api/captures/batches/{folder}/{index}/images/{name}` → `{ ok: true }`.
+   * Allowed with the read key, or with that image's `deleteToken` (`X-Delete-Token` header or `?token=`).
+   */
+  deleteImage = async (ctx: RouteContext): Promise<void> => {
+    const service = this.enabled();
+    const [folder, index, segment, name] = splitPath(ctx.params.path, 4);
+    if (segment !== CaptureApiPath.IMAGES_SEGMENT) throw new ValidationError(`expected ${PATH_SHAPES[4]} in the path`);
+    const allowed = hasCaptureAccess(this.keys, presentedKey(ctx.req, ctx.query))
+      || hasImageDeleteToken(this.keys.apiKey, imageId(folder, index, name), presentedDeleteToken(ctx.req, ctx.query));
+    if (!allowed) {
+      sendError(ctx.res, HttpStatus.FORBIDDEN, 'Forbidden: send the deleteToken returned by the upload in X-Delete-Token (or the capture key)');
+      return;
+    }
+    await service.deleteImage(folder, index, name);
+    sendJson(ctx.res, HttpStatus.OK, { ok: true });
   };
 
   /** `GET /api/captures/batches/{folder}/{index}` */

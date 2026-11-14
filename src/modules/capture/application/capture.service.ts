@@ -120,6 +120,14 @@ export class CaptureService {
     return images.length;
   }
 
+  /** Deletes one photo of a batch (the phone removing a bad shot). */
+  async deleteImage(folderRaw: unknown, indexRaw: unknown, name: string): Promise<void> {
+    const batch = await this.requireBatch(folderRaw, indexRaw);
+    const image = this.catalog.removeImage(batch.folder, batch.index, name, this.options.now());
+    if (!image) throw new NotFoundError(`image ${batch.folder}/${batch.index}/${name} not found`);
+    await this.storage.delete(image.key);
+  }
+
   /** Forces a rebuild from storage on next use (e.g. objects were changed outside the API). */
   invalidate(): void {
     this.loading = null;
