@@ -3,36 +3,15 @@ import type { DatabaseSettings } from '../../shared/database/interfaces/database
 import { neonSqlClient } from '../../shared/database/neonSqlClient';
 import { Router } from '../../shared/http/router';
 import { logger } from '../../shared/logging/logger';
-import type { ObjectStorage } from '../../shared/storage';
 import { ConversationService } from './application/conversation.service';
 import type { ConversationStore } from './domain';
 import { InMemoryConversationStore } from './infrastructure/inMemoryConversationStore.repository';
 import { NeonConversationStore } from './infrastructure/neonConversationStore.repository';
 import { ConversationController } from './presentation/conversation.controller';
 import { createConversationRoutes } from './presentation/conversation.routes';
+import type { ConversationStoreConfig, ConversationStoreDeps, ConversationStoreModule } from './interfaces/conversationStoreModule.interface';
 
-export interface ConversationStoreConfig {
-  /** CONVERSATION_STORE_ENABLED (feature flag, default off): off = the old stateless chat (client sends history). */
-  enabled: boolean;
-  purgeDays: number;
-  database: DatabaseSettings;
-  chatApiToken?: string;
-  adminToken?: string;
-}
-
-export interface ConversationStoreDeps {
-  storage: ObjectStorage;
-  /** Test hook. */
-  store?: ConversationStore;
-  now?: () => number;
-}
-
-export interface ConversationStoreModule {
-  /** Null when disabled. */
-  service: ConversationService | null;
-  store: ConversationStore | null;
-  router: Router;
-}
+export type { ConversationStoreConfig, ConversationStoreDeps, ConversationStoreModule } from './interfaces/conversationStoreModule.interface';
 
 /** Server-side conversations: Neon rows + object storage files, `/api/conversations` API. */
 export function createConversationStoreModule(config: ConversationStoreConfig, deps: ConversationStoreDeps): ConversationStoreModule {

@@ -1,24 +1,12 @@
-import type { StateManager } from '../../shared/state/processingStateStore';
-import type { Answerer } from '../agent/domain';
-import type { ModelCatalog } from '../ai';
-import type { Notifier } from '../notification';
 import { FileQAJob } from './application/fileQaJob.service';
 import type { FileQaFolders } from './domain';
 import { CanvasFilesClient } from './infrastructure/canvasFilesClient.adapter';
 import { extractContent } from './infrastructure/pdfjsFileExtractor.adapter';
 import { PDF_RESULT_RENDERER } from './infrastructure/pdfResultRenderer.adapter';
 import { FileQaJobDeps } from './application/interfaces/fileQaJob.interface';
+import type { FileQaModuleDeps } from './interfaces/fileQaModule.interface';
 
-export interface FileQaModuleDeps {
-  catalog: ModelCatalog;
-  state: StateManager;
-  notifier: Notifier;
-  answers: Answerer;
-  /** CANVAS_DEADLINE_MS: AI chain budget per file (absent = CHAT_DEADLINE_MS). */
-  deadlineMs?: number;
-  /** Test hooks: fake Canvas, extractor or renderer. */
-  overrides?: Partial<FileQaJobDeps>;
-}
+export type { FileQaModuleDeps } from './interfaces/fileQaModule.interface';
 
 /** The Canvas file Q&A poll job (Materials/Q → Materials/A) with production adapters. */
 export function createFileQaJob(folders: FileQaFolders, deps: FileQaModuleDeps): FileQAJob {

@@ -1,31 +1,10 @@
 import { logger } from '../../shared/logging/logger';
 import { RerankingRetriever } from './application/rerankingRetriever.service';
-import { RerankProvider, type ChunkRetriever, type RerankConfig, type Reranker } from './domain';
+import { RerankProvider, type RerankConfig, type Reranker } from './domain';
 import { PineconeReranker } from './infrastructure/pineconeReranker.adapter';
+import type { RerankModuleDeps, RerankModule } from './interfaces/rerankModule.interface';
 
-export interface RerankModuleDeps {
-  pineconeApiKey?: string;
-  /** Test hooks. */
-  reranker?: Reranker;
-  controllerHostUrl?: string;
-}
-
-export interface WrapOptions {
-  /** Chunks the caller wants back. */
-  topN: number;
-  /** Chunks returned in cosine order when reranking fails (the pre-rerank behaviour). */
-  fallbackTopK: number;
-  label: string;
-}
-
-export interface RerankModule {
-  enabled: boolean;
-  config: RerankConfig;
-  /** Pinecone top-k the inner retriever should use: wider when reranking. */
-  candidateCount(defaultTopK: number): number;
-  /** Returns `inner` unchanged when reranking is off. */
-  wrap(inner: ChunkRetriever, options: WrapOptions): ChunkRetriever;
-}
+export type { RerankModuleDeps, WrapOptions, RerankModule } from './interfaces/rerankModule.interface';
 
 /** Reranking is off unless RERANK_PROVIDER=pinecone and a Pinecone key is configured. */
 export function createRerankModule(config: RerankConfig, deps: RerankModuleDeps): RerankModule {

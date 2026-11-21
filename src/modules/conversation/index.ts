@@ -1,19 +1,8 @@
-import type { StateManager } from '../../shared/state/processingStateStore';
-import type { Answerer } from '../agent/domain';
-import type { ModelCatalog } from '../ai';
 import { ConversationPoller } from './application/conversationPoller.service';
 import { ConversationClient } from './infrastructure/canvasConversationClient.adapter';
-import { ConversationPollerDeps } from './application/interfaces/conversationPoller.interface';
+import type { ConversationModuleDeps } from './interfaces/conversationModule.interface';
 
-export interface ConversationModuleDeps {
-  catalog: ModelCatalog;
-  state: StateManager;
-  answers: Answerer;
-  /** CANVAS_DEADLINE_MS: AI chain budget per request (absent = CHAT_DEADLINE_MS). */
-  deadlineMs?: number;
-  /** Test hooks: fake Canvas client, clock. */
-  overrides?: Partial<ConversationPollerDeps>;
-}
+export type { ConversationModuleDeps } from './interfaces/conversationModule.interface';
 
 /** The extension-chat poll job with the production Canvas client. */
 export function createConversationPoller(deps: ConversationModuleDeps): ConversationPoller {

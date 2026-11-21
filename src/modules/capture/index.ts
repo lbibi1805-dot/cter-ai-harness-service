@@ -1,38 +1,13 @@
 import { Router } from '../../shared/http/router';
 import { logger } from '../../shared/logging/logger';
-import { createObjectStorage, type ObjectStorage, type ObjectStorageSettings } from '../../shared/storage';
+import { createObjectStorage } from '../../shared/storage';
 import { CaptureService } from './application/capture.service';
-import type { CaptureImageSink } from './application/interfaces/captureImageSink.interface';
 import { CAPTURE_MAX_IMAGES_PER_BATCH } from './domain';
 import { CaptureController } from './presentation/capture.controller';
 import { createCaptureRoutes } from './presentation/capture.routes';
+import type { CaptureSettings, CaptureModuleDeps, CaptureModule } from './interfaces/captureModule.interface';
 
-/** CAPTURE_* settings (planning-13112026-photo-capture). */
-export interface CaptureSettings {
-  /** CAPTURE_API_KEY — read/delete key; also the on/off switch: unset = module disabled (503), uploads included. */
-  apiKey?: string;
-  /** Own bucket (CAPTURE_R2_*), else the main R2 bucket, else local disk (dev). */
-  storage: ObjectStorageSettings;
-  /** True when `storage` is the main R2 bucket (no CAPTURE_R2_BUCKET). */
-  sharedBucket: boolean;
-  urlTtlSeconds: number;
-  maxImageBytes: number;
-}
-
-export interface CaptureModuleDeps {
-  adminToken?: string;
-  /** Test hooks. */
-  storage?: ObjectStorage;
-  now?: () => number;
-  /** Told about uploaded / deleted photos (planning-15112026-starlinguide-push). */
-  sink?: CaptureImageSink;
-}
-
-export interface CaptureModule {
-  /** Null when CAPTURE_API_KEY is not set. */
-  service: CaptureService | null;
-  router: Router;
-}
+export type { CaptureSettings, CaptureModuleDeps, CaptureModule } from './interfaces/captureModule.interface';
 
 /** Photo capture API `/api/captures` (public upload, read key for receivers, no database); the phone UI is `cter-capture-client`. */
 export function createCaptureModule(settings: CaptureSettings, deps: CaptureModuleDeps = {}): CaptureModule {

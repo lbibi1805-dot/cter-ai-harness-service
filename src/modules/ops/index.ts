@@ -3,19 +3,10 @@ import { HeartbeatCron } from './application/heartbeatCron.service';
 import { OpsService } from './application/ops.service';
 import { OpsController } from './presentation/ops.controller';
 import { createOpsRoutes } from './presentation/ops.routes';
-import { HeartbeatSettings } from './application/interfaces/heartbeatCron.interface';
 import { OpsStatusSource } from './application/interfaces/ops.interface';
+import type { OpsModuleConfig, OpsModule } from './interfaces/opsModule.interface';
 
-export interface OpsModuleConfig {
-  port: number;
-  heartbeat: HeartbeatSettings;
-  adminToken?: string;
-}
-
-export interface OpsModule {
-  router: Router;
-  heartbeat: HeartbeatCron;
-}
+export type { OpsModuleConfig, OpsModule } from './interfaces/opsModule.interface';
 
 export function createOpsModule(config: OpsModuleConfig, source: OpsStatusSource): OpsModule {
   const heartbeat = new HeartbeatCron(config.heartbeat, config.port);

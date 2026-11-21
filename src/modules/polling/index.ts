@@ -1,42 +1,16 @@
-import type { CanvasAccountConfig } from '../../shared/canvas/interfaces/canvasAccount.interface';
 import { Router } from '../../shared/http/router';
 import { PollingControlService } from './application/pollingControl.service';
-import type { PollCursorRepository, PollJob } from './domain';
 import { createPollCursorRepository } from './infrastructure/pollCursorRepository.factory';
 import { PollingController } from './presentation/polling.controller';
 import { createPollingRoutes } from './presentation/polling.routes';
-import { DatabaseSettings } from '../../shared/database/interfaces/database.interface';
 import { usesNeon } from '../../shared/database/helpers/database.helper';
 import { PollSchedulerService } from './application/pollScheduler.service';
-import { KeyValidator } from './application/interfaces/pollingControl.interface';
 import { CachedPollCursorRepository } from './infrastructure/cachedPollCursor.repository';
 import { DEFAULT_POLL_CURSOR_FLUSH_MS, SHUTDOWN_FLUSH_TIMEOUT_MS } from './infrastructure/constants/cachedPollCursor.constants';
 import type { PollCursorCacheStats } from './infrastructure/interfaces/cachedPollCursor.interface';
+import type { PollingModuleConfig, PollingModuleDeps, PollingModule } from './interfaces/pollingModule.interface';
 
-export interface PollingModuleConfig {
-  intervalMs: number;
-  accounts: CanvasAccountConfig[];
-  database: DatabaseSettings;
-  adminToken?: string;
-  /** POLL_CURSOR_FLUSH_MS: Neon cursors are cached in RAM and flushed at most this often. */
-  cursorFlushMs?: number;
-}
-
-export interface PollingModuleDeps {
-  jobs: PollJob[];
-  validateKeys: KeyValidator;
-  beforeTick?: () => void;
-  cursors?: PollCursorRepository;
-}
-
-export interface PollingModule {
-  scheduler: PollSchedulerService;
-  router: Router;
-  /** Null when cursors are not cached (local file store, or injected by a test). */
-  cursorCache: CachedPollCursorRepository | null;
-  /** Graceful stop (SIGTERM): stops ticking, then flushes cached cursors (bounded by SHUTDOWN_FLUSH_TIMEOUT_MS). */
-  shutdown(): Promise<void>;
-}
+export type { PollingModuleConfig, PollingModuleDeps, PollingModule } from './interfaces/pollingModule.interface';
 
 export function createPollingModule(config: PollingModuleConfig, deps: PollingModuleDeps): PollingModule {
   // Neon bills awake time: cache its cursors in RAM (the local file store costs nothing per read).
